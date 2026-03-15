@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyHub — Collaborate & Learn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-bg">
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-icon">📚</span>
+      <h1>StudyHub</h1>
+      <p>Your collaborative knowledge space</p>
+    </div>
+    <div class="login-form">
+      <label>Enter your name to continue</label>
+      <div class="name-input-wrap">
+        <input type="text" id="nameInput" placeholder="Your name..." maxlength="30" autocomplete="off" />
+        <button onclick="loginUser()" id="loginBtn">Join →</button>
+      </div>
+      <div id="adminPasswordWrap" class="admin-pass-wrap hidden">
+        <label>Admin Password</label>
+        <div class="name-input-wrap">
+          <input type="password" id="adminPasswordInput" placeholder="Enter admin password..." />
+        </div>
+      </div>
+      <p class="login-hint">👤 Enter your name to join as a student</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN APP ═══════════════════ -->
+<div id="mainApp" class="app hidden">
+
+  <!-- TOP NAV -->
+  <nav class="topnav">
+    <div class="nav-left">
+      <span class="nav-logo">📚 StudyHub</span>
+    </div>
+    <div class="nav-center">
+      <button class="nav-tab active" data-tab="notes" onclick="switchTab('notes')">
+        <span>🗂</span> Notes
+      </button>
+      <button class="nav-tab" data-tab="questions" onclick="switchTab('questions')">
+        <span>💬</span> Q&A
+      </button>
+      <button class="nav-tab admin-only hidden" data-tab="admin" onclick="switchTab('admin')">
+        <span>👑</span> Admin
+      </button>
+    </div>
+    <div class="nav-right">
+      <div class="online-pill">
+        <span class="online-dot"></span>
+        <span id="onlineCount">1</span> online
+      </div>
+      <div class="user-badge" id="userBadge">
+        <span id="userInitial">?</span>
+        <span id="userName">User</span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Leave</button>
+    </div>
+  </nav>
+
+  <!-- NOTES TAB -->
+  <section id="tab-notes" class="tab-content active">
+    <div class="section-header">
+      <div>
+        <h2>Study Notes</h2>
+        <p>Browse and download notes shared by the community</p>
+      </div>
+      <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <input type="text" id="searchNotes" placeholder="🔍 Search notes..." oninput="filterNotes()" />
+      <input type="text" id="subjectFilter" placeholder="📚 Filter by subject..." oninput="filterNotes()" />
+      <select id="typeFilter" onchange="filterNotes()">
+        <option value="">All Types</option>
+        <option value="pdf">PDF</option>
+        <option value="image">Images</option>
+        <option value="video">Videos</option>
+        <option value="doc">Documents</option>
+      </select>
+    </div>
+
+    <div id="notesGrid" class="notes-grid"></div>
+    <div id="notesEmpty" class="empty-state hidden">
+      <span>📭</span><p>No notes yet. Be the first to upload!</p>
+    </div>
+  </section>
+
+  <!-- Q&A TAB -->
+  <section id="tab-questions" class="tab-content hidden">
+    <div class="section-header">
+      <div>
+        <h2>Questions & Answers</h2>
+        <p>Ask anything — the community will help you out</p>
+      </div>
+      <button class="btn-primary" onclick="openQuestionModal()">+ Ask Question</button>
+    </div>
+    <div id="questionsList" class="questions-list"></div>
+    <div id="questionsEmpty" class="empty-state hidden">
+      <span>🤔</span><p>No questions yet. Ask the first one!</p>
+    </div>
+  </section>
+
+  <!-- ADMIN TAB -->
+  <section id="tab-admin" class="tab-content hidden">
+    <div class="section-header">
+      <div>
+        <h2>Admin Panel</h2>
+        <p>Manage users and content</p>
+      </div>
+    </div>
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h3>👥 Online Users</h3>
+        <div id="adminUserList" class="admin-user-list"></div>
+      </div>
+      <div class="admin-card">
+        <h3>🚫 Blocked Users</h3>
+        <div id="blockedList" class="admin-user-list"></div>
+        <div class="unblock-form">
+          <input type="text" id="unblockInput" placeholder="Username to unblock..." />
+          <button class="btn-warn" onclick="unblockUser()">Unblock</button>
+        </div>
+      </div>
+      <div class="admin-card wide">
+        <h3>📊 Stats</h3>
+        <div class="stats-grid">
+          <div class="stat-box"><span id="statNotes">0</span><label>Total Notes</label></div>
+          <div class="stat-box"><span id="statQuestions">0</span><label>Questions</label></div>
+          <div class="stat-box"><span id="statOnline">0</span><label>Online Now</label></div>
+          <div class="stat-box"><span id="statBlocked">0</span><label>Blocked Users</label></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══════════════════ UPLOAD MODAL ═══════════════════ -->
+<div id="uploadModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'uploadModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('uploadModal')">✕</button>
+    <h3>📤 Upload Study Notes</h3>
+    <p class="modal-sub">Fill in the details below and attach your file</p>
+
+    <div class="form-group">
+      <label>Note Title *</label>
+      <input type="text" id="noteTitle" placeholder="e.g. Chapter 3 - Thermodynamics" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="noteSubject" placeholder="e.g. Mathematics, Physics, History..." />
+      </div>
+      <div class="form-group">
+        <label>Author Name *</label>
+        <input type="text" id="noteAuthor" readonly />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="noteDesc" placeholder="What's in this note? Any tips or context..." rows="3"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Attach File * <span class="hint">(PDF, Image, Video, Word, PPT — max 100MB)</span></label>
+      <div class="file-drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="drop-inner" id="dropInner">
+          <span class="drop-icon">📎</span>
+          <p>Click or drag & drop your file here</p>
+          <span class="file-types">PDF · JPG · PNG · MP4 · DOCX · PPTX · TXT</span>
+        </div>
+      </div>
+      <input type="file" id="fileInput" hidden accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.doc,.docx,.ppt,.pptx,.txt" onchange="handleFileSelect(event)" />
+    </div>
+
+    <div id="uploadProgress" class="progress-wrap hidden">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <span id="progressText">Uploading...</span>
+    </div>
+
+    <button class="btn-primary full-width" onclick="submitNote()" id="uploadBtn">
+      Upload Note 🚀
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════ QUESTION MODAL ═══════════════════ -->
+<div id="questionModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'questionModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('questionModal')">✕</button>
+    <h3>💬 Ask a Question</h3>
+    <p class="modal-sub">The community will answer you as soon as possible</p>
+    <div class="form-group">
+      <label>Your Question *</label>
+      <textarea id="questionText" placeholder="Type your question in detail..." rows="5"></textarea>
+    </div>
+    <button class="btn-primary full-width" onclick="submitQuestion()">Post Question 📮</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ REPLY MODAL ═══════════════════ -->
+<div id="replyModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'replyModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('replyModal')">✕</button>
+    <h3>💬 Reply to Question</h3>
+    <div id="replyQuestionText" class="reply-preview"></div>
+    <div class="form-group">
+      <label>Your Answer *</label>
+      <textarea id="replyText" placeholder="Write your helpful answer..." rows="4"></textarea>
+    </div>
+    <button class="btn-primary full-width" onclick="submitReply()">Post Reply ✅</button>
+    <input type="hidden" id="replyQuestionId" />
+  </div>
+</div>
+
+<!-- ═══════════════════ PREVIEW MODAL ═══════════════════ -->
+<div id="previewModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'previewModal')">
+  <div class="modal-box preview-modal-box">
+    <button class="modal-close" onclick="closeModal('previewModal')">✕</button>
+    <div id="previewContent"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
