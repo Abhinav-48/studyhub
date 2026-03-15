@@ -15,7 +15,7 @@ const io = socketIo(server, {
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ADMIN_NAME = 'admin'; // Admin username
 const ADMIN_PASSWORD = 'Abhinav210507'; // Admin password
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // ─── In-memory store ──────────────────────────────────────────────────────────
 let notes = [];       // { id, author, title, subject, description, fileName, fileType, fileUrl, fileSize, uploadedAt, downloads }
@@ -58,6 +58,10 @@ const upload = multer({
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ─── REST Routes ──────────────────────────────────────────────────────────────
 
