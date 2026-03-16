@@ -217,14 +217,9 @@ app.delete('/api/notes/:id', async (req, res) => {
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
     if (note?.file_url) {
-<<<<<<< Updated upstream
-      const publicId = note.file_url.split('/').slice(-2).join('/').split('.')[0];
-      await cloudinary.uploader.destroy(publicId).catch(() => {});
-=======
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
       const rt = getResourceType(note.file_type || '');
       await cloudinary.uploader.destroy(publicId, { resource_type: rt }).catch(() => {});
->>>>>>> Stashed changes
     }
     await supabase.from('notes').delete().eq('id', req.params.id);
     io.emit('note_deleted', req.params.id);
