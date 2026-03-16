@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createClient } = require('@supabase/supabase-js');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const server = http.createServer(app);
@@ -16,17 +17,25 @@ const ADMIN_PASSWORD = 'Abhinav210507';
 const PORT = process.env.PORT || 3000;
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-// ─── Online Users (in-memory only) ───────────────────────────────────────────
+// ─── Cloudinary ───────────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// ─── Online Users ─────────────────────────────────────────────────────────────
 let onlineUsers = {};
 
-// ─── Multer (memory storage for Supabase upload) ─────────────────────────────
+// ─── Multer (memory storage) ──────────────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -76,21 +85,24 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
       .single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked by the admin.' });
 
-    // Upload file to Supabase Storage
-    const ext = path.extname(req.file.originalname);
-    const fileName = `${uuidv4()}${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from('studyhub-files')
-      .upload(fileName, req.file.buffer, { contentType: req.file.mimetype });
+    // Upload file to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto',
+          folder: 'studyhub',
+          public_id: uuidv4(),
+          use_filename: true
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
 
-    if (uploadError) throw uploadError;
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('studyhub-files')
-      .getPublicUrl(fileName);
-
-    // Save note to database
+    // Save note to Supabase database
     const { data: note, error: dbError } = await supabase
       .from('notes')
       .insert({
@@ -100,7 +112,7 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
         description: description || '',
         file_name: req.file.originalname,
         file_type: req.file.mimetype,
-        file_url: urlData.publicUrl,
+        file_url: uploadResult.secure_url,
         file_size: req.file.size,
         downloads: 0
       })
@@ -140,12 +152,17 @@ app.delete('/api/notes/:id', async (req, res) => {
       return res.status(403).json({ error: 'Only admin can delete.' });
     }
 
-    const { data: note } = await supabase.from('notes').select('file_url').eq('id', req.params.id).single();
-    
-    // Delete file from storage
+    // Get note file url
+    const { data: note } = await supabase
+      .from('notes')
+      .select('file_url')
+      .eq('id', req.params.id)
+      .single();
+
+    // Delete from Cloudinary
     if (note?.file_url) {
-      const fileName = note.file_url.split('/').pop();
-      await supabase.storage.from('studyhub-files').remove([fileName]);
+      const publicId = note.file_url.split('/').slice(-2).join('/').split('.')[0];
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'auto' });
     }
 
     const { error } = await supabase.from('notes').delete().eq('id', req.params.id);
@@ -161,7 +178,11 @@ app.delete('/api/notes/:id', async (req, res) => {
 // Track download
 app.post('/api/notes/:id/download', async (req, res) => {
   try {
-    const { data: note } = await supabase.from('notes').select('downloads').eq('id', req.params.id).single();
+    const { data: note } = await supabase
+      .from('notes')
+      .select('downloads')
+      .eq('id', req.params.id)
+      .single();
     if (note) {
       const { data: updated } = await supabase
         .from('notes')
@@ -179,7 +200,6 @@ app.post('/api/notes/:id/download', async (req, res) => {
 
 // ─── QUESTIONS ────────────────────────────────────────────────────────────────
 
-// Get all questions with replies
 app.get('/api/questions', async (req, res) => {
   try {
     const { data: questions, error } = await supabase
@@ -193,7 +213,6 @@ app.get('/api/questions', async (req, res) => {
   }
 });
 
-// Post question
 app.post('/api/questions', async (req, res) => {
   try {
     const { author, text } = req.body;
@@ -221,7 +240,6 @@ app.post('/api/questions', async (req, res) => {
   }
 });
 
-// Reply to question
 app.post('/api/questions/:id/reply', async (req, res) => {
   try {
     const { author, text } = req.body;
@@ -248,7 +266,6 @@ app.post('/api/questions/:id/reply', async (req, res) => {
   }
 });
 
-// Delete question (admin only)
 app.delete('/api/questions/:id', async (req, res) => {
   try {
     const { requester } = req.body;
@@ -354,5 +371,5 @@ function formatReply(r) {
 // ─── Start ────────────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
   console.log(`\n🚀 StudyHub running at http://localhost:${PORT}`);
-  console.log(`👑 Admin username: "${ADMIN_NAME}"`);
+  console.log(`👑 Admin: "${ADMIN_NAME}" | Cloudinary + Supabase connected`);
 });
