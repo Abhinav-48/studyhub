@@ -54,6 +54,14 @@ async function loginUser() {
   currentUser = name;
   localStorage.setItem('studyhub_user', name);
 
+  // Save login history
+  const device = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+  fetch('/api/login-history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: name, device })
+  });
+
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').classList.remove('hidden');
   document.getElementById('userInitial').textContent = name[0].toUpperCase();
@@ -325,10 +333,16 @@ async function submitNote() {
     const res = await fetch('/api/notes', { method: 'POST', body: formData });
     clearInterval(interval);
     document.getElementById('progressFill').style.width = '100%';
-    document.getElementById('progressText').textContent = 'Upload complete!';
 
     if (res.ok) {
-      toast('Note uploaded successfully! 🎉', 'success');
+      const data = await res.json();
+      if (data.message) {
+        document.getElementById('progressText').textContent = '⏳ Waiting for admin approval...';
+        toast('Note submitted! Waiting for admin approval ⏳', 'success');
+      } else {
+        document.getElementById('progressText').textContent = 'Upload complete!';
+        toast('Note uploaded successfully! 🎉', 'success');
+      }
       closeModal('uploadModal');
     } else {
       const d = await res.json();
@@ -519,10 +533,92 @@ async function loadAdminPanel() {
     blockedList.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No blocked users</div>';
   }
 
+  // Pending notes
+  await loadPendingNotes();
+
+  // Login history
+  await loadLoginHistory();
+
   // Stats
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
+}
+
+async function loadPendingNotes() {
+  const res = await fetch('/api/notes/pending');
+  const pending = await res.json();
+  const container = document.getElementById('pendingNotesList');
+  if (!container) return;
+  const statPending = document.getElementById('statPending');
+  if (statPending) statPending.textContent = pending.length;
+
+  if (!pending.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No pending notes ✅</div>';
+    return;
+  }
+
+  container.innerHTML = pending.map(note => `
+    <div class="admin-user-item" style="flex-direction:column;align-items:flex-start;gap:8px;padding:14px;">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+        <strong>${escHtml(note.title)}</strong>
+        <span style="font-size:0.78rem;color:var(--text3);">${escHtml(note.subject)}</span>
+      </div>
+      <div style="font-size:0.82rem;color:var(--text2);">By: ${escHtml(note.author)} • ${escHtml(note.fileName)}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="padding:6px 16px;font-size:0.82rem;" onclick="approveNote('${note.id}')">✅ Approve</button>
+        <button class="btn-danger" onclick="rejectNote('${note.id}')">❌ Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveNote(id) {
+  const res = await fetch(`/api/notes/${id}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  if (res.ok) { toast('Note approved! ✅', 'success'); loadPendingNotes(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function rejectNote(id) {
+  if (!confirm('Reject and delete this note?')) return;
+  const res = await fetch(`/api/notes/${id}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  if (res.ok) { toast('Note rejected ❌', 'success'); loadPendingNotes(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function loadLoginHistory() {
+  const res = await fetch('/api/login-history');
+  const history = await res.json();
+  const container = document.getElementById('loginHistoryList');
+  if (!container) return;
+
+  if (!history.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No login history yet</div>';
+    return;
+  }
+
+  container.innerHTML = history.map(h => {
+    const date = new Date(h.logged_in_at).toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    return `
+      <div class="admin-user-item">
+        <div>
+          <strong style="font-size:0.88rem;">${escHtml(h.username)}</strong>
+          <span style="font-size:0.75rem;color:var(--text3);margin-left:8px;">${h.device === 'Mobile' ? '📱' : '💻'} ${h.device}</span>
+        </div>
+        <span style="font-size:0.78rem;color:var(--text3);">${date}</span>
+      </div>
+    `;
+  }).join('');
 }
 
 async function quickUnblock(name) {
@@ -538,6 +634,16 @@ async function quickUnblock(name) {
 // ══════════════════════════════════════════════════
 // SOCKET.IO REAL-TIME
 // ══════════════════════════════════════════════════
+
+socket.on('new_pending_note', () => {
+  if (currentUser?.toLowerCase() === ADMIN_NAME) {
+    toast('📋 New note waiting for approval!', '');
+    loadPendingNotes();
+  }
+});
+
+socket.on('note_approved', () => { loadNotes(); });
+socket.on('note_rejected', () => { loadPendingNotes(); });
 
 socket.on('new_note', (note) => {
   allNotes.unshift(note);
