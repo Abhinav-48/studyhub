@@ -162,7 +162,7 @@ app.delete('/api/notes/:id', async (req, res) => {
     // Delete from Cloudinary
     if (note?.file_url) {
       const publicId = note.file_url.split('/').slice(-2).join('/').split('.')[0];
-      await cloudinary.uploader.destroy(publicId, { resource_type: 'auto' });
+      await cloudinary.uploader.destroy(publicId).catch(() => {});
     }
 
     const { error } = await supabase.from('notes').delete().eq('id', req.params.id);
