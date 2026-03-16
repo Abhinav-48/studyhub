@@ -139,13 +139,22 @@
         </div>
       </div>
       <div class="admin-card wide">
+        <h3>⏳ Pending Approvals</h3>
+        <div id="pendingNotesList" class="admin-user-list"></div>
+      </div>
+      <div class="admin-card wide">
         <h3>📊 Stats</h3>
         <div class="stats-grid">
           <div class="stat-box"><span id="statNotes">0</span><label>Total Notes</label></div>
+          <div class="stat-box"><span id="statPending">0</span><label>Pending</label></div>
           <div class="stat-box"><span id="statQuestions">0</span><label>Questions</label></div>
           <div class="stat-box"><span id="statOnline">0</span><label>Online Now</label></div>
-          <div class="stat-box"><span id="statBlocked">0</span><label>Blocked Users</label></div>
+          <div class="stat-box"><span id="statBlocked">0</span><label>Blocked</label></div>
         </div>
+      </div>
+      <div class="admin-card wide">
+        <h3>🕐 Login History</h3>
+        <div id="loginHistoryList" class="admin-user-list" style="max-height:300px;overflow-y:auto;"></div>
       </div>
     </div>
   </section>
