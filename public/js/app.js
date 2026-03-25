@@ -238,7 +238,7 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    window.open(note.fileUrl.replace('/upload/', '/upload/fl_inline/'), '_blank');
+    window.open(note.fileUrl, '_blank');
 return;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
