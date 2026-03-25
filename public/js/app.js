@@ -193,7 +193,7 @@ function filterNotes() {
   const type = document.getElementById('typeFilter').value;
 
   const filtered = allNotes.filter(n => {
-    const matchSearch = !search || n.title.toLowerCase().includes(search) || n.author.toLowerCase().includes(search) || (n.description || '').toLowerCase().includes(search);
+    const matchSearch = !search || n.title.toLowerCase().includes(search) || n.author.toLowerCase().includes(search) || (n.description || '').toLowerCase().includes(search) || n.subject.toLowerCase().includes(search);
     const matchSubject = !subject || n.subject.toLowerCase().includes(subject);
     const matchType = !type || (
       type === 'pdf' && n.fileType === 'application/pdf' ||
