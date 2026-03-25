@@ -220,7 +220,7 @@ async function deleteNote(id) {
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
   const link = document.createElement('a');
-  link.href = url; link.download = fileName;
+  link.href = url.replace('/upload/', '/upload/fl_attachment/'); link.download = fileName;
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   toast(`Downloading "${fileName}"`, 'success');
 }
@@ -238,7 +238,7 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    const pdfViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(note.fileUrl)}&embedded=true`;
+    const pdfViewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}&embedded=true`;
 content += `<iframe src="${pdfViewerUrl}" title="PDF Preview" width="100%" height="600px" style="border:none;border-radius:10px;"></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
