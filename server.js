@@ -92,7 +92,7 @@ app.get('/api/login-history', async (req, res) => {
 function getResourceType(mimetype) {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';
-  return 'raw';
+  return 'auto';
 }
 
 // Upload note
