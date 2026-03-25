@@ -238,8 +238,7 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    window.open(note.fileUrl, '_blank');
-return;
+    content += `<iframe src="${note.fileUrl}" title="PDF Preview"></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
