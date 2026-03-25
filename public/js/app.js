@@ -220,7 +220,7 @@ async function deleteNote(id) {
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
   const link = document.createElement('a');
-  link.href = url.replace('/upload/', '/upload/fl_attachment/'); link.download = fileName;
+  link.href = url; link.target = '_blank'; link.download = fileName;
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   toast(`Downloading "${fileName}"`, 'success');
 }
