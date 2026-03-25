@@ -238,7 +238,8 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    content += `<iframe src="${note.fileUrl}" title="PDF Preview"></iframe>`;
+    const pdfViewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}`;
+content += `<iframe src="${pdfViewerUrl}" title="PDF Preview" width="100%" height="600px" style="border:none;border-radius:10px;"></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
