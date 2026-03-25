@@ -364,10 +364,5 @@ function formatReply(r) {
 
 server.listen(PORT, () => {
   console.log(`\n🚀 StudyHub running at http://localhost:${PORT}`);
-<<<<<<< Updated upstream
-  console.log(`👑 Admin: "${ADMIN_NAME}" | Cloudinary + Supabase connected`);
-});
-=======
   console.log(`👑 Admin: "${ADMIN_NAME}"`);
 });
->>>>>>> Stashed changes
