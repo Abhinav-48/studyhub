@@ -238,7 +238,7 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    content += `<iframe src="https://docs.google.com/viewer?url=${encodeURIComponent(note.fileUrl)}&embedded=true" title="PDF Preview"></iframe>`;
+    content += `<iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" title="PDF Preview" style="width:100%;height:70vh;border:none;border-radius:10px;"></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
