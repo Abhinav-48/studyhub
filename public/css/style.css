@@ -3,6 +3,7 @@
    Font: Fraunces (display) + DM Sans (body) + DM Mono
    ══════════════════════════════════════════════════ */
 
+/* ─── LIGHT THEME (Default) ─────────────────────── */
 :root {
   --bg: #f4f1eb;
   --bg2: #ede9e0;
@@ -28,6 +29,91 @@
   --shadow: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
   --radius: 14px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+}
+
+/* ─── DARK THEME ─────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --surface: #1e2130;
+  --surface2: #252840;
+  --border: #2e3248;
+  --border2: #404460;
+  --text: #e8eaf6;
+  --text2: #9ba0c0;
+  --text3: #6b7099;
+  --accent: #f07050;
+  --accent2: #ff8060;
+  --accent-light: #3a1f18;
+  --green: #4ade9a;
+  --green-light: #0d2e1e;
+  --blue: #60a0f0;
+  --blue-light: #0d1e3a;
+  --amber: #f0b040;
+  --amber-light: #2e1e08;
+  --purple: #a070f0;
+  --purple-light: #1e0e3a;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+}
+
+/* ─── BLUE THEME ─────────────────────────────────── */
+[data-theme="blue"] {
+  --bg: #e8f0fe;
+  --bg2: #dce8fd;
+  --surface: #ffffff;
+  --surface2: #f0f5ff;
+  --border: #c0d4f8;
+  --border2: #a0bcf0;
+  --text: #0d1b4a;
+  --text2: #3a5a9a;
+  --text3: #7090c0;
+  --accent: #1a56db;
+  --accent2: #2563eb;
+  --accent-light: #dbeafe;
+  --green: #059669;
+  --green-light: #d1fae5;
+  --blue: #1a56db;
+  --blue-light: #dbeafe;
+  --amber: #d97706;
+  --amber-light: #fef3c7;
+  --purple: #7c3aed;
+  --purple-light: #ede9fe;
+  --shadow-sm: 0 1px 3px rgba(26,86,219,0.1);
+  --shadow: 0 4px 16px rgba(26,86,219,0.15);
+  --shadow-lg: 0 12px 40px rgba(26,86,219,0.2);
+}
+
+/* ─── GREEN THEME ────────────────────────────────── */
+[data-theme="green"] {
+  --bg: #f0faf4;
+  --bg2: #e0f5e8;
+  --surface: #ffffff;
+  --surface2: #f5fdf8;
+  --border: #b8e8c8;
+  --border2: #90d8a8;
+  --text: #0a2e18;
+  --text2: #2d6e48;
+  --text3: #5a9e78;
+  --accent: #059669;
+  --accent2: #10b981;
+  --accent-light: #d1fae5;
+  --green: #059669;
+  --green-light: #d1fae5;
+  --blue: #0284c7;
+  --blue-light: #e0f2fe;
+  --amber: #d97706;
+  --amber-light: #fef3c7;
+  --purple: #7c3aed;
+  --purple-light: #ede9fe;
+  --shadow-sm: 0 1px 3px rgba(5,150,105,0.1);
+  --shadow: 0 4px 16px rgba(5,150,105,0.15);
+  --shadow-lg: 0 12px 40px rgba(5,150,105,0.2);
+}
+
   --radius-sm: 8px;
   --radius-lg: 20px;
 }
@@ -649,4 +735,62 @@ h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 500; }
   .form-row { grid-template-columns: 1fr; }
   .notes-grid { grid-template-columns: 1fr; }
   .section-header { flex-direction: column; }
+}
+
+/* ══════════════════════════════════════════════════
+   THEME SWITCHER
+   ══════════════════════════════════════════════════ */
+.theme-switcher {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: 1.5px solid var(--border);
+  border-radius: 99px; padding: 4px 6px;
+}
+
+.theme-btn {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer;
+  transition: all 0.2s; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+}
+.theme-btn:hover { transform: scale(1.2); }
+.theme-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+
+.theme-btn-light { background: #f4f1eb; }
+.theme-btn-dark { background: #1e2130; }
+.theme-btn-blue { background: #1a56db; }
+.theme-btn-green { background: #059669; }
+
+/* Dark mode specific fixes */
+[data-theme="dark"] .topnav {
+  background: rgba(30,33,48,0.95);
+}
+[data-theme="dark"] .login-card {
+  background: var(--surface);
+}
+[data-theme="dark"] .modal-box {
+  background: var(--surface);
+}
+[data-theme="dark"] .note-card {
+  background: var(--surface);
+}
+[data-theme="dark"] .question-card {
+  background: var(--surface);
+}
+[data-theme="dark"] .admin-card {
+  background: var(--surface);
+}
+[data-theme="dark"] .file-drop-zone {
+  background: var(--bg2);
+}
+[data-theme="dark"] .filter-bar input,
+[data-theme="dark"] .filter-bar select {
+  background: var(--surface);
+  color: var(--text);
+}
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group select,
+[data-theme="dark"] .form-group textarea {
+  background: var(--bg2);
+  color: var(--text);
 }
