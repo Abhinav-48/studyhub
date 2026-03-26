@@ -193,9 +193,7 @@ function filterNotes() {
   const type = document.getElementById('typeFilter').value;
 
   const filtered = allNotes.filter(n => {
-    const normalize = s => (s || '').toLowerCase().replace(/[-_\s]+/g, ' ').trim();
-const searchNorm = normalize(search);
-const matchSearch = !search || normalize(n.title).includes(searchNorm) || normalize(n.author).includes(searchNorm) || normalize(n.description).includes(searchNorm) || normalize(n.subject).includes(searchNorm);
+    const matchSearch = !search || n.title.toLowerCase().includes(search) || n.author.toLowerCase().includes(search) || (n.description || '').toLowerCase().includes(search);
     const matchSubject = !subject || n.subject.toLowerCase().includes(subject);
     const matchType = !type || (
       type === 'pdf' && n.fileType === 'application/pdf' ||
@@ -222,7 +220,7 @@ async function deleteNote(id) {
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
   const link = document.createElement('a');
-  link.href = url; link.target = '_blank'; link.download = fileName;
+  link.href = url; link.download = fileName;
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   toast(`Downloading "${fileName}"`, 'success');
 }
@@ -240,7 +238,7 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    content += `<iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" title="PDF Preview" style="width:100%;height:70vh;border:none;border-radius:10px;"></iframe>`;
+    content += `<iframe src="${note.fileUrl}" title="PDF Preview"></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -765,3 +763,25 @@ function updateAdminStats() {
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
 }
+
+// ══════════════════════════════════════════════════
+// THEME SWITCHER
+// ══════════════════════════════════════════════════
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
+  localStorage.setItem('studyhub_theme', theme);
+
+  // Update active button
+  document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.querySelector(`.theme-btn-${theme}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  toast(`Theme changed! ${theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : theme === 'blue' ? '💙' : '💚'}`, 'success');
+}
+
+// Load saved theme on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
+  setTheme(savedTheme);
+});
