@@ -219,10 +219,32 @@ async function deleteNote(id) {
 
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
-  const link = document.createElement('a');
-  link.href = url; link.download = fileName;
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  toast(`Downloading "${fileName}"`, 'success');
+  
+  // Ensure proper .pdf extension
+  const cleanName = fileName.endsWith('.pdf') ? fileName : fileName + '.pdf';
+  
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = cleanName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch {
+    // Fallback
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = cleanName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+  toast(`Downloading "${cleanName}"`, 'success');
 }
 
 function previewNote(id) {
