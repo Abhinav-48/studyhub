@@ -193,7 +193,9 @@ function filterNotes() {
   const type = document.getElementById('typeFilter').value;
 
   const filtered = allNotes.filter(n => {
-    const matchSearch = !search || n.title.toLowerCase().includes(search) || n.author.toLowerCase().includes(search) || (n.description || '').toLowerCase().includes(search) || n.subject.toLowerCase().includes(search);
+    const normalize = s => (s || '').toLowerCase().replace(/[-_\s]+/g, ' ').trim();
+const searchNorm = normalize(search);
+const matchSearch = !search || normalize(n.title).includes(searchNorm) || normalize(n.author).includes(searchNorm) || normalize(n.description).includes(searchNorm) || normalize(n.subject).includes(searchNorm);
     const matchSubject = !subject || n.subject.toLowerCase().includes(subject);
     const matchType = !type || (
       type === 'pdf' && n.fileType === 'application/pdf' ||
