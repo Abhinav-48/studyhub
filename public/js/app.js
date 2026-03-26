@@ -238,7 +238,13 @@ function previewNote(id) {
   `;
 
   if (note.fileType === 'application/pdf') {
-    content += `<iframe src="${note.fileUrl}" title="PDF Preview"></iframe>`;
+    content += `
+  <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
+    <a href="${note.fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open Direct</a>
+    <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
+  </div>
+  <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>
+`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
