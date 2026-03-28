@@ -2,7 +2,7 @@
    StudyHub — Frontend App Logic
    ══════════════════════════════════════════════════ */
 
-const ADMIN_NAME = 'admin'; // Must match server.js
+const ADMIN_NAME = 'admin';
 
 let currentUser = null;
 let allNotes = [];
@@ -14,15 +14,11 @@ const socket = io();
 // AUTH
 // ══════════════════════════════════════════════════
 
-// Show admin password field when "admin" is typed
 document.getElementById('nameInput').addEventListener('input', (e) => {
   const val = e.target.value.trim().toLowerCase();
   const wrap = document.getElementById('adminPasswordWrap');
-  if (val === ADMIN_NAME) {
-    wrap.classList.remove('hidden');
-  } else {
-    wrap.classList.add('hidden');
-  }
+  if (val === ADMIN_NAME) wrap.classList.remove('hidden');
+  else wrap.classList.add('hidden');
 });
 
 async function loginUser() {
@@ -36,17 +32,21 @@ async function loginUser() {
   // Admin password check
   if (name.toLowerCase() === ADMIN_NAME) {
     const password = document.getElementById('adminPasswordInput').value;
-    if (!password) {
-      toast('Admin password required!', 'error');
-      return;
-    }
+    if (!password) { toast('Admin password required!', 'error'); return; }
     const res = await fetch('/api/admin-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
-    if (!res.ok) {
-      toast('❌ Wrong admin password!', 'error');
+    if (!res.ok) { toast('❌ Wrong admin password!', 'error'); return; }
+  }
+
+  // Check if blocked BEFORE logging in
+  if (name.toLowerCase() !== ADMIN_NAME) {
+    const blockCheck = await fetch(`/api/check-blocked/${encodeURIComponent(name)}`);
+    const blockData = await blockCheck.json();
+    if (blockData.blocked) {
+      toast('⛔ You have been blocked by the admin.', 'error');
       return;
     }
   }
@@ -75,6 +75,7 @@ async function loginUser() {
   socket.emit('user_join', name);
   loadNotes();
   loadQuestions();
+  loadAnnouncements();
   toast(`Welcome, ${name}! 👋`, 'success');
 }
 
@@ -83,18 +84,18 @@ function logout() {
   location.reload();
 }
 
-// Enter key on login
 document.getElementById('nameInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') loginUser();
 });
 
-// Auto-login if saved (only for non-admin)
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
   if (saved && saved.toLowerCase() !== ADMIN_NAME) {
     document.getElementById('nameInput').value = saved;
     loginUser();
   }
+  const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
+  setTheme(savedTheme);
 });
 
 // ══════════════════════════════════════════════════
@@ -106,7 +107,6 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.remove('hidden');
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-
   if (tab === 'admin') loadAdminPanel();
 }
 
@@ -124,15 +124,9 @@ function renderNotes(notes) {
   const grid = document.getElementById('notesGrid');
   const empty = document.getElementById('notesEmpty');
   grid.innerHTML = '';
-
-  if (!notes.length) {
-    empty.classList.remove('hidden'); return;
-  }
+  if (!notes.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-
-  notes.forEach(note => {
-    grid.appendChild(buildNoteCard(note));
-  });
+  notes.forEach(note => grid.appendChild(buildNoteCard(note)));
 }
 
 function buildNoteCard(note) {
@@ -148,11 +142,7 @@ function buildNoteCard(note) {
   div.innerHTML = `
     <div class="note-card-header">
       <span class="file-type-badge ${typeInfo.cls}">${typeInfo.emoji} ${typeInfo.label}</span>
-      ${isAdmin ? `
-        <div class="admin-actions">
-          <button class="btn-danger" onclick="deleteNote('${note.id}')">🗑 Delete</button>
-        </div>
-      ` : ''}
+      ${isAdmin ? `<div class="admin-actions"><button class="btn-danger" onclick="deleteNote('${note.id}')">🗑 Delete</button></div>` : ''}
     </div>
     <div class="note-title">${escHtml(note.title)}</div>
     <div class="note-meta">
@@ -192,9 +182,16 @@ function filterNotes() {
   const subject = document.getElementById('subjectFilter').value.toLowerCase();
   const type = document.getElementById('typeFilter').value;
 
+  const normalize = s => (s || '').toLowerCase().replace(/[-_\s]+/g, ' ').trim();
+  const searchNorm = normalize(search);
+
   const filtered = allNotes.filter(n => {
-    const matchSearch = !search || n.title.toLowerCase().includes(search) || n.author.toLowerCase().includes(search) || (n.description || '').toLowerCase().includes(search);
-    const matchSubject = !subject || n.subject.toLowerCase().includes(subject);
+    const matchSearch = !search ||
+      normalize(n.title).includes(searchNorm) ||
+      normalize(n.author).includes(searchNorm) ||
+      normalize(n.description).includes(searchNorm) ||
+      normalize(n.subject).includes(searchNorm);
+    const matchSubject = !subject || normalize(n.subject).includes(normalize(subject));
     const matchType = !type || (
       type === 'pdf' && n.fileType === 'application/pdf' ||
       type === 'image' && n.fileType.startsWith('image/') ||
@@ -219,10 +216,7 @@ async function deleteNote(id) {
 
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
-  
-  // Ensure proper .pdf extension
-  const cleanName = fileName.endsWith('.pdf') ? fileName : fileName + '.pdf';
-  
+  const cleanName = fileName.endsWith('.pdf') ? fileName : fileName;
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -235,7 +229,6 @@ async function downloadNote(id, url, fileName) {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(blobUrl);
   } catch {
-    // Fallback
     const link = document.createElement('a');
     link.href = url;
     link.download = cleanName;
@@ -261,12 +254,12 @@ function previewNote(id) {
 
   if (note.fileType === 'application/pdf') {
     content += `
-  <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
-    <a href="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
-    <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
-  </div>
-  <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>
-`;
+      <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
+        <a href="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
+        <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
+      </div>
+      <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>
+    `;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -320,7 +313,6 @@ function setSelectedFile(file) {
   `;
 }
 
-// Drag & drop
 const dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
@@ -347,10 +339,8 @@ async function submitNote() {
 
   const btn = document.getElementById('uploadBtn');
   btn.disabled = true; btn.textContent = 'Uploading...';
-
   document.getElementById('uploadProgress').classList.remove('hidden');
 
-  // Simulate progress
   let prog = 0;
   const interval = setInterval(() => {
     prog = Math.min(prog + Math.random() * 15, 85);
@@ -398,12 +388,8 @@ function renderQuestions() {
   const list = document.getElementById('questionsList');
   const empty = document.getElementById('questionsEmpty');
   list.innerHTML = '';
-
-  if (!allQuestions.length) {
-    empty.classList.remove('hidden'); return;
-  }
+  if (!allQuestions.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-
   allQuestions.forEach(q => list.appendChild(buildQuestionCard(q)));
 }
 
@@ -460,20 +446,13 @@ function openQuestionModal() {
 async function submitQuestion() {
   const text = document.getElementById('questionText').value.trim();
   if (!text) { toast('Please type your question', 'error'); return; }
-
   const res = await fetch('/api/questions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ author: currentUser, text })
   });
-
-  if (res.ok) {
-    toast('Question posted! 📮', 'success');
-    closeModal('questionModal');
-  } else {
-    const d = await res.json();
-    toast(d.error, 'error');
-  }
+  if (res.ok) { toast('Question posted! 📮', 'success'); closeModal('questionModal'); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 function openReplyModal(questionId, questionText) {
@@ -487,20 +466,13 @@ async function submitReply() {
   const text = document.getElementById('replyText').value.trim();
   const questionId = document.getElementById('replyQuestionId').value;
   if (!text) { toast('Please type your reply', 'error'); return; }
-
   const res = await fetch(`/api/questions/${questionId}/reply`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ author: currentUser, text })
   });
-
-  if (res.ok) {
-    toast('Reply posted! ✅', 'success');
-    closeModal('replyModal');
-  } else {
-    const d = await res.json();
-    toast(d.error, 'error');
-  }
+  if (res.ok) { toast('Reply posted! ✅', 'success'); closeModal('replyModal'); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 async function deleteQuestion(id) {
@@ -541,15 +513,12 @@ async function unblockUser() {
     toast(`${name} unblocked ✅`, 'success');
     document.getElementById('unblockInput').value = '';
     loadAdminPanel();
-  } else {
-    const d = await res.json(); toast(d.error, 'error');
-  }
+  } else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 async function loadAdminPanel() {
   const blocked = await (await fetch('/api/blocked')).json();
 
-  // Blocked list
   const blockedList = document.getElementById('blockedList');
   if (blocked.length) {
     blockedList.innerHTML = blocked.map(u => `
@@ -561,13 +530,11 @@ async function loadAdminPanel() {
     blockedList.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No blocked users</div>';
   }
 
-  // Pending notes
   await loadPendingNotes();
-
-  // Login history
   await loadLoginHistory();
+  await loadAdminMessages();
+  await loadAnnouncements();
 
-  // Stats
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
@@ -627,16 +594,12 @@ async function loadLoginHistory() {
   const history = await res.json();
   const container = document.getElementById('loginHistoryList');
   if (!container) return;
-
   if (!history.length) {
     container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No login history yet</div>';
     return;
   }
-
   container.innerHTML = history.map(h => {
-    const date = new Date(h.logged_in_at).toLocaleString('en-IN', {
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    const date = new Date(h.logged_in_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     return `
       <div class="admin-user-item">
         <div>
@@ -657,6 +620,185 @@ async function quickUnblock(name) {
   });
   toast(`${name} unblocked`, 'success');
   loadAdminPanel();
+}
+
+// ══════════════════════════════════════════════════
+// ANNOUNCEMENTS
+// ══════════════════════════════════════════════════
+
+let dismissedAnnouncements = JSON.parse(localStorage.getItem('dismissed_announcements') || '[]');
+
+async function loadAnnouncements() {
+  const res = await fetch('/api/announcements');
+  const announcements = await res.json();
+  const banner = document.getElementById('announcementBanner');
+
+  const visible = announcements.filter(a => !dismissedAnnouncements.includes(a.id));
+  if (visible.length > 0) {
+    const latest = visible[0];
+    banner.innerHTML = `
+      <span class="announcement-text">📢 ${escHtml(latest.message)}</span>
+      <button class="announcement-close" onclick="dismissAnnouncement('${latest.id}')">✕ Dismiss</button>
+    `;
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+
+  const container = document.getElementById('announcementsList');
+  if (!container) return;
+  if (!announcements.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No announcements yet</div>';
+    return;
+  }
+  container.innerHTML = announcements.map(a => {
+    const date = new Date(a.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="announcement-item">
+        <span class="announcement-item-text">${escHtml(a.message)}</span>
+        <span class="announcement-item-time">${date}</span>
+        ${currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-danger" onclick="deleteAnnouncement('${a.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function dismissAnnouncement(id) {
+  dismissedAnnouncements.push(id);
+  localStorage.setItem('dismissed_announcements', JSON.stringify(dismissedAnnouncements));
+  document.getElementById('announcementBanner').classList.add('hidden');
+}
+
+async function postAnnouncement() {
+  const text = document.getElementById('announcementText').value.trim();
+  if (!text) { toast('Please type an announcement', 'error'); return; }
+  const res = await fetch('/api/announcements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, message: text })
+  });
+  if (res.ok) {
+    toast('Announcement posted! 📢', 'success');
+    document.getElementById('announcementText').value = '';
+    loadAnnouncements();
+  } else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Delete this announcement?')) return;
+  await fetch(`/api/announcements/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  toast('Announcement deleted', 'success');
+  loadAnnouncements();
+}
+
+// ══════════════════════════════════════════════════
+// MESSAGES
+// ══════════════════════════════════════════════════
+
+function openMessageModal() {
+  document.getElementById('messageText').value = '';
+  loadMyReplies();
+  openModal('messageModal');
+}
+
+async function sendMessage() {
+  const text = document.getElementById('messageText').value.trim();
+  if (!text) { toast('Please type a message', 'error'); return; }
+  const res = await fetch('/api/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_user: currentUser, message: text })
+  });
+  if (res.ok) {
+    toast('Message sent to admin! 📨', 'success');
+    document.getElementById('messageText').value = '';
+    loadMyReplies();
+  } else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function loadMyReplies() {
+  const container = document.getElementById('myReplies');
+  if (!container) return;
+  const res = await fetch(`/api/messages/${encodeURIComponent(currentUser)}`);
+  const messages = await res.json();
+  if (!messages.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `<h4 style="font-size:0.9rem;margin-bottom:10px;color:var(--text2);">Your Previous Messages:</h4>` +
+    messages.map(m => {
+      const date = new Date(m.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="message-item ${m.reply ? 'has-reply' : ''}">
+          <div class="message-text">${escHtml(m.message)}</div>
+          <div class="message-time">${date}</div>
+          ${m.reply ? `<div class="message-reply-box">👑 Admin: ${escHtml(m.reply)}</div>` : '<div style="font-size:0.78rem;color:var(--text3);margin-top:6px;">⏳ Waiting for reply...</div>'}
+        </div>
+      `;
+    }).join('');
+}
+
+async function loadAdminMessages() {
+  const container = document.getElementById('messagesList');
+  if (!container) return;
+  const res = await fetch('/api/messages');
+  const messages = await res.json();
+  if (!messages.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No messages yet</div>';
+    return;
+  }
+  container.innerHTML = messages.map(m => {
+    const date = new Date(m.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="message-item ${m.reply ? 'has-reply' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="message-from">👤 ${escHtml(m.from_user)}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-reply" onclick="openAdminReply('${m.id}','${escHtml(m.message).replace(/'/g,'&#39;')}')" style="padding:5px 12px;font-size:0.78rem;">↩️ Reply</button>
+            <button class="btn-danger" onclick="deleteMessage('${m.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>
+          </div>
+        </div>
+        <div class="message-text">${escHtml(m.message)}</div>
+        <div class="message-time">${date}</div>
+        ${m.reply ? `<div class="message-reply-box">Your reply: ${escHtml(m.reply)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function openAdminReply(msgId, msgText) {
+  document.getElementById('adminReplyMsgId').value = msgId;
+  document.getElementById('adminReplyPreview').textContent = msgText;
+  document.getElementById('adminReplyText').value = '';
+  openModal('adminReplyModal');
+}
+
+async function sendAdminReply() {
+  const reply = document.getElementById('adminReplyText').value.trim();
+  const msgId = document.getElementById('adminReplyMsgId').value;
+  if (!reply) { toast('Please type a reply', 'error'); return; }
+  const res = await fetch(`/api/messages/${msgId}/reply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, reply })
+  });
+  if (res.ok) {
+    toast('Reply sent! ✅', 'success');
+    closeModal('adminReplyModal');
+    loadAdminMessages();
+  } else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function deleteMessage(id) {
+  if (!confirm('Delete this message?')) return;
+  await fetch(`/api/messages/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  toast('Message deleted', 'success');
+  loadAdminMessages();
 }
 
 // ══════════════════════════════════════════════════
@@ -727,15 +869,13 @@ socket.on('new_reply', ({ questionId, reply }) => {
 socket.on('online_users', (users) => {
   document.getElementById('onlineCount').textContent = users.length;
   document.getElementById('statOnline').textContent = users.length;
-
   const adminList = document.getElementById('adminUserList');
   if (adminList) {
     adminList.innerHTML = users.map(u => `
       <div class="admin-user-item">
         <span>🟢 ${escHtml(u)}</span>
         ${u.toLowerCase() !== ADMIN_NAME && currentUser?.toLowerCase() === ADMIN_NAME
-          ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>`
-          : ''}
+          ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}
       </div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
   }
 });
@@ -743,6 +883,34 @@ socket.on('online_users', (users) => {
 socket.on('user_blocked', (username) => {
   if (currentUser?.toLowerCase() === username) {
     toast('⛔ You have been blocked by the admin.', 'error');
+  }
+});
+
+socket.on('new_announcement', (announcement) => {
+  if (!dismissedAnnouncements.includes(announcement.id)) {
+    const banner = document.getElementById('announcementBanner');
+    banner.innerHTML = `
+      <span class="announcement-text">📢 ${escHtml(announcement.message)}</span>
+      <button class="announcement-close" onclick="dismissAnnouncement('${announcement.id}')">✕ Dismiss</button>
+    `;
+    banner.classList.remove('hidden');
+  }
+  loadAnnouncements();
+});
+
+socket.on('announcement_deleted', () => { loadAnnouncements(); });
+
+socket.on('new_message', () => {
+  if (currentUser?.toLowerCase() === ADMIN_NAME) {
+    toast('📬 New message from a user!', '');
+    loadAdminMessages();
+  }
+});
+
+socket.on('message_reply', (msg) => {
+  if (msg.from_user === currentUser) {
+    toast('📬 Admin replied to your message!', 'success');
+    loadMyReplies();
   }
 });
 
@@ -754,10 +922,9 @@ function openModal(id) { document.getElementById(id).classList.remove('hidden');
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id); }
 
-// Escape key closes modals
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal'].forEach(id => {
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal'].forEach(id => {
       document.getElementById(id)?.classList.add('hidden');
     });
   }
@@ -799,17 +966,7 @@ function updateAdminStats() {
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
   localStorage.setItem('studyhub_theme', theme);
-
-  // Update active button
   document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
   const activeBtn = document.querySelector(`.theme-btn-${theme}`);
   if (activeBtn) activeBtn.classList.add('active');
-
-  toast(`Theme changed! ${theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : theme === 'blue' ? '💙' : '💚'}`, 'success');
 }
-
-// Load saved theme on page load
-window.addEventListener('DOMContentLoaded', () => {
-  const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
-  setTheme(savedTheme);
-});
