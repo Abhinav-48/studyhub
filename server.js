@@ -55,30 +55,37 @@ app.post('/api/admin-login', (req, res) => {
   else res.status(401).json({ error: 'Wrong password!' });
 });
 
+// ─── CHECK BLOCKED ────────────────────────────────────────────────────────────
+app.get('/api/check-blocked/:username', async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('blocked_users')
+      .select('username')
+      .eq('username', req.params.username.toLowerCase())
+      .single();
+    res.json({ blocked: !!data });
+  } catch {
+    res.json({ blocked: false });
+  }
+});
+
 // ─── LOGIN HISTORY ────────────────────────────────────────────────────────────
 app.post('/api/login-history', async (req, res) => {
   try {
     const { username, device } = req.body;
     if (!username) return res.json({ success: true });
-    const { error } = await supabase.from('login_history').insert({
-      username: username,
-      device: device || 'Unknown'
-    });
-    if (error) console.error('Login history error:', error.message);
+    await supabase.from('login_history').insert({ username, device: device || 'Unknown' });
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.json({ success: true }); // Don't fail login just because of history error
+    res.json({ success: true });
   }
 });
 
 app.get('/api/login-history', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('login_history')
-      .select('*')
-      .order('logged_in_at', { ascending: false })
-      .limit(100);
+      .from('login_history').select('*')
+      .order('logged_in_at', { ascending: false }).limit(100);
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -86,30 +93,129 @@ app.get('/api/login-history', async (req, res) => {
   }
 });
 
-// ─── NOTES ────────────────────────────────────────────────────────────────────
+// ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('announcements').select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Helper to get cloudinary resource type
+app.post('/api/announcements', async (req, res) => {
+  try {
+    const { requester, message } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    const { data, error } = await supabase.from('announcements').insert({ message }).select().single();
+    if (error) throw error;
+    io.emit('new_announcement', data);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('announcements').delete().eq('id', req.params.id);
+    io.emit('announcement_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── MESSAGES ─────────────────────────────────────────────────────────────────
+app.post('/api/messages', async (req, res) => {
+  try {
+    const { from_user, message } = req.body;
+    if (!from_user || !message) return res.status(400).json({ error: 'Missing fields' });
+    const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase()).single();
+    if (blocked) return res.status(403).json({ error: 'You have been blocked.' });
+    const { data, error } = await supabase.from('messages').insert({ from_user, message }).select().single();
+    if (error) throw error;
+    io.emit('new_message', data);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/messages', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages').select('*')
+      .order('sent_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get messages for a specific user
+app.get('/api/messages/:username', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages').select('*')
+      .eq('from_user', req.params.username)
+      .order('sent_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin reply to message
+app.post('/api/messages/:id/reply', async (req, res) => {
+  try {
+    const { requester, reply } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    const { data, error } = await supabase
+      .from('messages').update({ reply, read: true })
+      .eq('id', req.params.id).select().single();
+    if (error) throw error;
+    io.emit('message_reply', data);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete message (admin)
+app.delete('/api/messages/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('messages').delete().eq('id', req.params.id);
+    io.emit('message_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── NOTES ────────────────────────────────────────────────────────────────────
 function getResourceType(mimetype) {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';
   return 'raw';
 }
 
-// Upload note
 app.post('/api/notes', upload.single('file'), async (req, res) => {
   try {
     const { author, title, subject, description } = req.body;
-    if (!author || !title || !req.file) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check if blocked
-    const { data: blocked } = await supabase
-      .from('blocked_users').select('username')
-      .eq('username', author.toLowerCase()).single();
+    if (!author || !title || !req.file) return res.status(400).json({ error: 'Missing required fields' });
+    const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked by the admin.' });
 
-    // Upload to Cloudinary with correct resource type
     const resourceType = getResourceType(req.file.mimetype);
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -119,39 +225,23 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
       stream.end(req.file.buffer);
     });
 
-    // Save to Supabase with pending status
-    const { data: note, error: dbError } = await supabase
-      .from('notes')
-      .insert({
-        author, title,
-        subject: subject || 'General',
-        description: description || '',
-        file_name: req.file.originalname,
-        file_type: req.file.mimetype,
-        file_url: uploadResult.secure_url,
-        file_size: req.file.size,
-        downloads: 0,
-        status: 'pending'
-      })
-      .select().single();
-
+    const { data: note, error: dbError } = await supabase.from('notes').insert({
+      author, title, subject: subject || 'General', description: description || '',
+      file_name: req.file.originalname, file_type: req.file.mimetype,
+      file_url: uploadResult.secure_url, file_size: req.file.size, downloads: 0, status: 'pending'
+    }).select().single();
     if (dbError) throw dbError;
 
     io.emit('new_pending_note', formatNote(note));
     res.json({ success: true, message: 'Note submitted for approval!' });
   } catch (err) {
-    console.error('Upload error:', err);
     res.status(500).json({ error: 'Upload failed: ' + err.message });
   }
 });
 
-// Get approved notes
 app.get('/api/notes', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('notes').select('*')
-      .eq('status', 'approved')
-      .order('uploaded_at', { ascending: false });
+    const { data, error } = await supabase.from('notes').select('*').eq('status', 'approved').order('uploaded_at', { ascending: false });
     if (error) throw error;
     res.json(data.map(formatNote));
   } catch (err) {
@@ -159,13 +249,9 @@ app.get('/api/notes', async (req, res) => {
   }
 });
 
-// Get pending notes (admin)
 app.get('/api/notes/pending', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('notes').select('*')
-      .eq('status', 'pending')
-      .order('uploaded_at', { ascending: false });
+    const { data, error } = await supabase.from('notes').select('*').eq('status', 'pending').order('uploaded_at', { ascending: false });
     if (error) throw error;
     res.json(data.map(formatNote));
   } catch (err) {
@@ -173,14 +259,11 @@ app.get('/api/notes/pending', async (req, res) => {
   }
 });
 
-// Approve note
 app.post('/api/notes/:id/approve', async (req, res) => {
   try {
     const { requester } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
-    const { data: note, error } = await supabase
-      .from('notes').update({ status: 'approved' })
-      .eq('id', req.params.id).select().single();
+    const { data: note, error } = await supabase.from('notes').update({ status: 'approved' }).eq('id', req.params.id).select().single();
     if (error) throw error;
     const formatted = formatNote(note);
     io.emit('new_note', formatted);
@@ -191,7 +274,6 @@ app.post('/api/notes/:id/approve', async (req, res) => {
   }
 });
 
-// Reject note
 app.post('/api/notes/:id/reject', async (req, res) => {
   try {
     const { requester } = req.body;
@@ -199,8 +281,7 @@ app.post('/api/notes/:id/reject', async (req, res) => {
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
     if (note?.file_url) {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
-      const rt = getResourceType(note.file_type || '');
-      await cloudinary.uploader.destroy(publicId, { resource_type: rt }).catch(() => {});
+      await cloudinary.uploader.destroy(publicId, { resource_type: getResourceType(note.file_type || '') }).catch(() => {});
     }
     await supabase.from('notes').delete().eq('id', req.params.id);
     io.emit('note_rejected', req.params.id);
@@ -210,7 +291,6 @@ app.post('/api/notes/:id/reject', async (req, res) => {
   }
 });
 
-// Delete note (admin)
 app.delete('/api/notes/:id', async (req, res) => {
   try {
     const { requester } = req.body;
@@ -218,8 +298,7 @@ app.delete('/api/notes/:id', async (req, res) => {
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
     if (note?.file_url) {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
-      const rt = getResourceType(note.file_type || '');
-      await cloudinary.uploader.destroy(publicId, { resource_type: rt }).catch(() => {});
+      await cloudinary.uploader.destroy(publicId, { resource_type: getResourceType(note.file_type || '') }).catch(() => {});
     }
     await supabase.from('notes').delete().eq('id', req.params.id);
     io.emit('note_deleted', req.params.id);
@@ -229,14 +308,11 @@ app.delete('/api/notes/:id', async (req, res) => {
   }
 });
 
-// Track download
 app.post('/api/notes/:id/download', async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('downloads').eq('id', req.params.id).single();
     if (note) {
-      const { data: updated } = await supabase.from('notes')
-        .update({ downloads: note.downloads + 1 })
-        .eq('id', req.params.id).select().single();
+      const { data: updated } = await supabase.from('notes').update({ downloads: note.downloads + 1 }).eq('id', req.params.id).select().single();
       io.emit('note_updated', formatNote(updated));
     }
     res.json({ success: true });
@@ -248,8 +324,7 @@ app.post('/api/notes/:id/download', async (req, res) => {
 // ─── QUESTIONS ────────────────────────────────────────────────────────────────
 app.get('/api/questions', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('questions')
-      .select('*, replies(*)').order('posted_at', { ascending: false });
+    const { data, error } = await supabase.from('questions').select('*, replies(*)').order('posted_at', { ascending: false });
     if (error) throw error;
     res.json(data.map(formatQuestion));
   } catch (err) {

@@ -699,6 +699,68 @@ h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 500; }
 .preview-header p { font-size: 0.85rem; color: var(--text2); }
 
 /* ══════════════════════════════════════════════════
+   ANNOUNCEMENT BANNER
+   ══════════════════════════════════════════════════ */
+.announcement-banner {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff; padding: 12px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  font-size: 0.92rem; font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.announcement-text { flex: 1; }
+.announcement-close {
+  background: rgba(255,255,255,0.2); border: none;
+  color: #fff; padding: 4px 12px; border-radius: 99px;
+  cursor: pointer; font-size: 0.82rem; font-weight: 600;
+  transition: background 0.2s;
+}
+.announcement-close:hover { background: rgba(255,255,255,0.35); }
+
+.announcement-form { display: flex; gap: 10px; }
+.announcement-form textarea {
+  flex: 1; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg);
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  color: var(--text); outline: none; resize: none;
+}
+.announcement-form textarea:focus { border-color: var(--accent); }
+
+/* ══════════════════════════════════════════════════
+   MESSAGES
+   ══════════════════════════════════════════════════ */
+.message-item {
+  background: var(--bg2); border-radius: var(--radius-sm);
+  padding: 14px; margin-bottom: 10px;
+  border-left: 3px solid var(--accent);
+}
+.message-item.has-reply { border-left-color: var(--green); }
+.message-from { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+.message-text { font-size: 0.9rem; color: var(--text); margin-bottom: 8px; }
+.message-reply-box {
+  background: var(--green-light); border-radius: var(--radius-sm);
+  padding: 8px 12px; margin-top: 8px;
+  font-size: 0.85rem; color: var(--green);
+  border-left: 3px solid var(--green);
+}
+.message-time { font-size: 0.75rem; color: var(--text3); }
+
+/* Announcement list item */
+.announcement-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: var(--amber-light);
+  border-radius: var(--radius-sm); margin-bottom: 8px;
+  border-left: 3px solid var(--amber);
+}
+.announcement-item-text { font-size: 0.88rem; flex: 1; }
+.announcement-item-time { font-size: 0.75rem; color: var(--text3); margin: 0 10px; }
+
+/* ══════════════════════════════════════════════════
    EMPTY STATE
    ══════════════════════════════════════════════════ */
 .empty-state {
