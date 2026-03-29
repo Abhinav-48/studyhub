@@ -59,6 +59,12 @@
       <button class="nav-tab" data-tab="questions" onclick="switchTab('questions')">
         <span>💬</span> Q&A
       </button>
+      <button class="nav-tab" data-tab="planner" onclick="switchTab('planner')">
+        <span>📅</span> Planner
+      </button>
+      <button class="nav-tab" data-tab="quiz" onclick="switchTab('quiz')">
+        <span>🎯</span> Quiz
+      </button>
       <button class="nav-tab admin-only hidden" data-tab="admin" onclick="switchTab('admin')">
         <span>👑</span> Admin
       </button>
@@ -124,6 +130,67 @@
     <div id="questionsList" class="questions-list"></div>
     <div id="questionsEmpty" class="empty-state hidden">
       <span>🤔</span><p>No questions yet. Ask the first one!</p>
+    </div>
+  </section>
+
+  <!-- STUDY PLANNER TAB -->
+  <section id="tab-planner" class="tab-content hidden">
+    <div class="section-header">
+      <div>
+        <h2>📅 Study Planner</h2>
+        <p>Track exams, assignments and important dates</p>
+      </div>
+    </div>
+
+    <!-- Admin Add Event Form -->
+    <div id="addEventForm" class="admin-only hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;">
+      <h3 style="font-family:Fraunces,serif;font-size:1.1rem;margin-bottom:16px;">➕ Add New Event</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Event Title *</label>
+          <input type="text" id="eventTitle" placeholder="e.g. Physics Final Exam" />
+        </div>
+        <div class="form-group">
+          <label>Subject *</label>
+          <input type="text" id="eventSubject" placeholder="e.g. Physics" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="eventDate" />
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="eventType">
+            <option value="exam">📝 Exam</option>
+            <option value="assignment">📋 Assignment</option>
+            <option value="holiday">🎉 Holiday</option>
+            <option value="event">📅 Event</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addEvent()">📅 Add Event</button>
+    </div>
+
+    <div id="plannerList"></div>
+    <div id="plannerEmpty" class="empty-state hidden">
+      <span>📅</span><p>No events yet. Admin will add exam dates soon!</p>
+    </div>
+  </section>
+
+  <!-- QUIZ TAB -->
+  <section id="tab-quiz" class="tab-content hidden">
+    <div class="section-header">
+      <div>
+        <h2>🎯 Quiz Mode</h2>
+        <p>Test your knowledge with quizzes</p>
+      </div>
+      <button class="btn-primary admin-only hidden" onclick="openCreateQuizModal()">+ Create Quiz</button>
+    </div>
+    <div id="quizList"></div>
+    <div id="quizEmpty" class="empty-state hidden">
+      <span>🎯</span><p>No quizzes yet. Admin will add quizzes soon!</p>
     </div>
   </section>
 
@@ -293,6 +360,54 @@
     </div>
     <button class="btn-primary full-width" onclick="sendAdminReply()">Send Reply ✅</button>
     <input type="hidden" id="adminReplyMsgId" />
+  </div>
+</div>
+
+<!-- ═══════════════════ QUIZ MODAL ═══════════════════ -->
+<div id="quizModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'quizModal')">
+  <div class="modal-box" style="max-width:680px;">
+    <button class="modal-close" onclick="closeModal('quizModal')">✕</button>
+    <h3 id="quizModalTitle">🎯 Quiz</h3>
+    <p class="modal-sub" id="quizModalSubject"></p>
+    <div id="quizQuestionsContainer"></div>
+    <button class="btn-primary full-width" onclick="submitQuiz()" style="margin-top:16px;">Submit Quiz ✅</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ QUIZ RESULT MODAL ═══════════════════ -->
+<div id="quizResultModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'quizResultModal')">
+  <div class="modal-box" style="text-align:center;">
+    <button class="modal-close" onclick="closeModal('quizResultModal')">✕</button>
+    <div id="quizResultEmoji" style="font-size:4rem;margin:16px 0;">🏆</div>
+    <h3 style="font-size:1.8rem;">Quiz Complete!</h3>
+    <div style="margin:20px 0;">
+      <div style="font-size:3rem;font-weight:700;color:var(--accent);" id="quizResultScore">0/0</div>
+      <div style="font-size:1.5rem;color:var(--text2);margin-top:4px;" id="quizResultPercent">0%</div>
+    </div>
+    <p id="quizResultMsg" style="color:var(--text2);margin-bottom:20px;"></p>
+    <button class="btn-primary" onclick="closeModal('quizResultModal');loadQuizList()">Back to Quizzes</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ CREATE QUIZ MODAL ═══════════════════ -->
+<div id="createQuizModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'createQuizModal')">
+  <div class="modal-box" style="max-width:700px;">
+    <button class="modal-close" onclick="closeModal('createQuizModal')">✕</button>
+    <h3>➕ Create New Quiz</h3>
+    <p class="modal-sub">Add questions one by one</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Quiz Title *</label>
+        <input type="text" id="quizCreateTitle" placeholder="e.g. Physics Chapter 3 Quiz" />
+      </div>
+      <div class="form-group">
+        <label>Subject *</label>
+        <input type="text" id="quizCreateSubject" placeholder="e.g. Physics" />
+      </div>
+    </div>
+    <div id="quizQuestionsList"></div>
+    <button class="btn-secondary" onclick="addQuizQuestion()" style="margin:12px 0;width:100%;">+ Add Question</button>
+    <button class="btn-primary full-width" onclick="saveQuiz()">Save Quiz 🎯</button>
   </div>
 </div>
 
