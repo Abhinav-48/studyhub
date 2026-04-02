@@ -27,7 +27,7 @@ let onlineUsers = {};
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -275,7 +275,7 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
     const resourceType = getResourceType(req.file.mimetype);
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4() },
+        { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4(), timeout: 120000 },
         (error, result) => { if (error) reject(error); else resolve(result); }
       );
       stream.end(req.file.buffer);
