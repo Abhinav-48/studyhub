@@ -394,8 +394,7 @@
   <div class="modal-box" style="max-width:700px;">
     <button class="modal-close" onclick="closeModal('createQuizModal')">✕</button>
     <h3>➕ Create New Quiz</h3>
-    <p class="modal-sub">Add questions one by one</p>
-    <div class="form-row">
+    <div class="form-row" style="margin-bottom:16px;">
       <div class="form-group">
         <label>Quiz Title *</label>
         <input type="text" id="quizCreateTitle" placeholder="e.g. Physics Chapter 3 Quiz" />
@@ -405,9 +404,38 @@
         <input type="text" id="quizCreateSubject" placeholder="e.g. Physics" />
       </div>
     </div>
-    <div id="quizQuestionsList"></div>
-    <button class="btn-secondary" onclick="addQuizQuestion()" style="margin:12px 0;width:100%;">+ Add Question</button>
-    <button class="btn-primary full-width" onclick="saveQuiz()">Save Quiz 🎯</button>
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="quiz-tab-btn active" data-qtab="bulk" onclick="switchQuizTab('bulk')" style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--accent);color:#fff;cursor:pointer;font-family:DM Sans,sans-serif;font-weight:600;">📋 Paste Questions</button>
+      <button class="quiz-tab-btn" data-qtab="manual" onclick="switchQuizTab('manual')" style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:DM Sans,sans-serif;font-weight:600;">✏️ Manual</button>
+    </div>
+    <!-- Bulk Paste Tab -->
+    <div id="bulkTab">
+      <div class="form-group">
+        <label>Paste All Questions *</label>
+        <textarea id="bulkPasteText" rows="12" placeholder="Which is the capital of India?
+A) Mumbai
+B) Delhi
+C) Chennai
+D) Kolkata
+Answer: B
+
+What is H2O?
+A) Oxygen
+B) Hydrogen
+C) Water
+D) Salt
+Answer: C"></textarea>
+      </div>
+      <button class="btn-secondary" onclick="parseQuestions()" style="width:100%;margin-bottom:8px;">🔍 Parse & Preview Questions</button>
+      <div id="parseResult"></div>
+    </div>
+    <!-- Manual Tab -->
+    <div id="manualTab" class="hidden">
+      <div id="quizQuestionsList"></div>
+      <button class="btn-secondary" onclick="addQuizQuestion()" style="margin:12px 0;width:100%;">+ Add Question</button>
+    </div>
+    <button class="btn-primary full-width" onclick="saveQuiz()" style="margin-top:12px;">Save Quiz 🎯</button>
   </div>
 </div>
 

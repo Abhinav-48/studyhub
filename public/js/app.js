@@ -559,8 +559,73 @@ function openCreateQuizModal() {
   document.getElementById('quizCreateTitle').value = '';
   document.getElementById('quizCreateSubject').value = '';
   document.getElementById('quizQuestionsList').innerHTML = '';
-  addQuizQuestion();
+  document.getElementById('bulkPasteText').value = '';
+  document.getElementById('parseResult').innerHTML = '';
+  switchQuizTab('bulk');
   openModal('createQuizModal');
+}
+
+function switchQuizTab(tab) {
+  document.getElementById('bulkTab').classList.toggle('hidden', tab !== 'bulk');
+  document.getElementById('manualTab').classList.toggle('hidden', tab !== 'manual');
+  document.querySelectorAll('.quiz-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-qtab="${tab}"]`).classList.add('active');
+}
+
+function parseQuestions() {
+  const text = document.getElementById('bulkPasteText').value.trim();
+  if (!text) { toast('Please paste some questions first', 'error'); return; }
+
+  const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
+  const parsed = [];
+  const errors = [];
+
+  blocks.forEach((block, idx) => {
+    const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 6) { errors.push(`Block ${idx + 1}: Too few lines`); return; }
+
+    const question = lines[0];
+    let optA = '', optB = '', optC = '', optD = '', correct = '';
+
+    lines.forEach(line => {
+      const l = line.toLowerCase();
+      if (l.startsWith('a)') || l.startsWith('a.') || l.startsWith('(a)')) optA = line.replace(/^[aA][).]\s*|^\(a\)\s*/i, '').trim();
+      else if (l.startsWith('b)') || l.startsWith('b.') || l.startsWith('(b)')) optB = line.replace(/^[bB][).]\s*|^\(b\)\s*/i, '').trim();
+      else if (l.startsWith('c)') || l.startsWith('c.') || l.startsWith('(c)')) optC = line.replace(/^[cC][).]\s*|^\(c\)\s*/i, '').trim();
+      else if (l.startsWith('d)') || l.startsWith('d.') || l.startsWith('(d)')) optD = line.replace(/^[dD][).]\s*|^\(d\)\s*/i, '').trim();
+      else if (l.startsWith('answer:') || l.startsWith('ans:') || l.startsWith('correct:')) {
+        const ans = line.split(':')[1].trim().toLowerCase().replace(/[^a-d]/g, '');
+        correct = ans[0] || '';
+      }
+    });
+
+    if (!question || !optA || !optB || !optC || !optD || !correct) {
+      errors.push(`Q${idx + 1}: Missing fields (question/options/answer)`);
+      return;
+    }
+
+    parsed.push({ question, option_a: optA, option_b: optB, option_c: optC, option_d: optD, correct_answer: correct });
+  });
+
+  quizQuestions = parsed;
+
+  const resultDiv = document.getElementById('parseResult');
+  if (parsed.length) {
+    resultDiv.innerHTML = `
+      <div style="background:var(--green-light);border:1px solid var(--green);border-radius:var(--radius-sm);padding:12px 16px;color:var(--green);margin-top:12px;">
+        ✅ <strong>${parsed.length} questions parsed successfully!</strong>
+        ${errors.length ? `<br>⚠️ ${errors.length} blocks skipped` : ''}
+      </div>
+      <div style="margin-top:10px;max-height:200px;overflow-y:auto;">
+        ${parsed.map((q, i) => `<div style="padding:8px 12px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:6px;font-size:0.85rem;"><strong>Q${i+1}:</strong> ${escHtml(q.question.substring(0, 80))}${q.question.length > 80 ? '...' : ''} <span style="color:var(--green);font-weight:600;">[Ans: ${q.correct_answer.toUpperCase()}]</span></div>`).join('')}
+      </div>`;
+  } else {
+    resultDiv.innerHTML = `<div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 16px;color:var(--accent);margin-top:12px;">❌ Could not parse any questions. Check format!</div>`;
+  }
+
+  if (errors.length) {
+    resultDiv.innerHTML += `<div style="margin-top:8px;font-size:0.8rem;color:var(--text3);">${errors.map(e => `⚠️ ${e}`).join('<br>')}</div>`;
+  }
 }
 
 function addQuizQuestion() {
