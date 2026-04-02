@@ -273,17 +273,44 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
     const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked by the admin.' });
     const resourceType = getResourceType(req.file.mimetype);
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4(), timeout: 120000 },
-        (error, result) => { if (error) reject(error); else resolve(result); }
-      );
-      stream.end(req.file.buffer);
-    });
+    let fileUrl = '';
+
+    const isDocument = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain'
+    ].includes(req.file.mimetype);
+
+    if (isDocument) {
+      const ext = req.file.originalname.split('.').pop();
+      const fileName = `${uuidv4()}.${ext}`;
+      const { error: storageError } = await supabase.storage
+        .from('studyhub-files')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+      if (storageError) throw storageError;
+      const { data: urlData } = supabase.storage.from('studyhub-files').getPublicUrl(fileName);
+      fileUrl = urlData.publicUrl;
+    } else {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4(), timeout: 120000 },
+          (error, result) => { if (error) reject(error); else resolve(result); }
+        );
+        stream.end(req.file.buffer);
+      });
+      fileUrl = uploadResult.secure_url;
+    }
+
     const { data: note, error: dbError } = await supabase.from('notes').insert({
       author, title, subject: subject || 'General', description: description || '',
       file_name: req.file.originalname, file_type: req.file.mimetype,
-      file_url: uploadResult.secure_url, file_size: req.file.size, downloads: 0, status: 'pending'
+      file_url: fileUrl, file_size: req.file.size, downloads: 0, status: 'pending'
     }).select().single();
     if (dbError) throw dbError;
     io.emit('new_pending_note', formatNote(note));
