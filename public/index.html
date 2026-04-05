@@ -28,7 +28,7 @@
       <label>Enter your name to continue</label>
       <div class="name-input-wrap">
         <input type="text" id="nameInput" placeholder="Your name..." maxlength="30" autocomplete="off" />
-        <button onclick="loginUser()" id="loginBtn">Join →</button>
+        <button onclick="loginWithValidation()" id="loginBtn">Join →</button>
       </div>
       <div id="adminPasswordWrap" class="admin-pass-wrap hidden">
         <label>Admin Password</label>
@@ -416,5 +416,36 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
+<script>
+function loginWithValidation() {
+  const input = document.getElementById('nameInput');
+  const name = input.value.trim();
+
+  const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','admin','hello','guest','noname','anonymous','foo','bar'];
+
+  if (name.length < 3) {
+    showToast('❌ Name is too short — minimum 3 characters required'); return;
+  }
+  if (name.length > 40) {
+    showToast('❌ Name is too long'); return;
+  }
+  if (!/^[a-zA-Z\u0900-\u097F\s]+$/.test(name)) {
+    showToast('❌ Name can only contain letters — no numbers or symbols allowed'); return;
+  }
+  if (/^(.)\1+$/i.test(name.replace(/\s/g,''))) {
+    showToast('❌ Please enter a valid name'); return;
+  }
+  const parts = name.split(/\s+/);
+  for (const p of parts) {
+    if (p.length < 2) { showToast('❌ Each part of the name must be at least 2 characters'); return; }
+  }
+  const lower = name.toLowerCase().replace(/\s/g,'');
+  if (FAKE_NAMES.includes(lower)) {
+    showToast('❌ Please enter your real name'); return;
+  }
+
+  loginUser();
+}
+</script>
 </body>
 </html>
