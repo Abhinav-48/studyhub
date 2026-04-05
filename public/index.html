@@ -429,24 +429,24 @@ function loginWithValidation() {
   const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
 
   if (name.length < 3) {
-    showToast('❌ Please enter your student name as per college records'); return;
+    toast('❌ Please enter your student name as per college records', 'error'); return;
   }
   if (name.length > 40) {
-    showToast('❌ Please enter your student name as per college records'); return;
+    toast('❌ Please enter your student name as per college records', 'error'); return;
   }
   if (!/^[a-zA-Z\u0900-\u097F\s]+$/.test(name)) {
-    showToast('❌ Please enter your student name as per college records'); return;
+    toast('❌ Please enter your student name as per college records', 'error'); return;
   }
   if (/^(.)\1+$/i.test(name.replace(/\s/g,''))) {
-    showToast('❌ Please enter your student name as per college records'); return;
+    toast('❌ Please enter your student name as per college records', 'error'); return;
   }
   const parts = name.split(/\s+/);
   for (const p of parts) {
-    if (p.length < 2) { showToast('❌ Please enter your student name as per college records'); return; }
+    if (p.length < 2) { toast('❌ Please enter your student name as per college records', 'error'); return; }
   }
   const lower = name.toLowerCase().replace(/\s/g,'');
   if (FAKE_NAMES.includes(lower)) {
-    showToast('❌ Please enter your student name as per college records'); return;
+    toast('❌ Please enter your student name as per college records', 'error'); return;
   }
 
   loginUser();
