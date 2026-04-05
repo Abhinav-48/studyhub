@@ -26,7 +26,7 @@ document.getElementById('nameInput').addEventListener('input', (e) => {
 async function loginUser() {
   const input = document.getElementById('nameInput');
   const name = input.value.trim();
-  if (!name || name.length < 2) { toast('Please enter at least 2 characters', 'error'); return; }
+  if (!name || name.length < 2) { toast('Please enter your student name as per college records', 'error'); return; }
 
   if (name.toLowerCase() === ADMIN_NAME) {
     const password = document.getElementById('adminPasswordInput').value;
@@ -72,13 +72,13 @@ async function loginUser() {
 
 function logout() { localStorage.removeItem('studyhub_user'); location.reload(); }
 
-document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginUser(); });
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithValidation(); });
 
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
   if (saved && saved.toLowerCase() !== ADMIN_NAME) {
     document.getElementById('nameInput').value = saved;
-    loginUser();
+    loginWithValidation();
   }
   const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
   setTheme(savedTheme);
