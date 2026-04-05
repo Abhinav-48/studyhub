@@ -490,7 +490,7 @@ function formatReply(r) {
   return { id: r.id, author: r.author, text: r.text, postedAt: r.posted_at };
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 StudyHub running at http://localhost:${PORT}`);
   console.log(`👑 Admin: "${ADMIN_NAME}"`);
 });
