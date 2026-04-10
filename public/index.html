@@ -420,33 +420,11 @@
 <script src="/js/app.js"></script>
 <script>
 function loginWithValidation() {
-  const input = document.getElementById('nameInput');
-  const name = input.value.trim();
-
-  if (name.toLowerCase() === 'admin') {
-    loginUser();
+  const name = document.getElementById('nameInput').value.trim();
+  if (name.length < 2) {
+    toast('❌ Name too short!', 'error');
     return;
   }
-
-  const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
-
-  if (name.length < 2) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  if (name.length > 40) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  if (!/^[a-zA-Z\u0900-\u097F\s]+$/.test(name)) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  if (/^(.)\1{2,}$/i.test(name.replace(/\s/g,''))) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  const lower = name.toLowerCase().replace(/\s/g,'');
-  if (FAKE_NAMES.includes(lower)) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-
   loginUser();
 }
 </script>
