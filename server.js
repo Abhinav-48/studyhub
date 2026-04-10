@@ -47,7 +47,7 @@ const upload = multer({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
+app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 app.post('/api/admin-login', (req, res) => {
   const { password } = req.body;
@@ -494,3 +494,16 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 StudyHub running at http://localhost:${PORT}`);
   console.log(`👑 Admin: "${ADMIN_NAME}"`);
 });
+
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 120000;
+
+const https = require('https');
+setInterval(() => {
+  const url = process.env.RENDER_EXTERNAL_URL;
+  if (url) {
+    https.get(`${url}/health`, (res) => {
+      console.log(`🔄 Self-ping: ${res.statusCode}`);
+    }).on('error', () => {});
+  }
+}, 4 * 60 * 1000);
