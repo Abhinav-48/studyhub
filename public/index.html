@@ -227,6 +227,8 @@
         <h3>📬 User Messages</h3>
         <div id="messagesList" class="admin-user-list"></div>
       </div>
+        <div class="admin-card wide">
+        <h3>📋 Pending Notes</h3>
         <div id="pendingNotesList" class="admin-user-list"></div>
       </div>
       <div class="admin-card wide">
@@ -428,25 +430,7 @@ function loginWithValidation() {
 
   const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
 
-  // Meaningful word check — har word mein kam se kam 2 alag vowel/consonant hone chahiye
-  const meaninglessPattern = /^([a-z]{1,3})(\s\1)*$/i;
-  if (meaninglessPattern.test(name.trim())) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-
-  // Repeated word check — jaise "abc abc" ya "xyz xyz"
-  const nameParts = name.trim().toLowerCase().split(/\s+/);
-  if (nameParts.length > 1 && new Set(nameParts).size !== nameParts.length) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-
-  // Keyboard pattern check
-  const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|zyx|yxw|xwv|wvu|vut|uts|tsr|srq|rqp|qpo|pon|onm|nml|mlk|lkj|kji|jih|ihg|hgf|gfe|fed|edc|dcb|cba)+$/i;
-  if (keyboardPatterns.test(name.replace(/\s/g,''))) {
-    toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-
-  if (name.length < 3) {
+  if (name.length < 2) {
     toast('❌ Please enter your student name as per college records', 'error'); return;
   }
   if (name.length > 40) {
@@ -455,12 +439,8 @@ function loginWithValidation() {
   if (!/^[a-zA-Z\u0900-\u097F\s]+$/.test(name)) {
     toast('❌ Please enter your student name as per college records', 'error'); return;
   }
-  if (/^(.)\1+$/i.test(name.replace(/\s/g,''))) {
+  if (/^(.)\1{2,}$/i.test(name.replace(/\s/g,''))) {
     toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  const parts = name.split(/\s+/);
-  for (const p of parts) {
-    if (p.length < 2) { toast('❌ Please enter your student name as per college records', 'error'); return; }
   }
   const lower = name.toLowerCase().replace(/\s/g,'');
   if (FAKE_NAMES.includes(lower)) {

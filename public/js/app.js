@@ -72,7 +72,7 @@ async function loginUser() {
 
 function logout() { localStorage.removeItem('studyhub_user'); location.reload(); }
 
-document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithValidation(); });
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithValidation ? loginWithValidation() : loginUser(); });
 
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
@@ -93,7 +93,7 @@ window.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('studyhub_user');
     } else {
       document.getElementById('nameInput').value = saved;
-      loginWithValidation();
+      loginUser();
     }
   }
   const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
