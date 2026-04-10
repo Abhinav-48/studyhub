@@ -1,3 +1,9 @@
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -15,7 +21,14 @@ const ADMIN_NAME = 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abhinav210507';
 const PORT = process.env.PORT || 3000;
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY,
+  {
+    db: { schema: 'public' },
+    global: { fetch: fetch.bind(globalThis) }
+  }
+);
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -506,4 +519,4 @@ setInterval(() => {
       console.log(`🔄 Self-ping: ${res.statusCode}`);
     }).on('error', () => {});
   }
-}, 4 * 60 * 1000);
+}, 55 * 1000); // every 55 seconds
