@@ -77,8 +77,24 @@ document.getElementById('nameInput').addEventListener('keydown', e => { if (e.ke
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
   if (saved && saved.toLowerCase() !== ADMIN_NAME) {
-    document.getElementById('nameInput').value = saved;
-    loginWithValidation();
+    const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
+    const lower = saved.toLowerCase().replace(/\s/g,'');
+    const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)+$/i;
+    const nameParts = saved.trim().toLowerCase().split(/\s+/);
+    const hasRepeatedWords = nameParts.length > 1 && new Set(nameParts).size !== nameParts.length;
+    const isInvalid =
+      saved.length < 3 ||
+      !/^[a-zA-Z\u0900-\u097F\s]+$/.test(saved) ||
+      FAKE_NAMES.includes(lower) ||
+      /^(.)\1+$/i.test(saved.replace(/\s/g,'')) ||
+      keyboardPatterns.test(saved.replace(/\s/g,'')) ||
+      hasRepeatedWords;
+    if (isInvalid) {
+      localStorage.removeItem('studyhub_user');
+    } else {
+      document.getElementById('nameInput').value = saved;
+      loginWithValidation();
+    }
   }
   const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
   setTheme(savedTheme);
