@@ -876,12 +876,68 @@ h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 500; }
    RESPONSIVE
    ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .tab-content { padding: 20px 16px; }
-  .topnav { padding: 0 16px; }
+  .tab-content { padding: 16px 12px; }
+  .topnav {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    gap: 8px;
+  }
   .nav-logo { display: none; }
-  .form-row { grid-template-columns: 1fr; }
+  .nav-center {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    gap: 4px;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .nav-center::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+  }
+  .nav-right {
+    order: 2;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .theme-switcher { display: none; }
+  .online-pill { display: none; }
+  .user-badge { padding: 4px 10px 4px 6px; }
+  #userName { display: none; }
+  .logout-btn { padding: 6px 10px; font-size: 0.78rem; }
+  .section-header { flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .section-header h2 { font-size: 1.5rem; }
+  .filter-bar { flex-direction: column; gap: 8px; }
+  .filter-bar input { min-width: unset; width: 100%; }
+  .filter-bar select { width: 100%; }
   .notes-grid { grid-template-columns: 1fr; }
-  .section-header { flex-direction: column; }
+  .form-row { grid-template-columns: 1fr; }
+  .admin-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .modal-overlay { padding: 12px; align-items: flex-end; }
+  .modal-box { padding: 24px 18px; border-radius: 20px 20px 0 0; max-height: 92vh; }
+  .planner-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .planner-card-right { width: 100%; justify-content: flex-start; }
+  .quiz-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .quiz-card-actions { width: 100%; }
+  .quiz-options-create { grid-template-columns: 1fr; }
+  .login-card { padding: 32px 24px; }
+  .name-input-wrap { flex-direction: column; }
+  .name-input-wrap button { width: 100%; }
+  .toast { bottom: 16px; right: 12px; left: 12px; max-width: unset; }
+}
+
+@media (max-width: 380px) {
+  .tab-content { padding: 12px 8px; }
+  .topnav { padding: 6px 8px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ══════════════════════════════════════════════════
