@@ -118,6 +118,12 @@
   --radius-lg: 20px;
 }
 
+/* ─── Fluid Typography & Base Setup ─────────────── */
+html {
+  /* Responsive font sizing: scales between 13px (mobile) and 16px (desktop) */
+  font-size: clamp(13px, 2.5vw, 16px);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -125,11 +131,17 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  font-size: 15px;
+  font-size: clamp(0.9rem, 2.2vw, 1rem);
   line-height: 1.6;
 }
 
-h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 500; }
+h1, h2, h3 { 
+  font-family: 'Fraunces', serif; 
+  font-weight: 500;
+  /* Fluid heading sizes */
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
 
 .hidden { display: none !important; }
 
@@ -873,71 +885,407 @@ h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 500; }
 }
 
 /* ══════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE - UNIVERSAL DEVICE COMPATIBILITY
    ══════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-  .tab-content { padding: 16px 12px; }
-  .topnav {
+
+/* ─── Base Desktop Defaults (1200px+) ────────────── */
+.tab-content { 
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 5vw, 4rem); 
+  max-width: min(90vw, 1300px); 
+  margin: 0 auto; 
+}
+
+.topnav { 
+  padding: 0 clamp(1rem, 3vw, 2rem);
+  height: clamp(55px, 8vh, 65px);
+}
+
+.nav-logo { 
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  letter-spacing: -0.3px;
+}
+
+.nav-tab { 
+  padding: clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1.25rem);
+  font-size: clamp(0.85rem, 1.5vw, 0.95rem);
+}
+
+.logout-btn { 
+  padding: clamp(0.4rem, 0.8vw, 0.5rem) clamp(0.75rem, 1.2vw, 1rem);
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+}
+
+.section-header h2 { 
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  margin-bottom: clamp(0.5rem, 1vw, 1rem);
+}
+
+.section-header p { 
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+}
+
+.notes-grid { 
+  grid-template-columns: repeat(auto-fill, minmax(clamp(250px, 30vw, 350px), 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.note-card { 
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.note-title { 
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+}
+
+.modal-box { 
+  width: clamp(280px, 90vw, 600px);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border-radius: clamp(12px, 2vw, 20px);
+}
+
+.modal-box h3 { 
+  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+}
+
+.login-card { 
+  width: clamp(280px, 90vw, 450px);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border-radius: clamp(12px, 2vw, 20px);
+}
+
+.login-logo h1 { 
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+}
+
+.logo-icon { 
+  font-size: clamp(2rem, 6vw, 3rem);
+}
+
+.btn-primary { 
+  padding: clamp(0.6rem, 1.2vw, 0.75rem) clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+  min-height: 40px;
+}
+
+.planner-card, .quiz-card { 
+  padding: clamp(0.75rem, 1.5vw, 1.25rem);
+  gap: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+.form-group input, .form-group textarea, .form-group select {
+  font-size: clamp(0.9rem, 1.5vw, 1rem);
+  padding: clamp(0.6rem, 1vw, 0.75rem) clamp(0.75rem, 1.2vw, 1rem);
+}
+
+.toast { 
+  bottom: clamp(1rem, 2vh, 2rem);
+  right: clamp(0.75rem, 2vw, 1.75rem);
+  left: auto;
+  font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+  max-width: clamp(200px, 80vw, 400px);
+  padding: clamp(0.75rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem);
+}
+
+.admin-grid { 
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 40vw, 300px), 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.stats-grid { 
+  grid-template-columns: repeat(auto-fill, minmax(clamp(100px, 20vw, 150px), 1fr));
+  gap: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+/* ─── Large Tablets (1024px - 1199px) ─────────── */
+@media (max-width: 1199px) {
+  .notes-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(220px, 30vw, 320px), 1fr)); }
+  .admin-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(180px, 35vw, 280px), 1fr)); }
+  .modal-box { border-radius: 16px; }
+}
+
+/* ─── Tablets (769px - 1023px) ──────────────────── */
+@media (max-width: 1023px) {
+  html { font-size: clamp(13px, 2vw, 15px); }
+  
+  .tab-content { 
+    padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2rem);
+  }
+  
+  .topnav { 
     flex-wrap: wrap;
     height: auto;
-    padding: 8px 12px;
-    gap: 8px;
+    padding: clamp(0.5rem, 1.5vw, 1rem);
+    gap: clamp(0.5rem, 1vw, 1rem);
   }
-  .nav-logo { display: none; }
-  .nav-center {
+  
+  .nav-logo { font-size: clamp(0.9rem, 2vw, 1.1rem); }
+  .nav-center { 
     order: 3;
     width: 100%;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
     gap: 4px;
-    display: flex;
-    flex-wrap: nowrap;
   }
-  .nav-center::-webkit-scrollbar { display: none; }
-  .nav-tab {
-    flex-shrink: 0;
-    padding: 7px 12px;
-    font-size: 0.82rem;
-  }
-  .nav-right {
-    order: 2;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-  .theme-switcher { display: none; }
+  .nav-tab { padding: clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.6rem, 1vw, 1rem); font-size: clamp(0.75rem, 1.2vw, 0.85rem); }
+  .nav-right { order: 2; gap: clamp(0.5rem, 1vw, 0.75rem); }
+  
   .online-pill { display: none; }
-  .user-badge { padding: 4px 10px 4px 6px; }
+  .theme-switcher { display: none; }
+  .user-badge { padding: clamp(0.25rem, 0.5vw, 0.5rem) clamp(0.6rem, 1vw, 0.75rem); }
   #userName { display: none; }
-  .logout-btn { padding: 6px 10px; font-size: 0.78rem; }
-  .section-header { flex-direction: column; gap: 10px; margin-bottom: 16px; }
-  .section-header h2 { font-size: 1.5rem; }
-  .filter-bar { flex-direction: column; gap: 8px; }
-  .filter-bar input { min-width: unset; width: 100%; }
-  .filter-bar select { width: 100%; }
-  .notes-grid { grid-template-columns: 1fr; }
+  
+  .notes-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 45vw, 300px), 1fr)); gap: clamp(0.75rem, 1.5vw, 1.25rem); }
+  .section-header { flex-direction: column; gap: clamp(0.75rem, 1.5vw, 1rem); }
+  .section-header button { width: 100%; }
+  
+  .admin-grid { grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 40vw, 250px), 1fr)); }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: clamp(0.5rem, 1vw, 1rem); }
+  
+  .modal-box { border-radius: 14px; }
+  .login-card { border-radius: 14px; }
+  
+  .planner-card, .quiz-card { flex-direction: column; align-items: flex-start; }
+  .planner-card-right, .quiz-card-actions { width: 100%; }
+  
   .form-row { grid-template-columns: 1fr; }
-  .admin-grid { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(3, 1fr); }
-  .modal-overlay { padding: 12px; align-items: flex-end; }
-  .modal-box { padding: 24px 18px; border-radius: 20px 20px 0 0; max-height: 92vh; }
-  .planner-card { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .planner-card-right { width: 100%; justify-content: flex-start; }
-  .quiz-card { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .quiz-card-actions { width: 100%; }
-  .quiz-options-create { grid-template-columns: 1fr; }
-  .login-card { padding: 32px 24px; }
-  .name-input-wrap { flex-direction: column; }
-  .name-input-wrap button { width: 100%; }
-  .toast { bottom: 16px; right: 12px; left: 12px; max-width: unset; }
 }
 
-@media (max-width: 380px) {
-  .tab-content { padding: 12px 8px; }
-  .topnav { padding: 6px 8px; }
+/* ─── Large Phone / Small Tablet (481px - 768px) ── */
+@media (max-width: 768px) {
+  html { font-size: clamp(12px, 1.8vw, 14px); }
+  
+  .tab-content { 
+    padding: clamp(0.75rem, 2.5vw, 1.5rem) clamp(0.75rem, 2.5vw, 1.5rem);
+  }
+  
+  .topnav {
+    flex-wrap: wrap;
+    height: auto;
+    padding: clamp(0.4rem, 1vw, 0.75rem);
+    gap: 4px;
+  }
+  
+  .nav-left { flex: 1; }
+  .nav-logo { display: none; }
+  .nav-center { 
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    gap: 2px;
+    padding-bottom: 2px;
+  }
+  .nav-tab { 
+    flex-shrink: 0;
+    padding: clamp(0.35rem, 0.7vw, 0.5rem) clamp(0.5rem, 0.8vw, 0.75rem);
+    font-size: clamp(0.7rem, 1vw, 0.8rem);
+    white-space: nowrap;
+  }
+  .nav-tab span { display: none; }
+  
+  .nav-right { 
+    order: 2;
+    gap: clamp(0.3rem, 0.6vw, 0.5rem);
+    width: 100%;
+  }
+  
+  .online-pill { display: none; }
+  .theme-switcher { display: none; }
+  .user-badge { 
+    padding: clamp(0.2rem, 0.4vw, 0.4rem) clamp(0.4rem, 0.8vw, 0.6rem);
+    font-size: clamp(0.7rem, 1vw, 0.8rem);
+  }
+  #userName { display: none; }
+  .logout-btn { 
+    padding: clamp(0.3rem, 0.6vw, 0.5rem) clamp(0.5rem, 0.8vw, 0.75rem);
+    font-size: clamp(0.65rem, 1vw, 0.75rem);
+  }
+  
+  .section-header { flex-direction: column; gap: clamp(0.5rem, 1.2vw, 0.75rem); }
+  .section-header h2 { font-size: clamp(1.3rem, 3vw, 1.6rem); }
+  .section-header button { width: 100%; }
+  
+  .filter-bar { flex-direction: column; gap: clamp(0.5rem, 1vw, 0.75rem); }
+  .filter-bar input, .filter-bar select { width: 100%; }
+  
+  .notes-grid { grid-template-columns: 1fr; gap: clamp(0.75rem, 1.5vw, 1rem); }
+  .note-card { padding: clamp(0.8rem, 1.5vw, 1rem); }
+  
+  .form-row { grid-template-columns: 1fr; }
+  .admin-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: clamp(0.5rem, 1vw, 0.75rem); }
+  
+  .modal-overlay { padding: clamp(0.5rem, 1.5vw, 1rem); align-items: flex-end; }
+  .modal-box { 
+    padding: clamp(1rem, 2vw, 1.5rem);
+    border-radius: clamp(12px, 3vw, 16px) clamp(12px, 3vw, 16px) 0 0;
+    max-height: 92vh;
+  }
+  
+  .login-card { 
+    padding: clamp(1.5rem, 2.5vw, 2rem);
+    border-radius: clamp(12px, 3vw, 16px);
+  }
+  .login-logo h1 { font-size: clamp(1.3rem, 3.5vw, 1.8rem); }
+  .logo-icon { font-size: clamp(1.8rem, 5vw, 2.5rem); }
+  
+  .name-input-wrap { flex-direction: column; gap: clamp(0.5rem, 1vw, 0.75rem); }
+  .name-input-wrap input { font-size: 16px; }
+  .name-input-wrap button { width: 100%; }
+  
+  .btn-primary { width: 100%; }
+  
+  .planner-card, .quiz-card { flex-direction: column; align-items: flex-start; gap: clamp(0.5rem, 1vw, 0.75rem); }
+  .planner-card-right, .quiz-card-actions { width: 100%; }
+  .quiz-options-create { grid-template-columns: 1fr; }
+  
+  .blob1 { width: clamp(250px, 60vw, 400px); height: clamp(250px, 60vw, 400px); top: -100px; left: -100px; }
+  .blob2 { width: clamp(200px, 50vw, 320px); height: clamp(200px, 50vw, 320px); bottom: -80px; right: -80px; }
+  .blob3 { width: clamp(150px, 40vw, 250px); height: clamp(150px, 40vw, 250px); }
+  
+  .empty-state { padding: clamp(2rem, 5vw, 3rem) clamp(1rem, 2vh, 1.5rem); }
+  .empty-state span { font-size: clamp(2rem, 5vw, 3rem); }
+}
+
+/* ─── Standard Phone (361px - 480px) ───────────── */
+@media (max-width: 480px) {
+  html { font-size: clamp(11px, 1.5vw, 13px); }
+  
+  .tab-content { 
+    padding: clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem);
+  }
+  
+  .topnav {
+    padding: clamp(0.35rem, 0.8vw, 0.5rem);
+    gap: 2px;
+  }
+  
+  .nav-tab { 
+    padding: clamp(0.3rem, 0.5vw, 0.4rem) clamp(0.4rem, 0.6vw, 0.5rem);
+    font-size: clamp(0.65rem, 0.9vw, 0.75rem);
+  }
+  
+  .logout-btn { 
+    padding: clamp(0.25rem, 0.5vw, 0.35rem) clamp(0.4rem, 0.6vw, 0.5rem);
+    font-size: clamp(0.6rem, 0.85vw, 0.7rem);
+  }
+  
+  .section-header h2 { font-size: clamp(1.1rem, 2.8vw, 1.4rem); }
+  
+  .notes-grid { gap: clamp(0.5rem, 1vw, 0.75rem); }
+  .note-card { padding: clamp(0.7rem, 1.2vw, 0.9rem); }
+  
+  .modal-box { 
+    padding: clamp(0.8rem, 1.5vw, 1.2rem);
+    margin: clamp(0.5rem, 1vw, 1rem);
+  }
+  
+  .login-card { 
+    padding: clamp(1rem, 2vw, 1.5rem);
+    border-radius: clamp(12px, 2.5vw, 14px);
+  }
+  .login-logo h1 { font-size: clamp(1.1rem, 3vw, 1.5rem); }
+  .logo-icon { font-size: clamp(1.5rem, 4vw, 2.2rem); }
+  
+  .btn-primary { font-size: clamp(0.75rem, 1.2vw, 0.85rem); }
+  
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  
+  .toast { 
+    bottom: clamp(0.75rem, 1.5vh, 1rem);
+    right: clamp(0.5rem, 1vw, 0.75rem);
+    left: clamp(0.5rem, 1vw, 0.75rem);
+    font-size: clamp(0.75rem, 1.2vw, 0.85rem);
+  }
+}
+
+/* ─── Small Phone / Ultra-Compact (320px - 360px) ─ */
+@media (max-width: 360px) {
+  html { font-size: clamp(10px, 1.2vw, 12px); }
+  
+  .tab-content { 
+    padding: clamp(0.4rem, 1.5vw, 0.75rem) clamp(0.4rem, 1.5vw, 0.75rem);
+  }
+  
+  .topnav {
+    padding: clamp(0.3rem, 0.6vw, 0.4rem);
+    gap: 2px;
+    min-height: 50px;
+  }
+  
+  .nav-tab { 
+    padding: clamp(0.25rem, 0.4vw, 0.35rem) clamp(0.35rem, 0.5vw, 0.4rem);
+    font-size: clamp(0.6rem, 0.8vw, 0.7rem);
+  }
+  
+  .nav-tab span { display: none; }
+  
+  .logout-btn { 
+    padding: clamp(0.2rem, 0.4vw, 0.3rem) clamp(0.35rem, 0.5vw, 0.4rem);
+    font-size: clamp(0.55rem, 0.75vw, 0.65rem);
+  }
+  
+  .section-header { gap: clamp(0.3rem, 0.8vw, 0.5rem); }
+  .section-header h2 { font-size: clamp(1rem, 2.5vw, 1.2rem); }
+  .section-header button { width: 100%; font-size: clamp(0.7rem, 1vw, 0.8rem); }
+  
+  .notes-grid { gap: clamp(0.4rem, 0.8vw, 0.5rem); }
+  .note-card { 
+    padding: clamp(0.6rem, 1vw, 0.8rem);
+    gap: clamp(0.5rem, 0.8vw, 0.6rem);
+  }
+  
+  .form-group { margin-bottom: clamp(0.75rem, 1.2vw, 1rem); }
+  
+  .modal-box { 
+    padding: clamp(0.7rem, 1.2vw, 1rem);
+    border-radius: clamp(10px, 2.5vw, 12px) clamp(10px, 2.5vw, 12px) 0 0;
+  }
+  
+  .login-card { 
+    padding: clamp(0.9rem, 1.8vw, 1.3rem);
+    width: 95vw;
+    border-radius: clamp(10px, 2.5vw, 12px);
+  }
+  .login-logo h1 { font-size: clamp(1rem, 2.8vw, 1.3rem); }
+  .logo-icon { font-size: clamp(1.3rem, 3.5vw, 2rem); }
+  
+  .user-badge { display: none; }
+  .online-pill { display: none; }
+  .theme-switcher { display: none; }
+  
+  .stats-grid { grid-template-columns: 1fr; gap: clamp(0.4rem, 0.8vw, 0.6rem); }
+  
+  .blob1 { width: clamp(180px, 50vw, 300px); height: clamp(180px, 50vw, 300px); top: -120px; left: -120px; }
+  .blob2 { width: clamp(140px, 40vw, 240px); height: clamp(140px, 40vw, 240px); bottom: -100px; right: -100px; }
+  .blob3 { width: clamp(100px, 30vw, 180px); height: clamp(100px, 30vw, 180px); }
+  
+  .empty-state { padding: clamp(1.5rem, 3vw, 2rem) clamp(0.75rem, 1.5vw, 1rem); }
+  .empty-state span { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+}
+
+/* ─── Landscape & Very Wide Screens (ratio > 16:9) ─- */
+@media (max-height: 500px) {
+  .tab-content { padding-top: clamp(0.5rem, 1vw, 1rem); padding-bottom: clamp(0.5rem, 1vw, 1rem); }
+  .topnav { min-height: 45px; }
+  .section-header h2 { font-size: clamp(1.2rem, 3vw, 1.6rem); margin-bottom: 0.5rem; }
+  .empty-state { padding: clamp(1rem, 2vh, 1.5rem) clamp(1rem, 2vw, 1.5rem); }
+}
+
+/* ─── Ultra-Wide Monitors (2560px+) ───────────────── */
+@media (min-width: 2560px) {
+  html { font-size: 18px; }
+  .notes-grid { grid-template-columns: repeat(6, 1fr); }
+  .admin-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* ─── Touch Device Enhancements ───────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  button, input, select, textarea { min-height: 44px; -webkit-tap-highlight-color: transparent; }
+  .nav-tab { min-height: 40px; }
+  .btn-primary, .btn-secondary, .logout-btn { min-height: 44px; }
+  .quiz-option { min-height: 44px; }
+  input { font-size: 16px !important; }
+  
+  .modal-outer { -webkit-user-select: none; user-select: none; }
 }
 
 /* ══════════════════════════════════════════════════
