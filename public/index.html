@@ -8,8 +8,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+<<<<<<< HEAD
 
   <!-- Google Analytics -->
+=======
+   <!-- Google Analytics -->
+>>>>>>> 5a3d76453a001b7be0b8bea3bb151fac5a13b376
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QMB7D7G2KQ"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -431,10 +435,45 @@
 <script>
 function loginWithValidation() {
   const name = document.getElementById('nameInput').value.trim();
-  if (name.length < 2) {
-    toast('❌ Name too short!', 'error');
+
+  if (name.toLowerCase() === 'admin') {
+    loginUser();
     return;
   }
+
+  const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
+  const RESERVED_NAMES = ['abhinav'];
+
+  if (name.length < 3) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  if (name.length > 40) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  if (!/^[a-zA-Z\u0900-\u097F\s]+$/.test(name)) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  if (/^(.)\1+$/i.test(name.replace(/\s/g,''))) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  const nameParts = name.trim().toLowerCase().split(/\s+/);
+  if (nameParts.length > 1 && new Set(nameParts).size !== nameParts.length) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)+$/i;
+  if (keyboardPatterns.test(name.replace(/\s/g,''))) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  const lower = name.toLowerCase().replace(/\s/g,'');
+  if (FAKE_NAMES.includes(lower)) {
+    toast('❌ Please enter your student name as per college records', 'error'); return;
+  }
+  for (const reserved of RESERVED_NAMES) {
+    if (name.toLowerCase().includes(reserved)) {
+      toast('❌ This name is not allowed', 'error'); return;
+    }
+  }
+
   loginUser();
 }
 </script>
