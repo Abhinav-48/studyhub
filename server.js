@@ -149,8 +149,8 @@ app.post('/api/messages', async (req, res) => {
   try {
     const { from_user, message } = req.body;
     if (!from_user || !message) return res.status(400).json({ error: 'Missing fields' });
-    const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase()).single();
-    if (blocked) return res.status(403).json({ error: 'You have been blocked.' });
+    const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase());
+    if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
     const { data, error } = await supabase.from('messages').insert({ from_user, message }).select().single();
     if (error) throw error;
     io.emit('new_message', data);
@@ -178,10 +178,10 @@ app.post('/api/messages/:id/reply', async (req, res) => {
   try {
     const { requester, reply } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
-    const { data, error } = await supabase.from('messages').update({ reply, read: true }).eq('id', req.params.id).select().single();
+    const { data, error } = await supabase.from('messages').update({ reply, read: true }).eq('id', req.params.id).select();
     if (error) throw error;
-    io.emit('message_reply', data);
-    res.json(data);
+    io.emit('message_reply', data[0]);
+    res.json(data[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
