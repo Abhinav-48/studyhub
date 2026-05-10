@@ -447,8 +447,8 @@ app.post('/api/questions', async (req, res) => {
 app.post('/api/questions/:id/reply', async (req, res) => {
   try {
     const { author, text } = req.body;
-    const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author?.toLowerCase()).single();
-    if (blocked) return res.status(403).json({ error: 'You have been blocked.' });
+    const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', author?.toLowerCase());
+    if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
     const { data: reply, error } = await supabase.from('replies').insert({ question_id: req.params.id, author, text }).select().single();
     if (error) throw error;
     const formatted = formatReply(reply);
@@ -461,6 +461,7 @@ app.delete('/api/questions/:id', async (req, res) => {
   try {
     const { requester } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('replies').delete().eq('question_id', req.params.id);
     await supabase.from('questions').delete().eq('id', req.params.id);
     io.emit('question_deleted', req.params.id);
     res.json({ success: true });
