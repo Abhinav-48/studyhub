@@ -829,9 +829,9 @@ async function sendAdminReply() {
 
 async function deleteMessage(id) {
   if (!confirm('Delete this message?')) return;
-  await fetch(`/api/messages/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
-  toast('Message deleted', 'success');
-  loadAdminMessages();
+  const res = await fetch(`/api/messages/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) { toast('Message deleted', 'success'); loadAdminMessages(); }
+  else { const d = await res.json(); toast(d.error || 'Delete failed', 'error'); }
 }
 
 // ══════════════════════════════════════════════════
@@ -864,7 +864,7 @@ socket.on('new_announcement', (announcement) => {
 });
 socket.on('announcement_deleted', () => { loadAnnouncements(); });
 socket.on('new_message', () => { if (currentUser?.toLowerCase() === ADMIN_NAME) { toast('📬 New message from a user!', ''); loadAdminMessages(); } });
-socket.on('message_reply', (msg) => { if (msg.from_user === currentUser) { toast('📬 Admin replied to your message!', 'success'); loadMyReplies(); } });
+socket.on('message_reply', (msg) => { if (msg.from_user === currentUser) { toast('📬 Admin replied to your message!', 'success'); loadMyReplies(); loadAdminMessages(); } });
 socket.on('new_event', () => { if (document.getElementById('tab-planner')?.classList.contains('active') === false) {} loadPlanner(); });
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
