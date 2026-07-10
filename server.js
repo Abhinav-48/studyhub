@@ -84,20 +84,17 @@ app.post('/api/login-history', async (req, res) => {
 
     if (username.toLowerCase() !== 'admin') {
       const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
-      const RESERVED_NAMES = ['abhinav'];
       const lower = username.toLowerCase().replace(/\s/g,'');
       const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)+$/i;
       const nameParts = username.trim().toLowerCase().split(/\s+/);
       const hasRepeatedWords = nameParts.length > 1 && new Set(nameParts).size !== nameParts.length;
-      const hasReservedWord = RESERVED_NAMES.some(r => username.toLowerCase().includes(r));
       const isInvalid =
         username.length < 3 ||
         !/^[a-zA-Z\u0900-\u097F\s]+$/.test(username) ||
         FAKE_NAMES.includes(lower) ||
         /^(.)\1+$/i.test(username.replace(/\s/g,'')) ||
         keyboardPatterns.test(username.replace(/\s/g,'')) ||
-        hasRepeatedWords ||
-        hasReservedWord;
+        hasRepeatedWords;
       if (isInvalid) return res.status(400).json({ error: 'Invalid name' });
     }
 

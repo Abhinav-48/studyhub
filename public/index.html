@@ -492,7 +492,6 @@ function loginWithValidation() {
   }
 
   const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
-  const RESERVED_NAMES = ['abhinav'];
 
   if (name.length < 3) {
     toast('❌ Please enter your student name as per college records', 'error'); return;
@@ -517,11 +516,6 @@ function loginWithValidation() {
   const lower = name.toLowerCase().replace(/\s/g,'');
   if (FAKE_NAMES.includes(lower)) {
     toast('❌ Please enter your student name as per college records', 'error'); return;
-  }
-  for (const reserved of RESERVED_NAMES) {
-    if (name.toLowerCase().includes(reserved)) {
-      toast('❌ This name is not allowed', 'error'); return;
-    }
   }
 
   loginUser();
