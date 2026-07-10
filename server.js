@@ -576,6 +576,7 @@ function formatTimetable(t) {
     fileUrl: t.file_url, fileSize: t.file_size, uploadedBy: t.uploaded_by, uploadedAt: t.uploaded_at
   };
 }
+function formatNote(n) {
   return {
     id: n.id, author: n.author, title: n.title, subject: n.subject,
     description: n.description, fileName: n.file_name, fileType: n.file_type,
