@@ -133,6 +133,27 @@
     </div>
   </nav>
 
+  <div class="mobile-bottom-nav" id="mobileBottomNav">
+    <button class="mnav-item active" data-tab="notes" onclick="switchTab('notes')">
+      <span class="mnav-icon">🗂</span><span class="mnav-label">Notes</span>
+    </button>
+    <button class="mnav-item" data-tab="questions" onclick="switchTab('questions')">
+      <span class="mnav-icon">💬</span><span class="mnav-label">Q&A</span>
+    </button>
+    <button class="mnav-item" data-tab="planner" onclick="switchTab('planner')">
+      <span class="mnav-icon">📅</span><span class="mnav-label">Planner</span>
+    </button>
+    <button class="mnav-item" data-tab="quiz" onclick="switchTab('quiz')">
+      <span class="mnav-icon">🎯</span><span class="mnav-label">Quiz</span>
+    </button>
+    <button class="mnav-item" data-tab="timetable" onclick="switchTab('timetable')">
+      <span class="mnav-icon">🗓</span><span class="mnav-label">Timetable</span>
+    </button>
+    <button class="mnav-item admin-only hidden" data-tab="admin" onclick="switchTab('admin')">
+      <span class="mnav-icon">👑</span><span class="mnav-label">Admin</span>
+    </button>
+  </div>
+
   <div class="study-toolbar" id="studyToolbar">
     <button class="app-lamp-btn" id="appLampBtn" title="Toggle study light">💡</button>
     <div class="study-timer" id="studyTimer">

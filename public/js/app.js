@@ -106,16 +106,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
-  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-tab, .mnav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.remove('hidden');
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll(`[data-tab="${tab}"]`).forEach(el => el.classList.add('active'));
   if (tab === 'admin') loadAdminPanel();
   if (tab === 'planner') loadPlanner();
   if (tab === 'quiz') loadQuizList();
-  if (tab === 'timetable') loadTimetables();
-  if (tab === 'timetable') loadTimetables();
-  if (tab === 'timetable') loadTimetables();
-  if (tab === 'timetable') loadTimetables();
   if (tab === 'timetable') loadTimetables();
 }
 

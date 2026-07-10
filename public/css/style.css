@@ -1574,3 +1574,55 @@ h1, h2, h3 {
   background: var(--bg2);
   color: var(--text);
 }
+
+/* ══════════════════════════════════════════════════
+   MOBILE BOTTOM NAV (Instagram-style)
+   ══════════════════════════════════════════════════ */
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  .nav-center { display: none; }
+
+  .mobile-bottom-nav {
+    display: flex; justify-content: space-around; align-items: center;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  }
+  [data-theme="dark"] .mobile-bottom-nav { background: rgba(30,33,48,0.97); }
+
+  .mnav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: none; border: none; cursor: pointer;
+    padding: 6px 8px; border-radius: 10px;
+    color: var(--text3); flex: 1;
+    transition: color 0.15s, transform 0.15s;
+  }
+  .mnav-item:active { transform: scale(0.92); }
+  .mnav-icon { font-size: 1.3rem; line-height: 1; }
+  .mnav-label { font-size: 0.62rem; font-weight: 600; }
+  .mnav-item.active { color: var(--accent); }
+
+  .tab-content { padding-bottom: 90px !important; }
+  .study-toolbar { bottom: 78px; }
+}
+
+/* ══════════════════════════════════════════════════
+   DESKTOP PREMIUM SPACING
+   ══════════════════════════════════════════════════ */
+@media (min-width: 1200px) {
+  .tab-content { padding: 3rem 4rem; }
+  .notes-grid, .admin-grid { gap: 1.75rem; }
+  .note-card { padding: 1.75rem; border-radius: 16px; }
+  .note-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+  .question-card { padding: 26px; border-radius: 16px; }
+  .section-header h2 { font-size: 2.3rem; }
+  .topnav { padding: 0 3rem; height: 68px; }
+  .nav-tab { padding: 0.7rem 1.4rem; font-size: 0.92rem; }
+  .stat-box { padding: 22px 16px; border-radius: 12px; }
+  .stat-box span { font-size: 2.3rem; }
+  .modal-box { padding: 2.75rem; }
+  .planner-card, .quiz-card { padding: 20px 24px; border-radius: 16px; }
+}
