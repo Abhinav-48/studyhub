@@ -21,6 +21,7 @@
 <body>
 
 <!-- ═══════════════════ RUNNING STUDENT ANIMATION (global overlay) ═══════════════════ -->
+<div class="app-lamp-glow" id="appLampGlow"></div>
 <div class="runner-track">
   <span class="spark s1"></span>
   <span class="spark s2"></span>
@@ -110,6 +111,11 @@
       </button>
     </div>
     <div class="nav-right">
+      <button class="app-lamp-btn" id="appLampBtn" title="Toggle study light">💡</button>
+      <div class="study-timer" id="studyTimer">
+        <button class="timer-toggle-btn" id="timerToggleBtn">⏱ Start</button>
+        <span class="timer-display hidden" id="timerDisplay">00:00:00</span>
+      </div>
       <div class="theme-switcher">
         <button class="theme-btn theme-btn-light active" onclick="setTheme('light')" title="Light"></button>
         <button class="theme-btn theme-btn-dark" onclick="setTheme('dark')" title="Dark"></button>

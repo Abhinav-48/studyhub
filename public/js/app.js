@@ -70,7 +70,7 @@ async function loginUser() {
   toast(`Welcome, ${name}! 👋`, 'success');
 }
 
-function logout() { localStorage.removeItem('studyhub_user'); location.reload(); }
+function logout() { stopStudyTimer(); localStorage.removeItem('studyhub_user'); location.reload(); }
 
 document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithValidation ? loginWithValidation() : loginUser(); });
 
@@ -1063,6 +1063,60 @@ function updateAdminStats() {
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
 }
+
+// ══════════════════════════════════════════════════
+// STUDY LIGHT (main app navbar)
+// ══════════════════════════════════════════════════
+const appLampBtn = document.getElementById('appLampBtn');
+const appLampGlow = document.getElementById('appLampGlow');
+appLampBtn?.addEventListener('click', () => {
+  appLampBtn.classList.toggle('on');
+  appLampGlow?.classList.toggle('on');
+});
+
+// ══════════════════════════════════════════════════
+// STUDY TIMER (stopwatch)
+// ══════════════════════════════════════════════════
+let studySeconds = 0;
+let studyInterval = null;
+let studyRunning = false;
+
+function formatStudyTime(totalSeconds) {
+  const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSeconds % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function toggleStudyTimer() {
+  const btn = document.getElementById('timerToggleBtn');
+  const display = document.getElementById('timerDisplay');
+  if (!studyRunning) {
+    studyRunning = true;
+    btn.textContent = '⏸ Pause';
+    display.classList.remove('hidden');
+    studyInterval = setInterval(() => {
+      studySeconds++;
+      display.textContent = formatStudyTime(studySeconds);
+    }, 1000);
+  } else {
+    studyRunning = false;
+    btn.textContent = '⏱ Resume';
+    clearInterval(studyInterval);
+  }
+}
+
+function stopStudyTimer() {
+  studyRunning = false;
+  clearInterval(studyInterval);
+  studySeconds = 0;
+  const btn = document.getElementById('timerToggleBtn');
+  const display = document.getElementById('timerDisplay');
+  if (btn) btn.textContent = '⏱ Start';
+  if (display) { display.textContent = '00:00:00'; display.classList.add('hidden'); }
+}
+
+document.getElementById('timerToggleBtn')?.addEventListener('click', toggleStudyTimer);
 
 // ══════════════════════════════════════════════════
 // THEME SWITCHER
