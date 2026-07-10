@@ -1068,10 +1068,10 @@ function updateAdminStats() {
 // STUDY LIGHT (main app navbar)
 // ══════════════════════════════════════════════════
 const appLampBtn = document.getElementById('appLampBtn');
-const appLampGlow = document.getElementById('appLampGlow');
+const appLampGlows = [1, 2, 3, 4].map(n => document.getElementById(`appLampGlow${n}`));
 appLampBtn?.addEventListener('click', () => {
   appLampBtn.classList.toggle('on');
-  appLampGlow?.classList.toggle('on');
+  appLampGlows.forEach(g => g?.classList.toggle('on'));
 });
 
 // ══════════════════════════════════════════════════

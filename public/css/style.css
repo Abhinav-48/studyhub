@@ -1458,6 +1458,16 @@ h1, h2, h3 {
   .spark { width: 7px; height: 7px; }
 }
 
+.study-toolbar {
+  position: fixed; top: 72px; right: 24px; z-index: 90;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 99px; padding: 6px 10px;
+  box-shadow: var(--shadow);
+}
+@media (max-width: 768px) {
+  .study-toolbar { top: auto; bottom: 90px; right: 16px; padding: 6px 8px; }
+}
 .app-lamp-btn {
   width: 36px; height: 36px; border-radius: 50%;
   border: 1.5px solid var(--border); background: var(--bg2);
@@ -1473,12 +1483,20 @@ h1, h2, h3 {
 }
 
 .app-lamp-glow {
-  position: fixed; top: 60px; right: -120px; z-index: 1;
-  width: 380px; height: 380px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,216,115,0.35), transparent 70%);
-  opacity: 0; transition: opacity 0.5s ease; pointer-events: none;
+  position: fixed; z-index: 1;
+  width: 340px; height: 340px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,216,115,0.32), transparent 70%);
+  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
 }
 .app-lamp-glow.on { opacity: 1; }
+.glow-1 { top: -80px; left: -80px; }
+.glow-2 { top: -80px; right: -80px; }
+.glow-3 { bottom: -80px; left: 10%; }
+.glow-4 { bottom: -80px; right: 10%; }
+
+@media (max-width: 768px) {
+  .glow-3, .glow-4 { display: none; }
+}
 
 .study-timer {
   display: flex; align-items: center; gap: 8px;
