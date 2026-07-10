@@ -483,6 +483,29 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
 <script>
+// Cursor spotlight on login card
+document.querySelector('.login-card')?.addEventListener('mousemove', (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+  e.currentTarget.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+});
+
+// Ripple effect on buttons/tabs
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('.btn-primary, .name-input-wrap button, .nav-tab, .btn-secondary');
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  const size = Math.max(rect.width, rect.height);
+  ripple.className = 'ripple';
+  ripple.style.width = ripple.style.height = size + 'px';
+  ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+  ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+  el.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+});
+</script>
+<script>
 function loginWithValidation() {
   const name = document.getElementById('nameInput').value.trim();
 

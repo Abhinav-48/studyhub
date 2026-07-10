@@ -209,6 +209,17 @@ h1, h2, h3 {
   height: 4px;
   background: linear-gradient(90deg, var(--accent), var(--accent2), var(--amber));
 }
+.login-card::after {
+  content: '';
+  position: absolute;
+  top: var(--mx, 50%); left: var(--my, 50%);
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(200,75,49,0.16), transparent 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none; z-index: 0;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.login-card:hover::after { opacity: 1; }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(24px) scale(0.97); }
@@ -312,15 +323,34 @@ h1, h2, h3 {
 .nav-center { display: flex; gap: 4px; }
 
 .nav-tab {
+  position: relative;
   display: flex; align-items: center; gap: 6px;
   padding: 8px 16px; border-radius: var(--radius-sm);
   border: none; background: transparent;
   font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
   color: var(--text2); cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  overflow: hidden;
 }
 .nav-tab:hover { background: var(--bg2); color: var(--text); }
 .nav-tab.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.nav-tab::after {
+  content: ''; position: absolute; bottom: 2px; left: 50%;
+  width: 0; height: 2px; background: var(--accent);
+  transition: width 0.25s ease, left 0.25s ease;
+  transform: translateX(-50%);
+}
+.nav-tab:hover::after { width: 40%; }
+.nav-tab.active::after { width: 55%; }
+.ripple {
+  position: absolute; border-radius: 50%;
+  background: rgba(255,255,255,0.55);
+  transform: scale(0);
+  animation: rippleAnim 0.6s ease-out;
+  pointer-events: none;
+}
+[data-theme="dark"] .ripple { background: rgba(255,255,255,0.25); }
+@keyframes rippleAnim { to { transform: scale(3.5); opacity: 0; } }
 
 .nav-right { display: flex; align-items: center; gap: 12px; }
 
@@ -367,7 +397,11 @@ h1, h2, h3 {
    ══════════════════════════════════════════════════ */
 .app { min-height: 100vh; }
 
-.tab-content { padding: 32px 36px; max-width: 1200px; margin: 0 auto; }
+.tab-content { padding: 32px 36px; max-width: 1200px; margin: 0 auto; animation: tabFadeIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
 
 .section-header {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -380,6 +414,7 @@ h1, h2, h3 {
 
 /* ─── Buttons ───────────────────────────────────── */
 .btn-primary {
+  position: relative; overflow: hidden;
   padding: 11px 24px;
   background: var(--accent); color: #fff;
   border: none; border-radius: var(--radius-sm);
@@ -460,9 +495,16 @@ h1, h2, h3 {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 22px;
   transition: transform 0.2s, box-shadow 0.2s;
-  animation: fadeInUp 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
   display: flex; flex-direction: column; gap: 14px;
 }
+.note-card:nth-child(1) { animation-delay: 0.02s; }
+.note-card:nth-child(2) { animation-delay: 0.07s; }
+.note-card:nth-child(3) { animation-delay: 0.12s; }
+.note-card:nth-child(4) { animation-delay: 0.17s; }
+.note-card:nth-child(5) { animation-delay: 0.22s; }
+.note-card:nth-child(6) { animation-delay: 0.27s; }
+.note-card:nth-child(n+7) { animation-delay: 0.3s; }
 .note-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 
 @keyframes fadeInUp {
