@@ -26,7 +26,24 @@
     <div class="blob blob1"></div>
     <div class="blob blob2"></div>
     <div class="blob blob3"></div>
+    <span class="floaty floaty-book1">📘</span>
+    <span class="floaty floaty-book2">📗</span>
+    <span class="floaty floaty-book3">📙</span>
+    <span class="floaty floaty-student">🧑‍🎓</span>
+    <span class="floaty floaty-pencil">✏️</span>
+    <span class="floaty floaty-grad">🎓</span>
   </div>
+
+  <div class="desk-lamp" id="deskLamp" title="Click for some light! 💡">
+    <svg viewBox="0 0 100 100">
+      <line x1="50" y1="95" x2="50" y2="55" stroke="#8a7f70" stroke-width="4" stroke-linecap="round"/>
+      <line x1="30" y1="95" x2="70" y2="95" stroke="#8a7f70" stroke-width="6" stroke-linecap="round"/>
+      <line x1="50" y1="55" x2="30" y2="25" stroke="#8a7f70" stroke-width="4" stroke-linecap="round"/>
+      <path d="M14 22 L46 22 L38 42 L22 42 Z" fill="#c84b31"/>
+      <circle id="lampBulb" cx="30" cy="35" r="6"/>
+    </svg>
+  </div>
+  <div class="lamp-glow" id="lampGlow"></div>
   <div class="login-card">
     <div class="login-logo">
       <div class="logo-badge">📚</div>
@@ -488,6 +505,14 @@ document.querySelector('.login-card')?.addEventListener('mousemove', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   e.currentTarget.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
   e.currentTarget.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+});
+
+// Table lamp toggle
+const deskLamp = document.getElementById('deskLamp');
+const lampGlow = document.getElementById('lampGlow');
+deskLamp?.addEventListener('click', () => {
+  deskLamp.classList.toggle('on');
+  lampGlow.classList.toggle('on');
 });
 
 // Ripple effect on buttons/tabs

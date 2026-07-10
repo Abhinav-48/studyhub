@@ -1360,8 +1360,55 @@ h1, h2, h3 {
 }
 
 /* ══════════════════════════════════════════════════
-   THEME SWITCHER
+   LOGIN SCREEN DECORATIONS — floaties + lamp
    ══════════════════════════════════════════════════ */
+.floaty {
+  position: absolute; font-size: 2.2rem; opacity: 0.85;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.08));
+  animation: floatUpDown 6s ease-in-out infinite;
+  user-select: none; pointer-events: none;
+}
+@keyframes floatUpDown {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-18px) rotate(6deg); }
+}
+@keyframes floatUpDownRev {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(-8deg); }
+}
+@keyframes driftAcross {
+  0%, 100% { transform: translate(0,0) rotate(0deg); opacity: 0.8; }
+  50% { transform: translate(18px,-24px) rotate(8deg); opacity: 1; }
+}
+.floaty-book1  { top: 12%; left: 10%; font-size: 2.6rem; animation-duration: 6s; }
+.floaty-book2  { top: 66%; left: 7%;  font-size: 2rem;   animation-name: floatUpDownRev; animation-duration: 7s; animation-delay: .5s; }
+.floaty-book3  { top: 18%; right: 9%; font-size: 2.3rem; animation-duration: 5.5s; animation-delay: 1s; }
+.floaty-student{ bottom: 12%; right: 10%; font-size: 3rem; animation-name: driftAcross; animation-duration: 8s; }
+.floaty-pencil { top: 46%; right: 5%; font-size: 1.8rem; animation-name: floatUpDownRev; animation-duration: 4.5s; animation-delay: .3s; }
+.floaty-grad   { bottom: 20%; left: 12%; font-size: 2.4rem; animation-duration: 6.5s; animation-delay: .8s; }
+
+.desk-lamp {
+  position: fixed; bottom: 26px; left: 26px; z-index: 5;
+  width: 66px; height: 66px; cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.desk-lamp:hover { transform: scale(1.08) rotate(-4deg); }
+.desk-lamp svg { width: 100%; height: 100%; overflow: visible; }
+#lampBulb { fill: #d8d2c6; transition: fill 0.3s ease, filter 0.3s ease; }
+.desk-lamp.on #lampBulb { fill: #ffd873; filter: drop-shadow(0 0 8px #ffd873); }
+
+.lamp-glow {
+  position: fixed; bottom: -100px; left: -100px; z-index: 1;
+  width: 420px; height: 420px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,216,115,0.4), transparent 70%);
+  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
+}
+.lamp-glow.on { opacity: 1; }
+
+@media (max-width: 768px) {
+  .floaty { display: none; }
+  .desk-lamp { transform: scale(0.75); bottom: 14px; left: 14px; }
+}
 .theme-switcher {
   display: flex; align-items: center; gap: 6px;
   background: var(--bg2); border: 1.5px solid var(--border);
