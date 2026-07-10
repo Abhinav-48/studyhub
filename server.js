@@ -421,7 +421,68 @@ app.post('/api/notes/:id/download', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── QUESTIONS ────────────────────────────────────────────────────────────────
+// ─── TIMETABLE ────────────────────────────────────────────────────────────────
+app.post('/api/timetables', upload.single('file'), async (req, res) => {
+  try {
+    const { section, uploaded_by } = req.body;
+    if (!section || !req.file) return res.status(400).json({ error: 'Missing required fields' });
+    if (uploaded_by?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin can upload timetables.' });
+
+    const isDocument = req.file.mimetype === 'application/pdf';
+    let fileUrl = '';
+    if (isDocument) {
+      const ext = req.file.originalname.split('.').pop();
+      const fileName = `${uuidv4()}.${ext}`;
+      const { error: storageError } = await supabase.storage
+        .from('studyhub-files')
+        .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (storageError) throw storageError;
+      const { data: urlData } = supabase.storage.from('studyhub-files').getPublicUrl(fileName);
+      fileUrl = urlData.publicUrl;
+    } else {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'image', folder: 'studyhub/timetables', public_id: uuidv4(), timeout: 120000 },
+          (error, result) => { if (error) reject(error); else resolve(result); }
+        );
+        stream.end(req.file.buffer);
+      });
+      fileUrl = uploadResult.secure_url;
+    }
+
+    const { data: tt, error: dbError } = await supabase.from('timetables').insert({
+      section, file_name: req.file.originalname, file_type: req.file.mimetype,
+      file_url: fileUrl, file_size: req.file.size, uploaded_by
+    }).select().single();
+    if (dbError) throw dbError;
+    const formatted = formatTimetable(tt);
+    io.emit('new_timetable', formatted);
+    res.json(formatted);
+  } catch (err) { res.status(500).json({ error: 'Upload failed: ' + err.message }); }
+});
+
+app.get('/api/timetables', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('timetables').select('*').order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    res.json(data.map(formatTimetable));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/timetables/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    const { data: tt } = await supabase.from('timetables').select('file_url, file_type').eq('id', req.params.id).single();
+    if (tt?.file_url && tt.file_type.startsWith('image/')) {
+      const publicId = 'studyhub/timetables/' + tt.file_url.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => {});
+    }
+    await supabase.from('timetables').delete().eq('id', req.params.id);
+    io.emit('timetable_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 app.get('/api/questions', async (req, res) => {
   try {
     const { data, error } = await supabase.from('questions').select('*, replies(*)').order('posted_at', { ascending: false });
@@ -509,7 +570,12 @@ io.on('connection', (socket) => {
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatNote(n) {
+function formatTimetable(t) {
+  return {
+    id: t.id, section: t.section, fileName: t.file_name, fileType: t.file_type,
+    fileUrl: t.file_url, fileSize: t.file_size, uploadedBy: t.uploaded_by, uploadedAt: t.uploaded_at
+  };
+}
   return {
     id: n.id, author: n.author, title: n.title, subject: n.subject,
     description: n.description, fileName: n.file_name, fileType: n.file_type,

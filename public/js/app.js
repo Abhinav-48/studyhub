@@ -112,6 +112,11 @@ function switchTab(tab) {
   if (tab === 'admin') loadAdminPanel();
   if (tab === 'planner') loadPlanner();
   if (tab === 'quiz') loadQuizList();
+  if (tab === 'timetable') loadTimetables();
+  if (tab === 'timetable') loadTimetables();
+  if (tab === 'timetable') loadTimetables();
+  if (tab === 'timetable') loadTimetables();
+  if (tab === 'timetable') loadTimetables();
 }
 
 // ══════════════════════════════════════════════════
@@ -301,8 +306,156 @@ async function submitNote() {
 }
 
 // ══════════════════════════════════════════════════
-// QUESTIONS
+// TIMETABLE
 // ══════════════════════════════════════════════════
+
+let allTimetables = [];
+let currentTimetableSection = null;
+let timetableSelectedFile = null;
+const TIMETABLE_SECTIONS = ['BCA 3A','BCA 3B','BCA 3C','BCA 3D','BCA 3E','BCA 3F','BCA 3G','BCA 3H'];
+
+async function loadTimetables() {
+  const res = await fetch('/api/timetables');
+  allTimetables = await res.json();
+  renderTimetableSections();
+}
+
+function renderTimetableSections() {
+  document.getElementById('timetableFilesView').classList.add('hidden');
+  const grid = document.getElementById('timetableSectionsGrid');
+  grid.classList.remove('hidden');
+  grid.innerHTML = TIMETABLE_SECTIONS.map(sec => {
+    const count = allTimetables.filter(t => t.section === sec).length;
+    return `
+      <div class="note-card" style="cursor:pointer;" onclick="openTimetableSection('${sec}')">
+        <div class="note-title">📘 ${sec}</div>
+        <div class="note-meta"><span class="meta-tag">${count} file${count === 1 ? '' : 's'}</span></div>
+      </div>`;
+  }).join('');
+}
+
+function openTimetableSection(section) {
+  currentTimetableSection = section;
+  document.getElementById('timetableSectionsGrid').classList.add('hidden');
+  document.getElementById('timetableFilesView').classList.remove('hidden');
+  document.getElementById('timetableSectionTitle').textContent = `🗓 ${section} Timetable`;
+  const files = allTimetables.filter(t => t.section === section);
+  const grid = document.getElementById('timetableFilesGrid');
+  const empty = document.getElementById('timetableFilesEmpty');
+  grid.innerHTML = '';
+  if (!files.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  files.forEach(f => grid.appendChild(buildTimetableCard(f)));
+}
+
+function backToSections() { renderTimetableSections(); }
+
+function buildTimetableCard(t) {
+  const div = document.createElement('div');
+  div.className = 'note-card'; div.id = `tt-${t.id}`;
+  const typeInfo = getFileTypeInfo(t.fileType);
+  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const size = formatBytes(t.fileSize);
+  const date = new Date(t.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  div.innerHTML = `
+    <div class="note-card-header">
+      <span class="file-type-badge ${typeInfo.cls}">${typeInfo.emoji} ${typeInfo.label}</span>
+      ${isAdmin ? `<div class="admin-actions"><button class="btn-danger" onclick="deleteTimetable('${t.id}')">🗑 Delete</button></div>` : ''}
+    </div>
+    <div class="note-title">${escHtml(t.section)} Timetable</div>
+    <div class="note-meta"><span class="meta-tag">📅 ${date}</span></div>
+    <div class="note-file-info">
+      <span>${typeInfo.emoji}</span>
+      <span class="note-file-name">${escHtml(t.fileName)}</span>
+      <span>${size}</span>
+    </div>
+    <div class="note-card-footer">
+      <button class="btn-secondary" onclick="previewTimetable('${t.id}')">👁 Preview</button>
+      <button class="btn-primary" onclick="downloadTimetableFile('${t.id}', '${t.fileUrl}', '${escHtml(t.fileName)}')">⬇ Download</button>
+    </div>`;
+  return div;
+}
+
+function previewTimetable(id) {
+  const t = allTimetables.find(x => x.id === id);
+  if (!t) return;
+  const typeInfo = getFileTypeInfo(t.fileType);
+  let content = `<div class="preview-header"><h3>${escHtml(t.section)} Timetable</h3><p>${typeInfo.emoji} ${escHtml(t.fileName)}</p></div>`;
+  if (t.fileType === 'application/pdf') {
+    content += `<iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(t.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>`;
+  } else {
+    content += `<img src="${t.fileUrl}" alt="${escHtml(t.section)}" />`;
+  }
+  document.getElementById('previewContent').innerHTML = content;
+  openModal('previewModal');
+}
+
+async function downloadTimetableFile(id, url, fileName) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl; link.download = fileName;
+    document.body.appendChild(link); link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch {
+    const link = document.createElement('a');
+    link.href = url; link.download = fileName; link.target = '_blank';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  }
+  toast(`Downloading "${fileName}"`, 'success');
+}
+
+async function deleteTimetable(id) {
+  if (!confirm('Delete this timetable?')) return;
+  const res = await fetch(`/api/timetables/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) toast('Timetable deleted', 'success');
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+function openTimetableUploadModal() {
+  timetableSelectedFile = null;
+  document.getElementById('timetableFileInput').value = '';
+  document.getElementById('timetableDropInner').innerHTML = `<span class="drop-icon">📎</span><p>Click or drag & drop your file here</p><span class="file-types">PDF · JPG · PNG</span>`;
+  openModal('timetableUploadModal');
+}
+
+function handleTimetableFileSelect(e) { const file = e.target.files[0]; if (file) setTimetableFile(file); }
+
+function setTimetableFile(file) {
+  timetableSelectedFile = file;
+  const typeInfo = getFileTypeInfo(file.type);
+  document.getElementById('timetableDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">${typeInfo.emoji}</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+}
+
+const timetableDropZone = document.getElementById('timetableDropZone');
+if (timetableDropZone) {
+  timetableDropZone.addEventListener('dragover', e => { e.preventDefault(); timetableDropZone.classList.add('drag-over'); });
+  timetableDropZone.addEventListener('dragleave', () => timetableDropZone.classList.remove('drag-over'));
+  timetableDropZone.addEventListener('drop', e => { e.preventDefault(); timetableDropZone.classList.remove('drag-over'); const file = e.dataTransfer.files[0]; if (file) setTimetableFile(file); });
+}
+
+async function submitTimetable() {
+  const section = document.getElementById('timetableSection').value;
+  if (!timetableSelectedFile) { toast('Please select a file', 'error'); return; }
+  const formData = new FormData();
+  formData.append('section', section);
+  formData.append('uploaded_by', currentUser);
+  formData.append('file', timetableSelectedFile);
+  const btn = document.getElementById('timetableUploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  try {
+    const res = await fetch('/api/timetables', { method: 'POST', body: formData });
+    if (res.ok) {
+      toast('Timetable uploaded! 🎉', 'success');
+      closeModal('timetableUploadModal');
+      loadTimetables();
+    } else { const d = await res.json(); toast(d.error || 'Upload failed', 'error'); }
+  } catch { toast('Upload failed. Check your connection.', 'error'); }
+  btn.disabled = false; btn.textContent = 'Upload Timetable 🚀';
+}
 
 async function loadQuestions() {
   const res = await fetch('/api/questions');
@@ -880,7 +1033,7 @@ function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   }
 });
 
