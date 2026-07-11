@@ -1626,3 +1626,91 @@ h1, h2, h3 {
   .modal-box { padding: 2.75rem; }
   .planner-card, .quiz-card { padding: 20px 24px; border-radius: 16px; }
 }
+
+/* ══════════════════════════════════════════════════
+   MOBILE APP-LIKE POLISH
+   ══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Floating Action Button (upload/create buttons) */
+  .section-header .btn-primary {
+    position: fixed;
+    bottom: 88px;
+    right: 20px;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    color: transparent;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(200,75,49,0.45);
+    z-index: 150;
+  }
+  .section-header .btn-primary::before {
+    content: '+';
+    font-size: 2rem;
+    font-weight: 300;
+    color: #fff;
+    line-height: 1;
+  }
+  .section-header .btn-primary:active { transform: scale(0.9); }
+
+  /* Bottom nav active pill */
+  .mnav-item.active .mnav-icon {
+    background: var(--accent-light);
+    border-radius: 10px;
+    padding: 3px 12px;
+  }
+
+  /* Card tap feedback */
+  .note-card:active, .question-card:active,
+  .planner-card:active, .quiz-card:active,
+  .admin-card:active {
+    transform: scale(0.985);
+  }
+  .note-card, .question-card, .planner-card, .quiz-card {
+    transition: transform 0.12s ease, box-shadow 0.2s ease;
+  }
+
+  /* Modal drag-handle bar */
+  .modal-box { position: relative; padding-top: 34px; }
+  .modal-box::before {
+    content: '';
+    position: absolute; top: 10px; left: 50%;
+    transform: translateX(-50%);
+    width: 42px; height: 4px; border-radius: 99px;
+    background: var(--border2);
+  }
+
+  /* Rounder, elevated inputs */
+  .filter-bar input, .filter-bar select,
+  .form-group input, .form-group select, .form-group textarea {
+    border-radius: 12px;
+  }
+  .filter-bar input:focus, .form-group input:focus,
+  .form-group select:focus, .form-group textarea:focus {
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  /* Toast above bottom nav */
+  .toast { bottom: 100px; left: 16px; right: 16px; max-width: none; }
+
+  /* Safe area for notch phones */
+  .mobile-bottom-nav { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .topnav { padding-top: env(safe-area-inset-top); }
+
+  /* Smoother section headers */
+  .section-header h2 { letter-spacing: -0.5px; }
+  .section-header p { opacity: 0.75; }
+
+  /* Card image/badge polish */
+  .note-card, .question-card { border-radius: 18px; }
+  .file-type-badge { font-weight: 700; letter-spacing: 0.03em; }
+
+  /* Button press feedback everywhere */
+  button { -webkit-tap-highlight-color: transparent; }
+  .btn-secondary:active, .btn-danger:active, .logout-btn:active {
+    transform: scale(0.95);
+  }
+}
