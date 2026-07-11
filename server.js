@@ -526,7 +526,43 @@ app.delete('/api/questions/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── BLOCK/UNBLOCK ────────────────────────────────────────────────────────────
+// ─── STUDY STREAK ─────────────────────────────────────────────────────────────
+app.post('/api/streak/update', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    const key = username.toLowerCase();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data: existing } = await supabase.from('user_streaks').select('*').eq('username', key).single();
+
+    let current = 1, longest = 1;
+
+    if (existing) {
+      if (existing.last_login_date === today) {
+        current = existing.current_streak;
+        longest = existing.longest_streak;
+      } else {
+        const diffDays = Math.round((new Date(today) - new Date(existing.last_login_date)) / (1000 * 60 * 60 * 24));
+        current = diffDays === 1 ? existing.current_streak + 1 : 1;
+        longest = Math.max(current, existing.longest_streak);
+        await supabase.from('user_streaks').update({ current_streak: current, longest_streak: longest, last_login_date: today }).eq('username', key);
+      }
+    } else {
+      await supabase.from('user_streaks').insert({ username: key, current_streak: 1, longest_streak: 1, last_login_date: today });
+    }
+
+    res.json({ current, longest });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/streak/leaderboard', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('user_streaks').select('*').order('current_streak', { ascending: false }).limit(10);
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/block', async (req, res) => {
   try {
     const { requester, targetUser } = req.body;

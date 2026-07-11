@@ -68,6 +68,7 @@ async function loginUser() {
   loadQuestions();
   loadAnnouncements();
   toast(`Welcome, ${name}! 👋`, 'success');
+  updateStudyStreak();
 }
 
 function logout() { stopStudyTimer(); localStorage.removeItem('studyhub_user'); location.reload(); }
@@ -1058,6 +1059,29 @@ function escHtml(str) {
 function updateAdminStats() {
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
+}
+
+// ══════════════════════════════════════════════════
+// STUDY STREAK
+// ══════════════════════════════════════════════════
+async function updateStudyStreak() {
+  try {
+    const res = await fetch('/api/streak/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    if (!res.ok) return;
+    const d = await res.json();
+    const badge = document.getElementById('streakBadge');
+    const count = document.getElementById('streakCount');
+    if (badge && count) {
+      count.textContent = d.current;
+      badge.classList.remove('hidden');
+    }
+    if (d.current > 1) {
+      setTimeout(() => toast(`🔥 ${d.current} din se padh rahe ho! Keep going!`, 'success'), 1200);
+    }
+  } catch {}
 }
 
 // ══════════════════════════════════════════════════
