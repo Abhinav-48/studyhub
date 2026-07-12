@@ -180,9 +180,12 @@
     </div>
 
     <div class="section-header">
-      <div>
-        <h2>Study Notes</h2>
-        <p id="notesBreadcrumb">Select your course to browse notes</p>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div>
+          <h2>Study Notes</h2>
+          <p id="notesBreadcrumb">Select your course to browse notes</p>
+        </div>
+        <button class="game-btn" onclick="openGameModal()" title="Play a quick game!">🎮</button>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
@@ -603,6 +606,29 @@
     <div id="quizQuestionsList"></div>
     <button class="btn-secondary" onclick="addQuizQuestion()" style="margin:12px 0;width:100%;">+ Add Question</button>
     <button class="btn-primary full-width" onclick="saveQuiz()">Save Quiz 🎯</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ GAME MODAL ═══════════════════ -->
+<div id="gameModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'gameModal')">
+  <div class="modal-box game-modal-box">
+    <button class="modal-close" onclick="closeGameModal()">✕</button>
+    <h3>🦖 Study Break Runner</h3>
+    <p class="modal-sub">Tap / Space / ↑ to jump. Dodge the cacti!</p>
+    <div class="game-wrap">
+      <canvas id="gameCanvas" width="600" height="200"></canvas>
+      <div id="gameOverlay" class="game-overlay">
+        <div class="game-overlay-inner">
+          <div style="font-size:2.5rem;">🦖</div>
+          <p id="gameOverlayText" style="font-weight:600;margin:8px 0;">Tap or press Space to start</p>
+          <button class="btn-primary" onclick="startGame()">▶ Play</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-score-row">
+      <span>Score: <strong id="gameScore">0</strong></span>
+      <span>Best: <strong id="gameBest">0</strong></span>
+    </div>
   </div>
 </div>
 

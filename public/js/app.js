@@ -1691,3 +1691,117 @@ function setTheme(theme) {
   document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`.theme-btn-${theme}`)?.classList.add('active');
 }
+// ══════════════════════════════════════════════════
+// MINI GAME — Study Break Runner (Dino-style)
+// ══════════════════════════════════════════════════
+let gameCtx, gameCanvas, gameRunning = false, gameLoopId = null;
+let dino, obstacles, gameSpeed, score, gameBest = parseInt(localStorage.getItem('studyhub_game_best') || '0');
+
+function openGameModal() {
+  openModal('gameModal');
+  gameCanvas = document.getElementById('gameCanvas');
+  gameCtx = gameCanvas.getContext('2d');
+  document.getElementById('gameBest').textContent = gameBest;
+  resetGameState();
+  drawGame();
+  document.getElementById('gameOverlay').classList.remove('hidden');
+  document.getElementById('gameOverlayText').textContent = 'Tap or press Space to start';
+}
+
+function closeGameModal() {
+  gameRunning = false;
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  closeModal('gameModal');
+}
+
+function resetGameState() {
+  dino = { x: 40, y: 150, w: 30, h: 34, vy: 0, jumping: false };
+  obstacles = [];
+  gameSpeed = 5;
+  score = 0;
+  document.getElementById('gameScore').textContent = '0';
+}
+
+function startGame() {
+  resetGameState();
+  document.getElementById('gameOverlay').classList.add('hidden');
+  gameRunning = true;
+  loopGame();
+}
+
+function jumpDino() {
+  if (!gameRunning) { startGame(); return; }
+  if (!dino.jumping) {
+    dino.jumping = true;
+    dino.vy = -11;
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('gameModal')?.classList.contains('hidden')) {
+    if (e.code === 'Space' || e.key === 'ArrowUp') { e.preventDefault(); jumpDino(); }
+  }
+});
+document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
+  document.getElementById('gameOverlay')?.addEventListener('click', jumpDino);
+});
+
+function loopGame() {
+  if (!gameRunning) return;
+
+  dino.vy += 0.6;
+  dino.y += dino.vy;
+  if (dino.y >= 150) { dino.y = 150; dino.vy = 0; dino.jumping = false; }
+
+  if (Math.random() < 0.02 && (!obstacles.length || obstacles[obstacles.length - 1].x < 400)) {
+    obstacles.push({ x: gameCanvas.width, y: 155, w: 16, h: 28 });
+  }
+  obstacles.forEach(o => o.x -= gameSpeed);
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  for (const o of obstacles) {
+    if (dino.x < o.x + o.w && dino.x + dino.w > o.x && dino.y < o.y + o.h && dino.y + dino.h > o.y) {
+      endGame();
+      return;
+    }
+  }
+
+  score += 1;
+  gameSpeed = 5 + Math.floor(score / 500) * 0.5;
+  document.getElementById('gameScore').textContent = Math.floor(score / 10);
+
+  drawGame();
+  gameLoopId = requestAnimationFrame(loopGame);
+}
+
+function drawGame() {
+  const w = gameCanvas.width, h = gameCanvas.height;
+  gameCtx.clearRect(0, 0, w, h);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  gameCtx.fillStyle = isDark ? '#e8eaf6' : '#1a1612';
+
+  gameCtx.strokeStyle = isDark ? '#404460' : '#cdc7bc';
+  gameCtx.beginPath();
+  gameCtx.moveTo(0, 184);
+  gameCtx.lineTo(w, 184);
+  gameCtx.stroke();
+
+  gameCtx.fillRect(dino.x, dino.y, dino.w, dino.h);
+
+  obstacles.forEach(o => gameCtx.fillRect(o.x, o.y, o.w, o.h));
+}
+
+function endGame() {
+  gameRunning = false;
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  const finalScore = Math.floor(score / 10);
+  if (finalScore > gameBest) {
+    gameBest = finalScore;
+    localStorage.setItem('studyhub_game_best', gameBest);
+    document.getElementById('gameBest').textContent = gameBest;
+  }
+  document.getElementById('gameOverlay').classList.remove('hidden');
+  document.getElementById('gameOverlayText').textContent = `💥 Game Over! Score: ${finalScore} — tap to retry`;
+}
