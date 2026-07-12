@@ -223,6 +223,7 @@ async function loadNotes() {
 let currentNoteCourse = null;
 let currentNoteSubject = null;
 let allCourses = [];
+let currentCourseSubjects = [];
 
 async function loadCoursesForUpload() {
   const res = await fetch('/api/courses');
@@ -336,7 +337,7 @@ function renderNoteCourses() {
   grid.innerHTML = html;
 }
 
-function openNoteCourse(course) {
+async function openNoteCourse(course) {
   currentNoteCourse = course;
   currentNoteSubject = null;
   pushNavState();
@@ -347,20 +348,105 @@ function openNoteCourse(course) {
 
   const grid = document.getElementById('notesSubjectsGrid');
   const empty = document.getElementById('notesSubjectsEmpty');
-  const subjects = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))].sort();
 
-  if (!subjects.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
+  const res = await fetch(`/api/subjects?course=${encodeURIComponent(course)}`);
+  currentCourseSubjects = await res.json();
+
+  const derivedNames = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))];
+  const dbNames = currentCourseSubjects.map(s => s.name);
+  const allNames = [...new Set([...dbNames, ...derivedNames])].sort();
+  const isAdmin = isAdminUser();
+
+  if (!allNames.length && !isAdmin) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
   empty.classList.add('hidden');
 
-  grid.innerHTML = subjects.map(sub => {
+  let html = allNames.map(sub => {
+    const dbSub = currentCourseSubjects.find(s => s.name === sub);
     const count = allNotes.filter(n => (n.course || '6th Sem') === course && (n.subject || 'General') === sub).length;
     const safeSub = escHtml(sub).replace(/'/g, "\\'");
     return `
-      <div class="note-card" style="cursor:pointer;" onclick="openNoteSubject('${safeSub}')">
-        <div class="note-title">📚 ${escHtml(sub)}</div>
-        <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+      <div class="note-card course-card" style="position:relative;">
+        ${isAdmin && dbSub ? `<button onclick="showSubjectContextMenu(event,'${dbSub.id}','${safeSub}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
+        <div style="cursor:pointer;" onclick="openNoteSubject('${safeSub}')">
+          <div class="note-title">📚 ${escHtml(sub)}</div>
+          <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+        </div>
       </div>`;
   }).join('');
+
+  if (isAdmin) {
+    html += `
+      <div class="note-card" style="cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:90px;border:2px dashed var(--border);" onclick="addSubjectFolderPrompt()">
+        <div style="text-align:center;color:var(--text2);">
+          <div style="font-size:1.6rem;">➕</div>
+          <div style="font-size:0.85rem;margin-top:4px;">Add Folder</div>
+        </div>
+      </div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+async function addSubjectFolderPrompt() {
+  const name = prompt('Enter new subject folder name:');
+  if (!name || !name.trim()) return;
+  const res = await fetch('/api/subjects', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, course: currentNoteCourse, name: name.trim() })
+  });
+  if (res.ok) { toast('Subject folder added! 📁', 'success'); openNoteCourse(currentNoteCourse); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function renameSubject(id, oldName) {
+  const newName = prompt('Enter new subject name:', oldName);
+  if (!newName || !newName.trim() || newName.trim() === oldName) return;
+  const res = await fetch(`/api/subjects/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, name: newName.trim() })
+  });
+  if (res.ok) { toast('Subject renamed! ✅', 'success'); await loadNotes(); openNoteCourse(currentNoteCourse); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function deleteSubject(id, name) {
+  if (!confirm(`Delete subject "${name}"? This cannot be undone.`)) return;
+  const res = await fetch(`/api/subjects/${id}`, {
+    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  if (res.ok) { toast('Subject deleted 🗑', 'success'); openNoteCourse(currentNoteCourse); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+function showSubjectContextMenu(e, id, name) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!isAdminUser()) return;
+  document.getElementById('folderCtxMenu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'folderCtxMenu';
+  menu.className = 'folder-ctx-menu';
+  const rect = e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : null;
+  let top = rect ? rect.bottom : e.clientY;
+  let left = rect ? rect.left : e.clientX;
+  const menuHeight = 90, menuWidth = 150;
+  if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight;
+  if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  const safeName = name.replace(/'/g,"\\'");
+  menu.innerHTML = `
+    <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
+  `;
+  document.body.appendChild(menu);
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu() {
+      document.getElementById('folderCtxMenu')?.remove();
+      document.removeEventListener('click', closeMenu);
+    });
+  }, 0);
 }
 
 function openNoteSubject(subject) {
@@ -525,12 +611,47 @@ async function previewNote(id) {
 // UPLOAD MODAL
 // ══════════════════════════════════════════════════
 
+async function loadSubjectsForUpload(course) {
+  const sel = document.getElementById('noteSubject');
+  if (!sel || !course) return;
+  const res = await fetch(`/api/subjects?course=${encodeURIComponent(course)}`);
+  const dbSubjects = await res.json();
+  const derivedNames = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))];
+  const dbNames = dbSubjects.map(s => s.name);
+  const allNames = [...new Set([...dbNames, ...derivedNames])].sort();
+  sel.innerHTML = allNames.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('') + `<option value="__new__">➕ Add new subject...</option>`;
+}
+
+document.getElementById('noteCourse')?.addEventListener('change', async (e) => {
+  await loadSubjectsForUpload(e.target.value);
+});
+
+document.getElementById('noteSubject')?.addEventListener('change', async (e) => {
+  if (e.target.value === '__new__') {
+    const name = prompt('Enter new subject name:');
+    const course = document.getElementById('noteCourse').value;
+    if (!name || !name.trim()) { await loadSubjectsForUpload(course); return; }
+    const res = await fetch('/api/subjects', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requester: currentUser, course, name: name.trim() })
+    });
+    if (res.ok) {
+      await loadSubjectsForUpload(course);
+      document.getElementById('noteSubject').value = name.trim();
+    } else { const d = await res.json(); toast(d.error || 'Failed to add subject', 'error'); await loadSubjectsForUpload(course); }
+  }
+});
+
 async function openUploadModal() {
   selectedFile = null;
   document.getElementById('noteTitle').value = '';
   await loadCoursesForUpload();
-  if (currentNoteCourse) document.getElementById('noteCourse').value = currentNoteCourse;
-  document.getElementById('noteSubject').value = currentNoteSubject || '';
+  const courseToUse = currentNoteCourse || (allCourses[0] && allCourses[0].name) || '';
+  document.getElementById('noteCourse').value = courseToUse;
+  await loadSubjectsForUpload(courseToUse);
+  const subjSel = document.getElementById('noteSubject');
+  if (currentNoteSubject) { subjSel.value = currentNoteSubject; }
+  else if (subjSel.options.length) { subjSel.selectedIndex = 0; }
   document.getElementById('noteDesc').value = '';
   document.getElementById('fileInput').value = '';
   document.getElementById('dropInner').innerHTML = `<span class="drop-icon">📎</span><p>Click or drag & drop your file here</p><span class="file-types">PDF · JPG · PNG · MP4 · DOCX · PPTX · TXT</span>`;
@@ -558,7 +679,7 @@ async function submitNote() {
   const description = document.getElementById('noteDesc').value.trim();
   if (!title) { toast('Please enter a title', 'error'); return; }
   if (!course) { toast('Please enter course/semester', 'error'); return; }
-  if (!subject) { toast('Please enter subject', 'error'); return; }
+  if (!subject || subject === '__new__') { toast('Please select or add a subject', 'error'); return; }
   if (!selectedFile) { toast('Please select a file', 'error'); return; }
   const formData = new FormData();
   formData.append('author', currentUser); formData.append('title', title);
@@ -1438,6 +1559,9 @@ socket.on('quiz_deleted', () => { loadQuizList(); });
 socket.on('course_renamed', async () => { await loadCoursesForUpload(); loadNotes(); });
 socket.on('course_added', async () => { await loadCoursesForUpload(); loadNotes(); });
 socket.on('course_deleted', async () => { await loadCoursesForUpload(); loadNotes(); });
+socket.on('subject_added', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
+socket.on('subject_renamed', async () => { await loadNotes(); if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
+socket.on('subject_deleted', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
 
 // ══════════════════════════════════════════════════
 // MODAL HELPERS
@@ -1498,7 +1622,7 @@ async function updateStudyStreak() {
       badge.classList.remove('hidden');
     }
     if (d.current > 1) {
-      setTimeout(() => toast(`🔥 ${d.current} din se padh rahe ho! Keep going!`, 'success'), 1200);
+      setTimeout(() => toast(`🔥 ${d.current}-day streak! Keep going!`, 'success'), 1200);
     }
   } catch {}
 }

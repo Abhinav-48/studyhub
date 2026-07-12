@@ -466,6 +466,62 @@ app.delete('/api/courses/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── SUBJECTS (folders inside a course) ────────────────────────────────────────
+app.get('/api/subjects', async (req, res) => {
+  try {
+    const { course } = req.query;
+    let query = supabase.from('subjects').select('*').order('sort_order', { ascending: true });
+    if (course) query = query.eq('course', course);
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/subjects', async (req, res) => {
+  try {
+    const { requester, course, name } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!course || !name || !name.trim()) return res.status(400).json({ error: 'Course and name required' });
+    const { count } = await supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('course', course);
+    const { data, error } = await supabase.from('subjects').insert({ course, name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(400).json({ error: 'Subject already exists in this course.' });
+      throw error;
+    }
+    io.emit('subject_added', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/subjects/:id', async (req, res) => {
+  try {
+    const { requester, name } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { data: old } = await supabase.from('subjects').select('*').eq('id', req.params.id).single();
+    const { data, error } = await supabase.from('subjects').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    if (old) await supabase.from('notes').update({ subject: name.trim() }).eq('course', old.course).eq('subject', old.name);
+    io.emit('subject_renamed');
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/subjects/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    const { data: sub } = await supabase.from('subjects').select('*').eq('id', req.params.id).single();
+    if (!sub) return res.status(404).json({ error: 'Subject not found' });
+    const { count } = await supabase.from('notes').select('id', { count: 'exact', head: true }).eq('course', sub.course).eq('subject', sub.name);
+    if (count && count > 0) return res.status(400).json({ error: `Cannot delete — subject has ${count} note(s). Delete or move them first.` });
+    await supabase.from('subjects').delete().eq('id', req.params.id);
+    io.emit('subject_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 function getResourceType(mimetype) {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';
