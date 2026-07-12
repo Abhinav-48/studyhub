@@ -167,19 +167,42 @@
 
   <!-- NOTES TAB -->
   <section id="tab-notes" class="tab-content active">
+
+    <div id="newsNoticeWidget" class="news-widget hidden">
+      <div class="news-widget-col">
+        <h4>📢 Latest News & Notices</h4>
+        <div id="newsWidgetList"></div>
+      </div>
+      <div class="news-widget-col">
+        <h4>🗓 Upcoming Exam Dates</h4>
+        <div id="examWidgetList"></div>
+      </div>
+    </div>
+
     <div class="section-header">
       <div>
         <h2>Study Notes</h2>
-        <p>Select a subject to browse notes</p>
+        <p id="notesBreadcrumb">Select your course to browse notes</p>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
 
-    <div id="notesSubjectsGrid" class="notes-grid"></div>
-    <div id="notesSubjectsEmpty" class="empty-state hidden">
+    <!-- LEVEL 1: Courses -->
+    <div id="notesCoursesGrid" class="notes-grid"></div>
+    <div id="notesCoursesEmpty" class="empty-state hidden">
       <span>📭</span><p>No notes yet. Be the first to upload!</p>
     </div>
 
+    <!-- LEVEL 2: Subjects -->
+    <div id="notesSubjectsView" class="hidden">
+      <button class="btn-secondary" onclick="backToNoteCourses()" style="margin-bottom:16px;">← Back to Courses</button>
+      <div id="notesSubjectsGrid" class="notes-grid"></div>
+      <div id="notesSubjectsEmpty" class="empty-state hidden">
+        <span>📭</span><p>No subjects uploaded here yet.</p>
+      </div>
+    </div>
+
+    <!-- LEVEL 3: Notes -->
     <div id="notesFilesView" class="hidden">
       <button class="btn-secondary" onclick="backToNoteSubjects()" style="margin-bottom:16px;">← Back to Subjects</button>
       <h3 id="notesSubjectTitle" style="font-family:Fraunces,serif;font-size:1.3rem;margin-bottom:16px;"></h3>
@@ -367,13 +390,22 @@
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Subject</label>
-        <input type="text" id="noteSubject" placeholder="e.g. Mathematics, Physics, History..." />
+        <label>Course / Semester *</label>
+        <input type="text" id="noteCourse" placeholder="e.g. BCA 6th Sem" list="courseSuggestions" />
+        <datalist id="courseSuggestions">
+          <option value="BCA 6th Sem">
+          <option value="BCA 5th Sem">
+          <option value="MCA">
+        </datalist>
       </div>
       <div class="form-group">
-        <label>Author Name *</label>
-        <input type="text" id="noteAuthor" readonly />
+        <label>Subject *</label>
+        <input type="text" id="noteSubject" placeholder="e.g. DBMS, Networking..." />
       </div>
+    </div>
+    <div class="form-group">
+      <label>Author Name *</label>
+      <input type="text" id="noteAuthor" readonly />
     </div>
     <div class="form-group">
       <label>Description</label>

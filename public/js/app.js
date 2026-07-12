@@ -67,6 +67,7 @@ async function loginUser() {
   loadNotes();
   loadQuestions();
   loadAnnouncements();
+  loadHomeWidgets();
   toast(`Welcome, ${name}! 👋`, 'success');
   updateStudyStreak();
 }
@@ -114,6 +115,42 @@ function switchTab(tab) {
   if (tab === 'planner') loadPlanner();
   if (tab === 'quiz') loadQuizList();
   if (tab === 'timetable') loadTimetables();
+  if (tab === 'notes') loadHomeWidgets();
+}
+
+// ══════════════════════════════════════════════════
+// HOME WIDGETS (News & Exam Dates)
+// ══════════════════════════════════════════════════
+
+async function loadHomeWidgets() {
+  try {
+    const [annRes, evRes] = await Promise.all([fetch('/api/announcements'), fetch('/api/events')]);
+    const announcements = await annRes.json();
+    const events = await evRes.json();
+
+    const widget = document.getElementById('newsNoticeWidget');
+    const newsList = document.getElementById('newsWidgetList');
+    const examList = document.getElementById('examWidgetList');
+    if (!widget) return;
+
+    const latestNews = announcements.slice(0, 3);
+    newsList.innerHTML = latestNews.length ? latestNews.map(a => {
+      const date = new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      return `<div class="news-widget-item"><span class="news-dot"></span><span class="news-widget-text">${escHtml(a.message)}</span><span class="news-widget-date">${date}</span></div>`;
+    }).join('') : `<div class="news-widget-empty">No news yet</div>`;
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcomingExams = events.filter(e => e.event_type === 'exam' && new Date(e.event_date) >= today)
+      .sort((a,b) => new Date(a.event_date) - new Date(b.event_date)).slice(0, 3);
+    examList.innerHTML = upcomingExams.length ? upcomingExams.map(e => {
+      const evDate = new Date(e.event_date);
+      const diffDays = Math.ceil((evDate - today) / (1000*60*60*24));
+      const dateStr = evDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      return `<div class="news-widget-item"><span class="exam-dot"></span><span class="news-widget-text">${escHtml(e.title)} (${escHtml(e.subject)})</span><span class="news-widget-date">${dateStr} · ${diffDays === 0 ? 'Today' : diffDays + 'd left'}</span></div>`;
+    }).join('') : `<div class="news-widget-empty">No exams scheduled</div>`;
+
+    widget.classList.remove('hidden');
+  } catch {}
 }
 
 // ══════════════════════════════════════════════════
@@ -123,25 +160,56 @@ function switchTab(tab) {
 async function loadNotes() {
   const res = await fetch('/api/notes');
   allNotes = await res.json();
-  if (currentNoteSubject) { openNoteSubject(currentNoteSubject); } else { renderNoteSubjects(); }
+  if (currentNoteSubject) { openNoteSubject(currentNoteSubject); }
+  else if (currentNoteCourse) { openNoteCourse(currentNoteCourse); }
+  else { renderNoteCourses(); }
 }
 
+let currentNoteCourse = null;
 let currentNoteSubject = null;
 
-function renderNoteSubjects() {
+function renderNoteCourses() {
+  document.getElementById('notesSubjectsView')?.classList.add('hidden');
+  document.getElementById('notesFilesView')?.classList.add('hidden');
+  const grid = document.getElementById('notesCoursesGrid');
+  const empty = document.getElementById('notesCoursesEmpty');
+  if (!grid) return;
+  grid.classList.remove('hidden');
+  document.getElementById('notesBreadcrumb').textContent = 'Select your course to browse notes';
+
+  const courses = [...new Set(allNotes.map(n => n.course || '6th Sem'))].sort();
+
+  if (!courses.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = courses.map(c => {
+    const count = allNotes.filter(n => (n.course || '6th Sem') === c).length;
+    const safeC = escHtml(c).replace(/'/g, "\\'");
+    return `
+      <div class="note-card" style="cursor:pointer;" onclick="openNoteCourse('${safeC}')">
+        <div class="note-title">🎓 ${escHtml(c)}</div>
+        <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+      </div>`;
+  }).join('');
+}
+
+function openNoteCourse(course) {
+  currentNoteCourse = course;
+  currentNoteSubject = null;
+  document.getElementById('notesCoursesGrid').classList.add('hidden');
+  document.getElementById('notesFilesView').classList.add('hidden');
+  document.getElementById('notesSubjectsView').classList.remove('hidden');
+  document.getElementById('notesBreadcrumb').textContent = `🎓 ${course} — select a subject`;
+
   const grid = document.getElementById('notesSubjectsGrid');
   const empty = document.getElementById('notesSubjectsEmpty');
-  if (!grid) return;
-  document.getElementById('notesFilesView')?.classList.add('hidden');
-  grid.classList.remove('hidden');
-
-  const subjects = [...new Set(allNotes.map(n => n.subject || 'General'))].sort();
+  const subjects = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))].sort();
 
   if (!subjects.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
   empty.classList.add('hidden');
 
   grid.innerHTML = subjects.map(sub => {
-    const count = allNotes.filter(n => (n.subject || 'General') === sub).length;
+    const count = allNotes.filter(n => (n.course || '6th Sem') === course && (n.subject || 'General') === sub).length;
     const safeSub = escHtml(sub).replace(/'/g, "\\'");
     return `
       <div class="note-card" style="cursor:pointer;" onclick="openNoteSubject('${safeSub}')">
@@ -153,17 +221,24 @@ function renderNoteSubjects() {
 
 function openNoteSubject(subject) {
   currentNoteSubject = subject;
-  document.getElementById('notesSubjectsGrid').classList.add('hidden');
+  document.getElementById('notesSubjectsView').classList.add('hidden');
   document.getElementById('notesFilesView').classList.remove('hidden');
   document.getElementById('notesSubjectTitle').textContent = `📚 ${subject}`;
+  document.getElementById('notesBreadcrumb').textContent = `🎓 ${currentNoteCourse} → 📚 ${subject}`;
   document.getElementById('searchNotes').value = '';
   document.getElementById('typeFilter').value = '';
   filterNotes();
 }
 
+function backToNoteCourses() {
+  currentNoteCourse = null;
+  currentNoteSubject = null;
+  renderNoteCourses();
+}
+
 function backToNoteSubjects() {
   currentNoteSubject = null;
-  renderNoteSubjects();
+  openNoteCourse(currentNoteCourse);
 }
 
 function renderNotes(notes) {
@@ -226,7 +301,7 @@ function filterNotes() {
   const type = document.getElementById('typeFilter').value;
   const normalize = s => (s || '').toLowerCase().replace(/[-_\s]+/g, ' ').trim();
   const searchNorm = normalize(search);
-  const scoped = currentNoteSubject ? allNotes.filter(n => (n.subject || 'General') === currentNoteSubject) : allNotes;
+  const scoped = allNotes.filter(n => (n.course || '6th Sem') === currentNoteCourse && (n.subject || 'General') === currentNoteSubject);
   const filtered = scoped.filter(n => {
     const matchSearch = !search || normalize(n.title).includes(searchNorm) || normalize(n.author).includes(searchNorm) || normalize(n.description).includes(searchNorm) || normalize(n.subject).includes(searchNorm);
     const matchType = !type || (type === 'pdf' && n.fileType === 'application/pdf' || type === 'image' && n.fileType.startsWith('image/') || type === 'video' && n.fileType.startsWith('video/') || type === 'doc' && (n.fileType.includes('word') || n.fileType.includes('presentation')));
@@ -292,6 +367,7 @@ function previewNote(id) {
 function openUploadModal() {
   selectedFile = null;
   document.getElementById('noteTitle').value = '';
+  document.getElementById('noteCourse').value = currentNoteCourse || '';
   document.getElementById('noteSubject').value = currentNoteSubject || '';
   document.getElementById('noteDesc').value = '';
   document.getElementById('fileInput').value = '';
@@ -315,13 +391,16 @@ dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.
 
 async function submitNote() {
   const title = document.getElementById('noteTitle').value.trim();
-  const subject = document.getElementById('noteSubject').value;
+  const course = document.getElementById('noteCourse').value.trim();
+  const subject = document.getElementById('noteSubject').value.trim();
   const description = document.getElementById('noteDesc').value.trim();
   if (!title) { toast('Please enter a title', 'error'); return; }
+  if (!course) { toast('Please enter course/semester', 'error'); return; }
+  if (!subject) { toast('Please enter subject', 'error'); return; }
   if (!selectedFile) { toast('Please select a file', 'error'); return; }
   const formData = new FormData();
   formData.append('author', currentUser); formData.append('title', title);
-  formData.append('subject', subject); formData.append('description', description);
+  formData.append('course', course); formData.append('subject', subject); formData.append('description', description);
   formData.append('file', selectedFile);
   const btn = document.getElementById('uploadBtn');
   btn.disabled = true; btn.textContent = 'Uploading...';
@@ -1033,17 +1112,27 @@ socket.on('note_approved', () => { loadNotes(); });
 socket.on('note_rejected', () => { loadPendingNotes(); });
 socket.on('new_note', (note) => {
   allNotes.unshift(note);
-  if (currentNoteSubject && (note.subject || 'General') === currentNoteSubject) {
+  const noteCourse = note.course || '6th Sem';
+  const noteSubject = note.subject || 'General';
+  if (currentNoteSubject && noteCourse === currentNoteCourse && noteSubject === currentNoteSubject) {
     const grid = document.getElementById('notesGrid');
     grid.insertBefore(buildNoteCard(note), grid.firstChild);
     document.getElementById('notesEmpty').classList.add('hidden');
-  } else if (!currentNoteSubject) {
-    renderNoteSubjects();
+  } else if (currentNoteCourse && !currentNoteSubject) {
+    openNoteCourse(currentNoteCourse);
+  } else if (!currentNoteCourse) {
+    renderNoteCourses();
   }
   if (note.author !== currentUser) toast(`📤 New note: "${note.title}" by ${note.author}`);
   updateAdminStats();
 });
-socket.on('note_deleted', (id) => { allNotes = allNotes.filter(n => n.id !== id); document.getElementById(`note-${id}`)?.remove(); if (!currentNoteSubject) renderNoteSubjects(); updateAdminStats(); });
+socket.on('note_deleted', (id) => {
+  allNotes = allNotes.filter(n => n.id !== id);
+  document.getElementById(`note-${id}`)?.remove();
+  if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse);
+  else if (!currentNoteCourse) renderNoteCourses();
+  updateAdminStats();
+});
 socket.on('note_updated', (note) => { const idx = allNotes.findIndex(n => n.id === note.id); if (idx !== -1) allNotes[idx] = note; document.getElementById(`note-${note.id}`)?.replaceWith(buildNoteCard(note)); });
 socket.on('new_question', (q) => { allQuestions.unshift(q); const list = document.getElementById('questionsList'); list.insertBefore(buildQuestionCard(q), list.firstChild); document.getElementById('questionsEmpty').classList.add('hidden'); if (q.author !== currentUser) toast(`💬 New question from ${q.author}`); updateAdminStats(); });
 socket.on('question_deleted', (id) => { allQuestions = allQuestions.filter(q => q.id !== id); document.getElementById(`q-${id}`)?.remove(); });

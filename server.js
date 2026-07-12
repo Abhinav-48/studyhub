@@ -298,7 +298,7 @@ function getResourceType(mimetype) {
 
 app.post('/api/notes', upload.single('file'), async (req, res) => {
   try {
-    const { author, title, subject, description } = req.body;
+    const { author, title, subject, description, course } = req.body;
     if (!author || !title || !req.file) return res.status(400).json({ error: 'Missing required fields' });
     const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked by the admin.' });
@@ -338,7 +338,7 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
     }
 
     const { data: note, error: dbError } = await supabase.from('notes').insert({
-      author, title, subject: subject || 'General', description: description || '',
+      author, title, subject: subject || 'General', course: course || '6th Sem', description: description || '',
       file_name: req.file.originalname, file_type: req.file.mimetype,
       file_url: fileUrl, file_size: req.file.size, downloads: 0, status: 'pending'
     }).select().single();
@@ -611,7 +611,7 @@ function formatTimetable(t) {
 }
 function formatNote(n) {
   return {
-    id: n.id, author: n.author, title: n.title, subject: n.subject,
+    id: n.id, author: n.author, title: n.title, subject: n.subject, course: n.course || '6th Sem',
     description: n.description, fileName: n.file_name, fileType: n.file_type,
     fileUrl: n.file_url, fileSize: n.file_size, uploadedAt: n.uploaded_at,
     downloads: n.downloads, status: n.status
