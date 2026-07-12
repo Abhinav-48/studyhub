@@ -59,7 +59,7 @@ let onlineUsers = {};
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -208,7 +208,7 @@ async function uploadGeneric(file) {
     const rt = file.mimetype.startsWith('video/') ? 'video' : 'image';
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { resource_type: rt, folder: 'studyhub/attachments', public_id: uuidv4(), timeout: 120000 },
+        { resource_type: rt, folder: 'studyhub/attachments', public_id: uuidv4(), timeout: 600000 },
         (error, result) => { if (error) reject(error); else resolve(result); }
       );
       stream.end(file.buffer);
@@ -505,7 +505,7 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
     } else {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4(), timeout: 120000 },
+          { resource_type: resourceType, folder: 'studyhub', public_id: uuidv4(), timeout: 600000 },
           (error, result) => { if (error) reject(error); else resolve(result); }
         );
         stream.end(req.file.buffer);
@@ -628,7 +628,7 @@ app.post('/api/timetables', upload.single('file'), async (req, res) => {
     } else {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { resource_type: 'image', folder: 'studyhub/timetables', public_id: uuidv4(), timeout: 120000 },
+          { resource_type: 'image', folder: 'studyhub/timetables', public_id: uuidv4(), timeout: 600000 },
           (error, result) => { if (error) reject(error); else resolve(result); }
         );
         stream.end(req.file.buffer);
