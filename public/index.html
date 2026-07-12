@@ -170,27 +170,35 @@
     <div class="section-header">
       <div>
         <h2>Study Notes</h2>
-        <p>Browse and download notes shared by the community</p>
+        <p>Select a subject to browse notes</p>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
 
-    <!-- Filters -->
-    <div class="filter-bar">
-      <input type="text" id="searchNotes" placeholder="🔍 Search notes..." oninput="filterNotes()" />
-      <input type="text" id="subjectFilter" placeholder="📚 Filter by subject..." oninput="filterNotes()" />
-      <select id="typeFilter" onchange="filterNotes()">
-        <option value="">All Types</option>
-        <option value="pdf">PDF</option>
-        <option value="image">Images</option>
-        <option value="video">Videos</option>
-        <option value="doc">Documents</option>
-      </select>
+    <div id="notesSubjectsGrid" class="notes-grid"></div>
+    <div id="notesSubjectsEmpty" class="empty-state hidden">
+      <span>📭</span><p>No notes yet. Be the first to upload!</p>
     </div>
 
-    <div id="notesGrid" class="notes-grid"></div>
-    <div id="notesEmpty" class="empty-state hidden">
-      <span>📭</span><p>No notes yet. Be the first to upload!</p>
+    <div id="notesFilesView" class="hidden">
+      <button class="btn-secondary" onclick="backToNoteSubjects()" style="margin-bottom:16px;">← Back to Subjects</button>
+      <h3 id="notesSubjectTitle" style="font-family:Fraunces,serif;font-size:1.3rem;margin-bottom:16px;"></h3>
+
+      <div class="filter-bar">
+        <input type="text" id="searchNotes" placeholder="🔍 Search notes..." oninput="filterNotes()" />
+        <select id="typeFilter" onchange="filterNotes()">
+          <option value="">All Types</option>
+          <option value="pdf">PDF</option>
+          <option value="image">Images</option>
+          <option value="video">Videos</option>
+          <option value="doc">Documents</option>
+        </select>
+      </div>
+
+      <div id="notesGrid" class="notes-grid"></div>
+      <div id="notesEmpty" class="empty-state hidden">
+        <span>📭</span><p>No notes in this subject yet.</p>
+      </div>
     </div>
   </section>
 

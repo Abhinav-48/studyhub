@@ -123,7 +123,47 @@ function switchTab(tab) {
 async function loadNotes() {
   const res = await fetch('/api/notes');
   allNotes = await res.json();
-  renderNotes(allNotes);
+  if (currentNoteSubject) { openNoteSubject(currentNoteSubject); } else { renderNoteSubjects(); }
+}
+
+let currentNoteSubject = null;
+
+function renderNoteSubjects() {
+  const grid = document.getElementById('notesSubjectsGrid');
+  const empty = document.getElementById('notesSubjectsEmpty');
+  if (!grid) return;
+  document.getElementById('notesFilesView')?.classList.add('hidden');
+  grid.classList.remove('hidden');
+
+  const subjects = [...new Set(allNotes.map(n => n.subject || 'General'))].sort();
+
+  if (!subjects.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = subjects.map(sub => {
+    const count = allNotes.filter(n => (n.subject || 'General') === sub).length;
+    const safeSub = escHtml(sub).replace(/'/g, "\\'");
+    return `
+      <div class="note-card" style="cursor:pointer;" onclick="openNoteSubject('${safeSub}')">
+        <div class="note-title">📚 ${escHtml(sub)}</div>
+        <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+      </div>`;
+  }).join('');
+}
+
+function openNoteSubject(subject) {
+  currentNoteSubject = subject;
+  document.getElementById('notesSubjectsGrid').classList.add('hidden');
+  document.getElementById('notesFilesView').classList.remove('hidden');
+  document.getElementById('notesSubjectTitle').textContent = `📚 ${subject}`;
+  document.getElementById('searchNotes').value = '';
+  document.getElementById('typeFilter').value = '';
+  filterNotes();
+}
+
+function backToNoteSubjects() {
+  currentNoteSubject = null;
+  renderNoteSubjects();
 }
 
 function renderNotes(notes) {
@@ -183,15 +223,14 @@ function getFileTypeInfo(mime) {
 
 function filterNotes() {
   const search = document.getElementById('searchNotes').value.toLowerCase();
-  const subject = document.getElementById('subjectFilter').value.toLowerCase();
   const type = document.getElementById('typeFilter').value;
   const normalize = s => (s || '').toLowerCase().replace(/[-_\s]+/g, ' ').trim();
   const searchNorm = normalize(search);
-  const filtered = allNotes.filter(n => {
+  const scoped = currentNoteSubject ? allNotes.filter(n => (n.subject || 'General') === currentNoteSubject) : allNotes;
+  const filtered = scoped.filter(n => {
     const matchSearch = !search || normalize(n.title).includes(searchNorm) || normalize(n.author).includes(searchNorm) || normalize(n.description).includes(searchNorm) || normalize(n.subject).includes(searchNorm);
-    const matchSubject = !subject || normalize(n.subject).includes(normalize(subject));
     const matchType = !type || (type === 'pdf' && n.fileType === 'application/pdf' || type === 'image' && n.fileType.startsWith('image/') || type === 'video' && n.fileType.startsWith('video/') || type === 'doc' && (n.fileType.includes('word') || n.fileType.includes('presentation')));
-    return matchSearch && matchSubject && matchType;
+    return matchSearch && matchType;
   });
   renderNotes(filtered);
 }
@@ -253,6 +292,7 @@ function previewNote(id) {
 function openUploadModal() {
   selectedFile = null;
   document.getElementById('noteTitle').value = '';
+  document.getElementById('noteSubject').value = currentNoteSubject || '';
   document.getElementById('noteDesc').value = '';
   document.getElementById('fileInput').value = '';
   document.getElementById('dropInner').innerHTML = `<span class="drop-icon">📎</span><p>Click or drag & drop your file here</p><span class="file-types">PDF · JPG · PNG · MP4 · DOCX · PPTX · TXT</span>`;
@@ -991,8 +1031,19 @@ async function deleteMessage(id) {
 socket.on('new_pending_note', () => { if (currentUser?.toLowerCase() === ADMIN_NAME) { toast('📋 New note waiting for approval!', ''); loadPendingNotes(); } });
 socket.on('note_approved', () => { loadNotes(); });
 socket.on('note_rejected', () => { loadPendingNotes(); });
-socket.on('new_note', (note) => { allNotes.unshift(note); const grid = document.getElementById('notesGrid'); grid.insertBefore(buildNoteCard(note), grid.firstChild); document.getElementById('notesEmpty').classList.add('hidden'); if (note.author !== currentUser) toast(`📤 New note: "${note.title}" by ${note.author}`); updateAdminStats(); });
-socket.on('note_deleted', (id) => { allNotes = allNotes.filter(n => n.id !== id); document.getElementById(`note-${id}`)?.remove(); updateAdminStats(); });
+socket.on('new_note', (note) => {
+  allNotes.unshift(note);
+  if (currentNoteSubject && (note.subject || 'General') === currentNoteSubject) {
+    const grid = document.getElementById('notesGrid');
+    grid.insertBefore(buildNoteCard(note), grid.firstChild);
+    document.getElementById('notesEmpty').classList.add('hidden');
+  } else if (!currentNoteSubject) {
+    renderNoteSubjects();
+  }
+  if (note.author !== currentUser) toast(`📤 New note: "${note.title}" by ${note.author}`);
+  updateAdminStats();
+});
+socket.on('note_deleted', (id) => { allNotes = allNotes.filter(n => n.id !== id); document.getElementById(`note-${id}`)?.remove(); if (!currentNoteSubject) renderNoteSubjects(); updateAdminStats(); });
 socket.on('note_updated', (note) => { const idx = allNotes.findIndex(n => n.id === note.id); if (idx !== -1) allNotes[idx] = note; document.getElementById(`note-${note.id}`)?.replaceWith(buildNoteCard(note)); });
 socket.on('new_question', (q) => { allQuestions.unshift(q); const list = document.getElementById('questionsList'); list.insertBefore(buildQuestionCard(q), list.firstChild); document.getElementById('questionsEmpty').classList.add('hidden'); if (q.author !== currentUser) toast(`💬 New question from ${q.author}`); updateAdminStats(); });
 socket.on('question_deleted', (id) => { allQuestions = allQuestions.filter(q => q.id !== id); document.getElementById(`q-${id}`)?.remove(); });
