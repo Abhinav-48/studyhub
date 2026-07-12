@@ -951,6 +951,8 @@ async function viewQuizResults(quizId, quizTitle) {
   document.getElementById('previewContent').innerHTML = content;
   openModal('previewModal');
 }
+
+async function deleteQuiz(id) {
   if (!confirm('Delete this quiz?')) return;
   await fetch(`/api/quizzes/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
   toast('Quiz deleted', 'success');
