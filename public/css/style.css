@@ -1763,3 +1763,33 @@ h1, h2, h3 {
 .news-widget-col { padding: 14px 16px; }
 .news-widget-col h4 { font-size: 0.9rem; margin-bottom: 8px; }
 .news-widget-item { padding: 6px 0; font-size: 0.78rem; }
+/* ══════════════════════════════════════════════════
+   FOLDER CONTEXT MENU (3-dot menu)
+   ══════════════════════════════════════════════════ */
+.folder-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  min-width: 140px;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease;
+}
+.folder-ctx-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.folder-ctx-menu button:hover {
+  background: var(--bg2);
+}

@@ -323,7 +323,8 @@ app.post('/api/courses', async (req, res) => {
     const { requester, name } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
-    const { data, error } = await supabase.from('courses').insert({ name: name.trim() }).select().single();
+    const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true });
+    const { data, error } = await supabase.from('courses').insert({ name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
     if (error) throw error;
     io.emit('course_added', data);
     res.json(data);

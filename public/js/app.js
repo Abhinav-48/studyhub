@@ -184,7 +184,7 @@ async function renameCourse(id, oldName) {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requester: currentUser, name: newName.trim() })
   });
-  if (res.ok) { toast('Folder renamed! ✅', 'success'); loadNotes(); }
+  if (res.ok) { toast('Folder renamed! ✅', 'success'); await loadCoursesForUpload(); loadNotes(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -219,20 +219,19 @@ async function deleteCourse(id, name) {
     method: 'DELETE', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requester: currentUser })
   });
-  if (res.ok) { toast('Folder deleted 🗑', 'success'); loadNotes(); }
+  if (res.ok) { toast('Folder deleted 🗑', 'success'); await loadCoursesForUpload(); loadNotes(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
-function openAddFolderPrompt() {
+async function openAddFolderPrompt() {
   const name = prompt('Enter new folder name:');
   if (!name || !name.trim()) return;
-  fetch('/api/courses', {
+  const res = await fetch('/api/courses', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requester: currentUser, name: name.trim() })
-  }).then(async res => {
-    if (res.ok) { toast('Folder added! 📁', 'success'); loadNotes(); }
-    else { const d = await res.json(); toast(d.error, 'error'); }
   });
+  if (res.ok) { toast('Folder added! 📁', 'success'); await loadCoursesForUpload(); loadNotes(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 function renderNoteCourses() {
@@ -1282,9 +1281,9 @@ socket.on('new_event', () => { if (document.getElementById('tab-planner')?.class
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
-socket.on('course_renamed', () => { loadNotes(); });
-socket.on('course_added', () => { loadNotes(); });
-socket.on('course_deleted', () => { loadNotes(); });
+socket.on('course_renamed', async () => { await loadCoursesForUpload(); loadNotes(); });
+socket.on('course_added', async () => { await loadCoursesForUpload(); loadNotes(); });
+socket.on('course_deleted', async () => { await loadCoursesForUpload(); loadNotes(); });
 
 // ══════════════════════════════════════════════════
 // MODAL HELPERS
