@@ -756,6 +756,7 @@ app.post('/api/block', async (req, res) => {
   try {
     const { requester, targetUser } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (targetUser?.toLowerCase() === SUPERADMIN_NAME) return res.status(403).json({ error: 'Cannot block this user.' });
     await supabase.from('blocked_users').upsert({ username: targetUser.toLowerCase() });
     io.emit('user_blocked', targetUser.toLowerCase());
     res.json({ success: true });

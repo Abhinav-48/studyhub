@@ -1418,10 +1418,11 @@ socket.on('new_question', (q) => { allQuestions.unshift(q); const list = documen
 socket.on('question_deleted', (id) => { allQuestions = allQuestions.filter(q => q.id !== id); document.getElementById(`q-${id}`)?.remove(); });
 socket.on('new_reply', ({ questionId, reply }) => { const q = allQuestions.find(q => q.id === questionId); if (q) { q.replies = q.replies || []; q.replies.push(reply); document.getElementById(`q-${questionId}`)?.replaceWith(buildQuestionCard(q)); if (reply.author !== currentUser) toast(`💬 ${reply.author} replied to a question`); } });
 socket.on('online_users', (users) => {
-  document.getElementById('onlineCount').textContent = users.length;
-  document.getElementById('statOnline').textContent = users.length;
+  const visibleUsers = users.filter(u => u.toLowerCase() !== SUPERADMIN_NAME);
+  document.getElementById('onlineCount').textContent = visibleUsers.length;
+  document.getElementById('statOnline').textContent = visibleUsers.length;
   const adminList = document.getElementById('adminUserList');
-  if (adminList) adminList.innerHTML = users.map(u => `<div class="admin-user-item"><span>🟢 ${escHtml(u)}</span>${u.toLowerCase() !== ADMIN_NAME && isAdminUser() ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}</div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
+  if (adminList) adminList.innerHTML = visibleUsers.map(u => `<div class="admin-user-item"><span>🟢 ${escHtml(u)}</span>${u.toLowerCase() !== ADMIN_NAME && isAdminUser() ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}</div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
 });
 socket.on('user_blocked', (username) => { if (currentUser?.toLowerCase() === username) toast('⛔ You have been blocked by the admin.', 'error'); });
 socket.on('new_announcement', () => {
