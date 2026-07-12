@@ -1715,9 +1715,9 @@ function closeGameModal() {
 }
 
 function resetGameState() {
-  dino = { x: 40, y: 150, w: 30, h: 34, vy: 0, jumping: false };
+  dino = { x: 40, y: 150, w: 24, h: 36, vy: 0, jumping: false, legPhase: 0 };
   obstacles = [];
-  gameSpeed = 5;
+  gameSpeed = 3.2;
   score = 0;
   document.getElementById('gameScore').textContent = '0';
 }
@@ -1769,7 +1769,8 @@ function loopGame() {
   }
 
   score += 1;
-  gameSpeed = 5 + Math.floor(score / 500) * 0.5;
+  gameSpeed = Math.min(3.2 + Math.floor(score / 800) * 0.3, 6.5);
+  dino.legPhase += 0.35;
   document.getElementById('gameScore').textContent = Math.floor(score / 10);
 
   drawGame();
@@ -1788,9 +1789,57 @@ function drawGame() {
   gameCtx.lineTo(w, 184);
   gameCtx.stroke();
 
-  gameCtx.fillRect(dino.x, dino.y, dino.w, dino.h);
+  drawRunner(dino);
 
   obstacles.forEach(o => gameCtx.fillRect(o.x, o.y, o.w, o.h));
+}
+
+function drawRunner(d) {
+  const cx = d.x + d.w / 2;
+  const headR = 6;
+  const headY = d.y + headR;
+  const bodyTopY = d.y + headR * 2;
+  const bodyBottomY = d.y + d.h - 8;
+
+  // head
+  gameCtx.beginPath();
+  gameCtx.arc(cx, headY, headR, 0, Math.PI * 2);
+  gameCtx.fill();
+
+  // body
+  gameCtx.beginPath();
+  gameCtx.moveTo(cx, bodyTopY);
+  gameCtx.lineTo(cx, bodyBottomY);
+  gameCtx.lineWidth = 3;
+  gameCtx.strokeStyle = gameCtx.fillStyle;
+  gameCtx.stroke();
+
+  // arms (swing opposite to legs)
+  const armSwing = Math.sin(d.legPhase) * 8;
+  gameCtx.beginPath();
+  gameCtx.moveTo(cx, bodyTopY + 6);
+  gameCtx.lineTo(cx - 7, bodyTopY + 14 + armSwing * 0.3);
+  gameCtx.moveTo(cx, bodyTopY + 6);
+  gameCtx.lineTo(cx + 7, bodyTopY + 14 - armSwing * 0.3);
+  gameCtx.stroke();
+
+  // legs (animated running motion, or straight if jumping)
+  if (d.jumping) {
+    gameCtx.beginPath();
+    gameCtx.moveTo(cx, bodyBottomY);
+    gameCtx.lineTo(cx - 6, bodyBottomY + 8);
+    gameCtx.moveTo(cx, bodyBottomY);
+    gameCtx.lineTo(cx + 6, bodyBottomY + 8);
+    gameCtx.stroke();
+  } else {
+    const legSwing = Math.sin(d.legPhase) * 10;
+    gameCtx.beginPath();
+    gameCtx.moveTo(cx, bodyBottomY);
+    gameCtx.lineTo(cx - 6 + legSwing * 0.4, bodyBottomY + 10);
+    gameCtx.moveTo(cx, bodyBottomY);
+    gameCtx.lineTo(cx + 6 - legSwing * 0.4, bodyBottomY + 10);
+    gameCtx.stroke();
+  }
 }
 
 function endGame() {
