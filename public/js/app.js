@@ -64,11 +64,11 @@ async function loginUser() {
   }
 
   socket.emit('user_join', name);
+  await loadCoursesForUpload();
   loadNotes();
   loadQuestions();
   loadAnnouncements();
   loadHomeWidgets();
-  loadCoursesForUpload();
   toast(`Welcome, ${name}! 👋`, 'success');
   updateStudyStreak();
 }
