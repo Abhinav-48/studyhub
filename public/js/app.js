@@ -3,8 +3,10 @@
    ══════════════════════════════════════════════════ */
 
 const ADMIN_NAME = 'admin';
+const SUPERADMIN_NAME = 'abhinav8112';
 
 let currentUser = null;
+let isSuperAdmin = false;
 let allNotes = [];
 let allQuestions = [];
 let selectedFile = null;
@@ -19,7 +21,7 @@ const socket = io();
 document.getElementById('nameInput').addEventListener('input', (e) => {
   const val = e.target.value.trim().toLowerCase();
   const wrap = document.getElementById('adminPasswordWrap');
-  if (val === ADMIN_NAME) wrap.classList.remove('hidden');
+  if (val === ADMIN_NAME || val === SUPERADMIN_NAME) wrap.classList.remove('hidden');
   else wrap.classList.add('hidden');
 });
 
@@ -35,7 +37,18 @@ async function loginUser() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
-    if (!res.ok) { toast('❌ Wrong admin password!', 'error'); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast('❌ ' + (d.error || 'Wrong admin password!'), 'error'); return; }
+  }
+
+  if (name.toLowerCase() === SUPERADMIN_NAME) {
+    const password = document.getElementById('adminPasswordInput').value;
+    if (!password) { toast('Password required!', 'error'); return; }
+    const res = await fetch('/api/superadmin-login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (!res.ok) { toast('❌ Wrong password!', 'error'); return; }
+    isSuperAdmin = true;
   }
 
   if (name.toLowerCase() !== ADMIN_NAME) {
@@ -56,11 +69,15 @@ async function loginUser() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').classList.remove('hidden');
   document.getElementById('userInitial').textContent = name[0].toUpperCase();
-  document.getElementById('userName').textContent = name;
+  document.getElementById('userName').textContent = name.toLowerCase() === SUPERADMIN_NAME ? 'Super Admin' : name;
   document.getElementById('noteAuthor').value = name;
 
-  if (name.toLowerCase() === ADMIN_NAME) {
+  if (name.toLowerCase() === ADMIN_NAME || name.toLowerCase() === SUPERADMIN_NAME) {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+  }
+  if (isSuperAdmin) {
+    document.querySelectorAll('.superadmin-only').forEach(el => el.classList.remove('hidden'));
+    loadAdminSettings();
   }
 
   socket.emit('user_join', name);
@@ -1085,6 +1102,48 @@ async function saveQuiz() {
 // ADMIN
 // ══════════════════════════════════════════════════
 
+async function loadAdminSettings() {
+  try {
+    const res = await fetch('/api/admin-settings');
+    const data = await res.json();
+    const statusText = document.getElementById('adminBlockStatusText');
+    const btn = document.getElementById('toggleAdminBlockBtn');
+    if (!statusText || !btn) return;
+    if (data.admin_blocked) {
+      statusText.textContent = '🚫 Blocked';
+      statusText.style.color = 'var(--accent)';
+      btn.textContent = '✅ Unblock Admin Access';
+    } else {
+      statusText.textContent = '✅ Active';
+      statusText.style.color = 'var(--green)';
+      btn.textContent = '🚫 Block Admin Access';
+    }
+  } catch {}
+}
+
+async function toggleAdminBlock() {
+  const statusText = document.getElementById('adminBlockStatusText');
+  const currentlyBlocked = statusText?.textContent.includes('Blocked');
+  const res = await fetch('/api/admin-settings/block', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, blocked: !currentlyBlocked })
+  });
+  if (res.ok) { toast(currentlyBlocked ? 'Admin access unblocked ✅' : 'Admin access blocked 🚫', 'success'); loadAdminSettings(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function changeAdminPassword() {
+  const input = document.getElementById('newAdminPasswordInput');
+  const newPassword = input.value.trim();
+  if (!newPassword) { toast('Enter a new password', 'error'); return; }
+  const res = await fetch('/api/admin-settings/change-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, newPassword })
+  });
+  if (res.ok) { toast('Admin password updated ✅', 'success'); input.value = ''; }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function blockUser(targetUser) {
   if (!confirm(`Block "${targetUser}"?`)) return;
   const res = await fetch('/api/block', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, targetUser }) });
@@ -1172,13 +1231,7 @@ let dismissedAnnouncements = JSON.parse(localStorage.getItem('dismissed_announce
 async function loadAnnouncements() {
   const res = await fetch('/api/announcements');
   const announcements = await res.json();
-  const banner = document.getElementById('announcementBanner');
-  const visible = announcements.filter(a => !dismissedAnnouncements.includes(a.id));
-  if (visible.length > 0) {
-    const latest = visible[0];
-    banner.innerHTML = `<span class="announcement-text">📢 ${escHtml(latest.message)}</span><button class="announcement-close" onclick="dismissAnnouncement('${latest.id}')">✕ Dismiss</button>`;
-    banner.classList.remove('hidden');
-  } else { banner.classList.add('hidden'); }
+  document.getElementById('announcementBanner')?.classList.add('hidden');
 
   const container = document.getElementById('announcementsList');
   if (!container) return;
@@ -1332,12 +1385,7 @@ socket.on('online_users', (users) => {
   if (adminList) adminList.innerHTML = users.map(u => `<div class="admin-user-item"><span>🟢 ${escHtml(u)}</span>${u.toLowerCase() !== ADMIN_NAME && currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}</div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
 });
 socket.on('user_blocked', (username) => { if (currentUser?.toLowerCase() === username) toast('⛔ You have been blocked by the admin.', 'error'); });
-socket.on('new_announcement', (announcement) => {
-  if (!dismissedAnnouncements.includes(announcement.id)) {
-    const banner = document.getElementById('announcementBanner');
-    banner.innerHTML = `<span class="announcement-text">📢 ${escHtml(announcement.message)}</span><button class="announcement-close" onclick="dismissAnnouncement('${announcement.id}')">✕ Dismiss</button>`;
-    banner.classList.remove('hidden');
-  }
+socket.on('new_announcement', () => {
   loadAnnouncements();
 });
 socket.on('announcement_deleted', () => { loadAnnouncements(); });

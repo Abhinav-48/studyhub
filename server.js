@@ -19,7 +19,14 @@ const io = socketIo(server, { cors: { origin: '*' } });
 
 const ADMIN_NAME = 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Abhinav210507';
+const SUPERADMIN_NAME = 'abhinav8112';
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || '';
 const PORT = process.env.PORT || 3000;
+
+function isPrivileged(name) {
+  const n = (name || '').toLowerCase();
+  return n === ADMIN_NAME || n === SUPERADMIN_NAME;
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -74,10 +81,51 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 // ─── Admin Login ──────────────────────────────────────────────────────────────
-app.post('/api/admin-login', (req, res) => {
+app.post('/api/admin-login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { data: blockedRow } = await supabase.from('app_settings').select('value').eq('key', 'admin_blocked').single();
+    if (blockedRow?.value === 'true') return res.status(403).json({ error: 'Admin access has been blocked by super admin.' });
+    const { data: passRow } = await supabase.from('app_settings').select('value').eq('key', 'admin_password').single();
+    const currentPassword = passRow?.value || ADMIN_PASSWORD;
+    if (password === currentPassword) res.json({ success: true });
+    else res.status(401).json({ error: 'Wrong password!' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/superadmin-login', (req, res) => {
   const { password } = req.body;
-  if (password === ADMIN_PASSWORD) res.json({ success: true });
+  if (!SUPERADMIN_PASSWORD) return res.status(500).json({ error: 'Super admin not configured.' });
+  if (password === SUPERADMIN_PASSWORD) res.json({ success: true });
   else res.status(401).json({ error: 'Wrong password!' });
+});
+
+app.get('/api/admin-settings', async (req, res) => {
+  try {
+    const { data } = await supabase.from('app_settings').select('*');
+    const settings = {};
+    (data || []).forEach(s => { settings[s.key] = s.value; });
+    res.json({ admin_blocked: settings.admin_blocked === 'true' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-settings/block', async (req, res) => {
+  try {
+    const { requester, blocked } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('app_settings').upsert({ key: 'admin_blocked', value: blocked ? 'true' : 'false' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-settings/change-password', async (req, res) => {
+  try {
+    const { requester, newPassword } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    if (!newPassword || newPassword.length < 4) return res.status(400).json({ error: 'Password too short (min 4 chars).' });
+    await supabase.from('app_settings').upsert({ key: 'admin_password', value: newPassword });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── CHECK BLOCKED ────────────────────────────────────────────────────────────
@@ -162,7 +210,7 @@ async function uploadGeneric(file) {
 app.post('/api/announcements', upload.single('file'), async (req, res) => {
   try {
     const { requester, message } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     let attachment_url = null, attachment_type = null;
     if (req.file) {
       const up = await uploadGeneric(req.file);
@@ -188,7 +236,7 @@ app.get('/api/announcements/:id/signed-url', async (req, res) => {
 app.delete('/api/announcements/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('announcements').delete().eq('id', req.params.id);
     io.emit('announcement_deleted', req.params.id);
     res.json({ success: true });
@@ -228,7 +276,7 @@ app.get('/api/messages/:username', async (req, res) => {
 app.post('/api/messages/:id/reply', async (req, res) => {
   try {
     const { requester, reply } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data, error } = await supabase.from('messages').update({ reply, read: true }).eq('id', req.params.id).select();
     if (error) throw error;
     io.emit('message_reply', data[0]);
@@ -239,7 +287,7 @@ app.post('/api/messages/:id/reply', async (req, res) => {
 app.delete('/api/messages/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('messages').delete().eq('id', req.params.id);
     io.emit('message_deleted', req.params.id);
     res.json({ success: true });
@@ -259,7 +307,7 @@ app.post('/api/events', upload.single('file'), async (req, res) => {
   try {
     const { title, subject, event_date, event_type, created_by } = req.body;
     if (!title || !subject || !event_date || !created_by) return res.status(400).json({ error: 'Missing fields' });
-    if (created_by.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin can add events.' });
+    if (!isPrivileged(created_by)) return res.status(403).json({ error: 'Only admin can add events.' });
     let attachment_url = null, attachment_type = null;
     if (req.file) {
       const up = await uploadGeneric(req.file);
@@ -285,7 +333,7 @@ app.get('/api/events/:id/signed-url', async (req, res) => {
 app.delete('/api/events/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('study_events').delete().eq('id', req.params.id);
     io.emit('event_deleted', req.params.id);
     res.json({ success: true });
@@ -305,7 +353,7 @@ app.post('/api/quizzes', async (req, res) => {
   try {
     const { title, subject, created_by, questions } = req.body;
     if (!title || !subject || !created_by) return res.status(400).json({ error: 'Missing fields' });
-    if (created_by.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin can create quizzes.' });
+    if (!isPrivileged(created_by)) return res.status(403).json({ error: 'Only admin can create quizzes.' });
     const { data: quiz, error } = await supabase.from('quizzes').insert({ title, subject, created_by }).select().single();
     if (error) throw error;
     if (questions && questions.length) {
@@ -329,7 +377,7 @@ app.get('/api/quizzes/:id', async (req, res) => {
 app.delete('/api/quizzes/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('quizzes').delete().eq('id', req.params.id);
     io.emit('quiz_deleted', req.params.id);
     res.json({ success: true });
@@ -370,7 +418,7 @@ app.get('/api/courses', async (req, res) => {
 app.put('/api/courses/:id', async (req, res) => {
   try {
     const { requester, name } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
     const { data: old } = await supabase.from('courses').select('name').eq('id', req.params.id).single();
     const { data, error } = await supabase.from('courses').update({ name: name.trim() }).eq('id', req.params.id).select().single();
@@ -384,7 +432,7 @@ app.put('/api/courses/:id', async (req, res) => {
 app.post('/api/courses', async (req, res) => {
   try {
     const { requester, name } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
     const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true });
     const { data, error } = await supabase.from('courses').insert({ name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
@@ -397,7 +445,7 @@ app.post('/api/courses', async (req, res) => {
 app.delete('/api/courses/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: course } = await supabase.from('courses').select('name').eq('id', req.params.id).single();
     if (!course) return res.status(404).json({ error: 'Folder not found' });
     const { count } = await supabase.from('notes').select('id', { count: 'exact', head: true }).eq('course', course.name);
@@ -483,7 +531,7 @@ app.get('/api/notes/pending', async (req, res) => {
 app.post('/api/notes/:id/approve', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: note, error } = await supabase.from('notes').update({ status: 'approved' }).eq('id', req.params.id).select().single();
     if (error) throw error;
     const formatted = formatNote(note);
@@ -496,7 +544,7 @@ app.post('/api/notes/:id/approve', async (req, res) => {
 app.post('/api/notes/:id/reject', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
     if (note?.file_url) {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
@@ -511,7 +559,7 @@ app.post('/api/notes/:id/reject', async (req, res) => {
 app.delete('/api/notes/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
     if (note?.file_url?.startsWith('b2://')) {
       const key = note.file_url.replace('b2://', '');
@@ -552,7 +600,7 @@ app.post('/api/timetables', upload.single('file'), async (req, res) => {
   try {
     const { section, uploaded_by } = req.body;
     if (!section || !req.file) return res.status(400).json({ error: 'Missing required fields' });
-    if (uploaded_by?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin can upload timetables.' });
+    if (!isPrivileged(uploaded_by)) return res.status(403).json({ error: 'Only admin can upload timetables.' });
 
     const isDocument = req.file.mimetype === 'application/pdf';
     let fileUrl = '';
@@ -598,7 +646,7 @@ app.get('/api/timetables', async (req, res) => {
 app.delete('/api/timetables/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: tt } = await supabase.from('timetables').select('file_url, file_type').eq('id', req.params.id).single();
     if (tt?.file_url && tt.file_type.startsWith('image/')) {
       const publicId = 'studyhub/timetables/' + tt.file_url.split('/').pop().split('.')[0];
@@ -647,7 +695,7 @@ app.post('/api/questions/:id/reply', async (req, res) => {
 app.delete('/api/questions/:id', async (req, res) => {
   try {
     const { requester } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('replies').delete().eq('question_id', req.params.id);
     await supabase.from('questions').delete().eq('id', req.params.id);
     io.emit('question_deleted', req.params.id);
@@ -695,7 +743,7 @@ app.get('/api/streak/leaderboard', async (req, res) => {
 app.post('/api/block', async (req, res) => {
   try {
     const { requester, targetUser } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('blocked_users').upsert({ username: targetUser.toLowerCase() });
     io.emit('user_blocked', targetUser.toLowerCase());
     res.json({ success: true });
@@ -705,7 +753,7 @@ app.post('/api/block', async (req, res) => {
 app.post('/api/unblock', async (req, res) => {
   try {
     const { requester, targetUser } = req.body;
-    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     await supabase.from('blocked_users').delete().eq('username', targetUser.toLowerCase());
     io.emit('user_unblocked', targetUser.toLowerCase());
     res.json({ success: true });
