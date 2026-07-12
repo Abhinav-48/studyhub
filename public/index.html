@@ -86,7 +86,7 @@
 <div id="announcementBanner" class="announcement-banner hidden"></div>
 
 <!-- ═══════════════════ MAIN APP ═══════════════════ -->
-<div id="mainApp" class="app hidden">`
+<div id="mainApp" class="app hidden">
 
   <!-- TOP NAV -->
   <nav class="topnav">
@@ -342,129 +342,14 @@
         <h3>🚫 Blocked Users</h3>
         <div id="blockedList" class="admin-user-list"></div>
         <div class="unblock-form">
+          <input type="text" id="blockInput" placeholder="Username to block..." />
+          <button class="btn-danger" onclick="blockUserManual()">Block</button>
+        </div>
+        <div class="unblock-form">
           <input type="text" id="unblockInput" placeholder="Username to unblock..." />
           <button class="btn-warn" onclick="unblockUser()">Unblock</button>
         </div>
       </div>
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="admin-card wide superadmin-only hidden">
-        <h3>🛡️ Super Admin Controls</h3>
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div>
-            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin login status: <strong id="adminBlockStatusText">Loading...</strong></p>
-            <button class="btn-warn" id="toggleAdminBlockBtn" onclick="toggleAdminBlock()">🚫 Block Admin Access</button>
-          </div>
-          <div>
-            <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
-              <button class="btn-primary" onclick="changeAdminPassword()">Update</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="admin-card wide superadmin-only hidden">
         <h3>🛡️ Super Admin Controls</h3>
         <div style="display:flex;flex-direction:column;gap:14px;">

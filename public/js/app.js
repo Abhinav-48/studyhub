@@ -1176,6 +1176,15 @@ async function blockUser(targetUser) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
+async function blockUserManual() {
+  const name = document.getElementById('blockInput').value.trim();
+  if (!name) { toast('Enter a username', 'error'); return; }
+  if (!confirm(`Block "${name}"? They won't be able to upload notes, ask questions, or reply.`)) return;
+  const res = await fetch('/api/block', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, targetUser: name }) });
+  if (res.ok) { toast(`${name} blocked 🚫`, 'success'); document.getElementById('blockInput').value = ''; loadAdminPanel(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function unblockUser() {
   const name = document.getElementById('unblockInput').value.trim();
   if (!name) { toast('Enter a username', 'error'); return; }
