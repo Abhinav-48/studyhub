@@ -5,6 +5,11 @@
 const ADMIN_NAME = 'admin';
 const SUPERADMIN_NAME = 'abhinav8112';
 
+function isAdminUser() {
+  const n = currentUser?.toLowerCase();
+  return n === ADMIN_NAME || n === SUPERADMIN_NAME;
+}
+
 let currentUser = null;
 let isSuperAdmin = false;
 let allNotes = [];
@@ -240,7 +245,7 @@ async function renameCourse(id, oldName) {
 function showFolderContextMenu(e, id, name) {
   e.preventDefault();
   e.stopPropagation();
-  if (currentUser?.toLowerCase() !== ADMIN_NAME) return;
+  if (!isAdminUser()) return;
   document.getElementById('folderCtxMenu')?.remove();
   const menu = document.createElement('div');
   menu.id = 'folderCtxMenu';
@@ -299,7 +304,7 @@ function renderNoteCourses() {
   document.getElementById('notesBreadcrumb').textContent = 'Select your course to browse notes';
 
   const courses = allCourses.length ? allCourses.map(c => c.name) : [...new Set(allNotes.map(n => n.course || 'BCA 6th Sem'))];
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
 
   if (!courses.length && !isAdmin) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
   empty.classList.add('hidden');
@@ -396,7 +401,7 @@ function buildNoteCard(note) {
   div.className = 'note-card';
   div.id = `note-${note.id}`;
   const typeInfo = getFileTypeInfo(note.fileType);
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
   const size = formatBytes(note.fileSize);
   const date = new Date(note.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   div.innerHTML = `
@@ -628,7 +633,7 @@ function buildTimetableCard(t) {
   const div = document.createElement('div');
   div.className = 'note-card'; div.id = `tt-${t.id}`;
   const typeInfo = getFileTypeInfo(t.fileType);
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
   const size = formatBytes(t.fileSize);
   const date = new Date(t.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   div.innerHTML = `
@@ -749,7 +754,7 @@ function renderQuestions() {
 function buildQuestionCard(q) {
   const div = document.createElement('div');
   div.className = 'question-card'; div.id = `q-${q.id}`;
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
   const date = new Date(q.postedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   const initial = q.author[0].toUpperCase();
   let repliesHtml = '';
@@ -828,7 +833,7 @@ async function loadPlanner() {
   }
   empty?.classList.add('hidden');
 
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
 
   const renderEvents = (evts, label) => {
     if (!evts.length) return '';
@@ -908,7 +913,7 @@ async function loadQuizList() {
   if (!quizzes.length) { empty?.classList.remove('hidden'); container.innerHTML = ''; return; }
   empty?.classList.add('hidden');
 
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = isAdminUser();
   container.innerHTML = quizzes.map(q => `
     <div class="quiz-card">
       <div class="quiz-card-info">
@@ -1273,7 +1278,7 @@ async function loadAnnouncements() {
   container.innerHTML = announcements.map(a => {
     const date = new Date(a.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     const attach = a.attachment_url ? `<button class="btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="openAttachment('${a.attachment_url}','${a.id}','ann')">📎 View</button>` : '';
-    return `<div class="announcement-item"><span class="announcement-item-text">${escHtml(a.message)}</span>${attach}<span class="announcement-item-time">${date}</span>${currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-danger" onclick="deleteAnnouncement('${a.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>` : ''}</div>`;
+    return `<div class="announcement-item"><span class="announcement-item-text">${escHtml(a.message)}</span>${attach}<span class="announcement-item-time">${date}</span>${isAdminUser() ? `<button class="btn-danger" onclick="deleteAnnouncement('${a.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>` : ''}</div>`;
   }).join('');
 }
 
@@ -1416,7 +1421,7 @@ socket.on('online_users', (users) => {
   document.getElementById('onlineCount').textContent = users.length;
   document.getElementById('statOnline').textContent = users.length;
   const adminList = document.getElementById('adminUserList');
-  if (adminList) adminList.innerHTML = users.map(u => `<div class="admin-user-item"><span>🟢 ${escHtml(u)}</span>${u.toLowerCase() !== ADMIN_NAME && currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}</div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
+  if (adminList) adminList.innerHTML = users.map(u => `<div class="admin-user-item"><span>🟢 ${escHtml(u)}</span>${u.toLowerCase() !== ADMIN_NAME && isAdminUser() ? `<button class="btn-block" onclick="blockUser('${escHtml(u)}')">Block</button>` : ''}</div>`).join('') || '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No users online</div>';
 });
 socket.on('user_blocked', (username) => { if (currentUser?.toLowerCase() === username) toast('⛔ You have been blocked by the admin.', 'error'); });
 socket.on('new_announcement', () => {
