@@ -1474,14 +1474,14 @@ h1, h2, h3 {
 }
 
 .study-toolbar {
-  position: fixed; top: 72px; right: 24px; z-index: 90;
+  position: fixed; bottom: 24px; right: 24px; z-index: 90;
   display: flex; align-items: center; gap: 10px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 99px; padding: 6px 10px;
   box-shadow: var(--shadow);
 }
 @media (max-width: 768px) {
-  .study-toolbar { top: auto; bottom: 90px; right: 16px; padding: 6px 8px; }
+  .study-toolbar { bottom: 90px; right: 16px; padding: 6px 8px; }
 }
 .app-lamp-btn {
   width: 36px; height: 36px; border-radius: 50%;

@@ -317,6 +317,33 @@ app.put('/api/courses/:id', async (req, res) => {
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.post('/api/courses', async (req, res) => {
+  try {
+    const { requester, name } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { data, error } = await supabase.from('courses').insert({ name: name.trim() }).select().single();
+    if (error) throw error;
+    io.emit('course_added', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/courses/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    const { data: course } = await supabase.from('courses').select('name').eq('id', req.params.id).single();
+    if (!course) return res.status(404).json({ error: 'Folder not found' });
+    const { count } = await supabase.from('notes').select('id', { count: 'exact', head: true }).eq('course', course.name);
+    if (count && count > 0) return res.status(400).json({ error: `Cannot delete — folder has ${count} note(s). Delete or move them first.` });
+    await supabase.from('courses').delete().eq('id', req.params.id);
+    io.emit('course_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 function getResourceType(mimetype) {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';

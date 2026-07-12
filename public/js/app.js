@@ -190,14 +190,20 @@ async function renameCourse(id, oldName) {
 
 function showFolderContextMenu(e, id, name) {
   e.preventDefault();
+  e.stopPropagation();
   if (currentUser?.toLowerCase() !== ADMIN_NAME) return;
   document.getElementById('folderCtxMenu')?.remove();
   const menu = document.createElement('div');
   menu.id = 'folderCtxMenu';
   menu.className = 'folder-ctx-menu';
-  menu.style.left = e.pageX + 'px';
-  menu.style.top = e.pageY + 'px';
-  menu.innerHTML = `<button onclick="renameCourse('${id}','${name.replace(/'/g,"\\'")}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>`;
+  const rect = e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : null;
+  menu.style.left = (rect ? rect.left : e.pageX) + 'px';
+  menu.style.top = (rect ? rect.bottom + window.scrollY : e.pageY) + 'px';
+  const safeName = name.replace(/'/g,"\\'");
+  menu.innerHTML = `
+    <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
+  `;
   document.body.appendChild(menu);
   setTimeout(() => {
     document.addEventListener('click', function closeMenu() {
@@ -205,6 +211,28 @@ function showFolderContextMenu(e, id, name) {
       document.removeEventListener('click', closeMenu);
     });
   }, 0);
+}
+
+async function deleteCourse(id, name) {
+  if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+  const res = await fetch(`/api/courses/${id}`, {
+    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  if (res.ok) { toast('Folder deleted 🗑', 'success'); loadNotes(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+function openAddFolderPrompt() {
+  const name = prompt('Enter new folder name:');
+  if (!name || !name.trim()) return;
+  fetch('/api/courses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, name: name.trim() })
+  }).then(async res => {
+    if (res.ok) { toast('Folder added! 📁', 'success'); loadNotes(); }
+    else { const d = await res.json(); toast(d.error, 'error'); }
+  });
 }
 
 function renderNoteCourses() {
@@ -217,24 +245,36 @@ function renderNoteCourses() {
   document.getElementById('notesBreadcrumb').textContent = 'Select your course to browse notes';
 
   const courses = allCourses.length ? allCourses.map(c => c.name) : [...new Set(allNotes.map(n => n.course || 'BCA 6th Sem'))];
+  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
 
-  if (!courses.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
+  if (!courses.length && !isAdmin) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
   empty.classList.add('hidden');
 
-  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
-  grid.innerHTML = courses.map(c => {
+  let html = courses.map(c => {
     const dbCourse = allCourses.find(x => x.name === c);
     const count = allNotes.filter(n => (n.course || 'BCA 6th Sem') === c).length;
     const safeC = escHtml(c).replace(/'/g, "\\'");
     return `
-      <div class="note-card course-card">
+      <div class="note-card course-card" style="position:relative;">
+        ${isAdmin && dbCourse ? `<button onclick="showFolderContextMenu(event,'${dbCourse.id}','${safeC}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
         <div style="cursor:pointer;" onclick="openNoteCourse('${safeC}')">
           <div class="note-title">🎓 ${escHtml(c)}</div>
           <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
         </div>
-        ${isAdmin && dbCourse ? `<button class="btn-secondary" style="margin-top:10px;font-size:0.78rem;padding:5px 10px;" onclick="renameCourse('${dbCourse.id}','${safeC}')">✏️ Rename</button>` : ''}
       </div>`;
   }).join('');
+
+  if (isAdmin) {
+    html += `
+      <div class="note-card" style="cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:90px;border:2px dashed var(--border);" onclick="openAddFolderPrompt()">
+        <div style="text-align:center;color:var(--text2);">
+          <div style="font-size:1.6rem;">➕</div>
+          <div style="font-size:0.85rem;margin-top:4px;">Add Folder</div>
+        </div>
+      </div>`;
+  }
+
+  grid.innerHTML = html;
 }
 
 function openNoteCourse(course) {
@@ -814,6 +854,7 @@ async function loadQuizList() {
       </div>
       <div class="quiz-card-actions">
         <button class="btn-primary" onclick="startQuiz('${q.id}')">▶ Start Quiz</button>
+        ${isAdmin ? `<button class="btn-secondary" onclick="viewQuizResults('${q.id}', \`${escHtml(q.title).replace(/`/g, "'")}\`)" style="padding:8px 14px;">📊 Results</button>` : ''}
         ${isAdmin ? `<button class="btn-danger" onclick="deleteQuiz('${q.id}')" style="padding:8px 14px;">🗑</button>` : ''}
       </div>
     </div>
@@ -889,7 +930,27 @@ async function submitQuiz() {
   openModal('quizResultModal');
 }
 
-async function deleteQuiz(id) {
+async function viewQuizResults(quizId, quizTitle) {
+  const res = await fetch(`/api/quizzes/${quizId}/results`);
+  const results = await res.json();
+  let content = `<div class="preview-header"><h3>📊 Results: ${escHtml(quizTitle)}</h3></div>`;
+  if (!results.length) {
+    content += `<div style="text-align:center;padding:40px;color:var(--text2);">No attempts yet.</div>`;
+  } else {
+    content += `<div style="display:flex;flex-direction:column;gap:8px;">` +
+      results.map(r => {
+        const percent = Math.round((r.score / r.total) * 100);
+        const date = new Date(r.attempted_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;">
+          <strong>${escHtml(r.username)}</strong>
+          <span>${r.score}/${r.total} (${percent}%)</span>
+          <span style="font-size:0.78rem;color:var(--text3);">${date}</span>
+        </div>`;
+      }).join('') + `</div>`;
+  }
+  document.getElementById('previewContent').innerHTML = content;
+  openModal('previewModal');
+}
   if (!confirm('Delete this quiz?')) return;
   await fetch(`/api/quizzes/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
   toast('Quiz deleted', 'success');
@@ -1220,6 +1281,8 @@ socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
 socket.on('course_renamed', () => { loadNotes(); });
+socket.on('course_added', () => { loadNotes(); });
+socket.on('course_deleted', () => { loadNotes(); });
 
 // ══════════════════════════════════════════════════
 // MODAL HELPERS
