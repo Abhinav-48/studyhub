@@ -229,8 +229,14 @@ function showFolderContextMenu(e, id, name) {
   menu.id = 'folderCtxMenu';
   menu.className = 'folder-ctx-menu';
   const rect = e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : null;
-  menu.style.left = (rect ? rect.left : e.pageX) + 'px';
-  menu.style.top = (rect ? rect.bottom + window.scrollY : e.pageY) + 'px';
+  let top = rect ? rect.bottom : e.clientY;
+  let left = rect ? rect.left : e.clientX;
+  // keep menu inside viewport
+  const menuHeight = 90, menuWidth = 150;
+  if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight;
+  if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
   const safeName = name.replace(/'/g,"\\'");
   menu.innerHTML = `
     <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
