@@ -30,10 +30,17 @@ const supabase = createClient(
   }
 );
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+const webpush = require('web-push');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+const b2 = new S3Client({
+  region: process.env.B2_REGION,
+  endpoint: `https://${process.env.B2_ENDPOINT}`,
+  credentials: {
+    accessKeyId: process.env.B2_KEY_ID,
+    secretAccessKey: process.env.B2_APPLICATION_KEY
+  }
 });
 
 let onlineUsers = {};
@@ -337,16 +344,14 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
 
     if (isDocument) {
       const ext = req.file.originalname.split('.').pop();
-      const fileName = `${uuidv4()}.${ext}`;
-      const { error: storageError } = await supabase.storage
-        .from('studyhub-files')
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-      if (storageError) throw storageError;
-      const { data: urlData } = supabase.storage.from('studyhub-files').getPublicUrl(fileName);
-      fileUrl = urlData.publicUrl;
+      const key = `notes/${uuidv4()}.${ext}`;
+      await b2.send(new PutObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype
+      }));
+      fileUrl = `b2://${key}`;
     } else {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -418,7 +423,10 @@ app.delete('/api/notes/:id', async (req, res) => {
     const { requester } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
     const { data: note } = await supabase.from('notes').select('file_url, file_type').eq('id', req.params.id).single();
-    if (note?.file_url) {
+    if (note?.file_url?.startsWith('b2://')) {
+      const key = note.file_url.replace('b2://', '');
+      await b2.send(new DeleteObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key })).catch(() => {});
+    } else if (note?.file_url) {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
       await cloudinary.uploader.destroy(publicId, { resource_type: getResourceType(note.file_type || '') }).catch(() => {});
     }
@@ -428,7 +436,15 @@ app.delete('/api/notes/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/notes/:id/download', async (req, res) => {
+app.get('/api/notes/:id/signed-url', async (req, res) => {
+  try {
+    const { data: note } = await supabase.from('notes').select('file_url').eq('id', req.params.id).single();
+    if (!note || !note.file_url.startsWith('b2://')) return res.status(400).json({ error: 'Not a B2 file' });
+    const key = note.file_url.replace('b2://', '');
+    const url = await getSignedUrl(b2, new GetObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key }), { expiresIn: 3600 });
+    res.json({ url });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
   try {
     const { data: note } = await supabase.from('notes').select('downloads').eq('id', req.params.id).single();
     if (note) {

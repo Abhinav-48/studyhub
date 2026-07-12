@@ -188,6 +188,25 @@ async function renameCourse(id, oldName) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
+function showFolderContextMenu(e, id, name) {
+  e.preventDefault();
+  if (currentUser?.toLowerCase() !== ADMIN_NAME) return;
+  document.getElementById('folderCtxMenu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'folderCtxMenu';
+  menu.className = 'folder-ctx-menu';
+  menu.style.left = e.pageX + 'px';
+  menu.style.top = e.pageY + 'px';
+  menu.innerHTML = `<button onclick="renameCourse('${id}','${name.replace(/'/g,"\\'")}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>`;
+  document.body.appendChild(menu);
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu() {
+      document.getElementById('folderCtxMenu')?.remove();
+      document.removeEventListener('click', closeMenu);
+    });
+  }, 0);
+}
+
 function renderNoteCourses() {
   document.getElementById('notesSubjectsView')?.classList.add('hidden');
   document.getElementById('notesFilesView')?.classList.add('hidden');
@@ -345,6 +364,13 @@ async function deleteNote(id) {
 async function downloadNote(id, url, fileName) {
   await fetch(`/api/notes/${id}/download`, { method: 'POST' });
   const cleanName = fileName;
+  if (url.startsWith('b2://') || url.startsWith('placeholder')) {
+    try {
+      const sres = await fetch(`/api/notes/${id}/signed-url`);
+      const sdata = await sres.json();
+      url = sdata.url;
+    } catch { toast('Failed to get file link', 'error'); return; }
+  }
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -362,22 +388,30 @@ async function downloadNote(id, url, fileName) {
   toast(`Downloading "${cleanName}"`, 'success');
 }
 
-function previewNote(id) {
+async function previewNote(id) {
   const note = allNotes.find(n => n.id === id);
   if (!note) return;
+  let fileUrl = note.fileUrl;
+  if (fileUrl.startsWith('b2://')) {
+    try {
+      const sres = await fetch(`/api/notes/${id}/signed-url`);
+      const sdata = await sres.json();
+      fileUrl = sdata.url;
+    } catch { toast('Failed to load preview', 'error'); return; }
+  }
   const typeInfo = getFileTypeInfo(note.fileType);
   let content = `<div class="preview-header"><h3>${escHtml(note.title)}</h3><p>${typeInfo.emoji} ${escHtml(note.fileName)} &bull; ${escHtml(note.subject)} &bull; By ${escHtml(note.author)}</p></div>`;
   if (note.fileType === 'application/pdf') {
     content += `
       <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
-        <a href="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
+        <a href="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(fileUrl)}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
-      <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(note.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>`;
+      <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
-    content += `<img src="${note.fileUrl}" alt="${escHtml(note.title)}" />`;
+    content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
-    content += `<video src="${note.fileUrl}" controls style="width:100%;border-radius:10px;"></video>`;
+    content += `<video src="${fileUrl}" controls style="width:100%;border-radius:10px;"></video>`;
   } else {
     content += `<div style="text-align:center;padding:40px;color:var(--text2);"><span style="font-size:3rem">${typeInfo.emoji}</span><p style="margin-top:12px;">Preview not available.</p><button class="btn-primary" style="margin-top:16px;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download to Open</button></div>`;
   }
