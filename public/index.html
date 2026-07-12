@@ -277,6 +277,10 @@
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label>Attach PDF/Photo (optional)</label>
+        <input type="file" id="eventFile" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+      </div>
       <button class="btn-primary" onclick="addEvent()">📅 Add Event</button>
     </div>
 
@@ -344,9 +348,10 @@
       </div>
       <div class="admin-card wide">
         <h3>📢 Announcements</h3>
-        <div class="announcement-form">
-          <textarea id="announcementText" placeholder="Type announcement here..." rows="2"></textarea>
-          <button class="btn-primary" onclick="postAnnouncement()">📢 Post</button>
+        <div class="announcement-form" style="flex-direction:column;gap:8px;">
+          <textarea id="announcementText" placeholder="Type announcement here..." rows="2" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea>
+          <input type="file" id="announcementFile" accept=".pdf,.jpg,.jpeg,.png,.webp" style="font-size:0.8rem;" />
+          <button class="btn-primary" onclick="postAnnouncement()" style="align-self:flex-start;">📢 Post</button>
         </div>
         <div id="announcementsList" class="admin-user-list" style="margin-top:12px;"></div>
       </div>

@@ -132,14 +132,56 @@ app.get('/api/announcements', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/announcements', async (req, res) => {
+async function uploadGeneric(file) {
+  const isDocument = [
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain'
+  ].includes(file.mimetype);
+
+  if (isDocument) {
+    const ext = file.originalname.split('.').pop();
+    const key = `attachments/${uuidv4()}.${ext}`;
+    await b2.send(new PutObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key, Body: file.buffer, ContentType: file.mimetype }));
+    return { url: `b2://${key}`, type: file.mimetype };
+  } else {
+    const rt = file.mimetype.startsWith('video/') ? 'video' : 'image';
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: rt, folder: 'studyhub/attachments', public_id: uuidv4(), timeout: 120000 },
+        (error, result) => { if (error) reject(error); else resolve(result); }
+      );
+      stream.end(file.buffer);
+    });
+    return { url: uploadResult.secure_url, type: file.mimetype };
+  }
+}
+
+app.post('/api/announcements', upload.single('file'), async (req, res) => {
   try {
     const { requester, message } = req.body;
     if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
-    const { data, error } = await supabase.from('announcements').insert({ message }).select().single();
+    let attachment_url = null, attachment_type = null;
+    if (req.file) {
+      const up = await uploadGeneric(req.file);
+      attachment_url = up.url; attachment_type = up.type;
+    }
+    const { data, error } = await supabase.from('announcements').insert({ message, attachment_url, attachment_type }).select().single();
     if (error) throw error;
     io.emit('new_announcement', data);
     res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/announcements/:id/signed-url', async (req, res) => {
+  try {
+    const { data } = await supabase.from('announcements').select('attachment_url').eq('id', req.params.id).single();
+    if (!data?.attachment_url?.startsWith('b2://')) return res.status(400).json({ error: 'Not a B2 file' });
+    const key = data.attachment_url.replace('b2://', '');
+    const url = await getSignedUrl(b2, new GetObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key }), { expiresIn: 3600 });
+    res.json({ url });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -213,15 +255,30 @@ app.get('/api/events', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/events', async (req, res) => {
+app.post('/api/events', upload.single('file'), async (req, res) => {
   try {
     const { title, subject, event_date, event_type, created_by } = req.body;
     if (!title || !subject || !event_date || !created_by) return res.status(400).json({ error: 'Missing fields' });
     if (created_by.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin can add events.' });
-    const { data, error } = await supabase.from('study_events').insert({ title, subject, event_date, event_type: event_type || 'exam', created_by }).select().single();
+    let attachment_url = null, attachment_type = null;
+    if (req.file) {
+      const up = await uploadGeneric(req.file);
+      attachment_url = up.url; attachment_type = up.type;
+    }
+    const { data, error } = await supabase.from('study_events').insert({ title, subject, event_date, event_type: event_type || 'exam', created_by, attachment_url, attachment_type }).select().single();
     if (error) throw error;
     io.emit('new_event', data);
     res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/events/:id/signed-url', async (req, res) => {
+  try {
+    const { data } = await supabase.from('study_events').select('attachment_url').eq('id', req.params.id).single();
+    if (!data?.attachment_url?.startsWith('b2://')) return res.status(400).json({ error: 'Not a B2 file' });
+    const key = data.attachment_url.replace('b2://', '');
+    const url = await getSignedUrl(b2, new GetObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key }), { expiresIn: 3600 });
+    res.json({ url });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

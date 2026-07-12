@@ -107,6 +107,35 @@ window.addEventListener('DOMContentLoaded', () => {
 // NAVIGATION
 // ══════════════════════════════════════════════════
 
+let isRestoringNav = false;
+
+function pushNavState() {
+  if (isRestoringNav) return;
+  const state = {
+    tab: document.querySelector('.nav-tab.active')?.dataset.tab || 'notes',
+    noteCourse: currentNoteCourse, noteSubject: currentNoteSubject,
+    ttSection: typeof currentTimetableSection !== 'undefined' ? currentTimetableSection : null
+  };
+  history.pushState(state, '');
+}
+
+window.addEventListener('popstate', (e) => {
+  if (!e.state) return;
+  isRestoringNav = true;
+  const s = e.state;
+  switchTab(s.tab);
+  if (s.tab === 'notes') {
+    if (s.noteSubject) { currentNoteCourse = s.noteCourse; openNoteSubject(s.noteSubject); }
+    else if (s.noteCourse) { openNoteCourse(s.noteCourse); }
+    else { renderNoteCourses(); }
+  }
+  if (s.tab === 'timetable') {
+    if (s.ttSection) { openTimetableSection(s.ttSection); }
+    else { renderTimetableSections(); }
+  }
+  isRestoringNav = false;
+});
+
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
   document.querySelectorAll('.nav-tab, .mnav-item').forEach(b => b.classList.remove('active'));
@@ -117,6 +146,7 @@ function switchTab(tab) {
   if (tab === 'quiz') loadQuizList();
   if (tab === 'timetable') loadTimetables();
   if (tab === 'notes') loadHomeWidgets();
+  pushNavState();
 }
 
 // ══════════════════════════════════════════════════
@@ -137,7 +167,8 @@ async function loadHomeWidgets() {
     const latestNews = announcements.slice(0, 3);
     newsList.innerHTML = latestNews.length ? latestNews.map(a => {
       const date = new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      return `<div class="news-widget-item"><span class="news-dot"></span><span class="news-widget-text">${escHtml(a.message)}</span><span class="news-widget-date">${date}</span></div>`;
+      const attach = a.attachment_url ? ` <a href="javascript:void(0)" onclick="openAttachment('${a.attachment_url}','${a.id}','ann')" style="color:var(--accent);">📎</a>` : '';
+      return `<div class="news-widget-item"><span class="news-dot"></span><span class="news-widget-text">${escHtml(a.message)}${attach}</span><span class="news-widget-date">${date}</span></div>`;
     }).join('') : `<div class="news-widget-empty">No news yet</div>`;
 
     const today = new Date(); today.setHours(0,0,0,0);
@@ -147,7 +178,8 @@ async function loadHomeWidgets() {
       const evDate = new Date(e.event_date);
       const diffDays = Math.ceil((evDate - today) / (1000*60*60*24));
       const dateStr = evDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      return `<div class="news-widget-item"><span class="exam-dot"></span><span class="news-widget-text">${escHtml(e.title)} (${escHtml(e.subject)})</span><span class="news-widget-date">${dateStr} · ${diffDays === 0 ? 'Today' : diffDays + 'd left'}</span></div>`;
+      const attach = e.attachment_url ? ` <a href="javascript:void(0)" onclick="openAttachment('${e.attachment_url}','${e.id}','event')" style="color:var(--accent);">📎</a>` : '';
+      return `<div class="news-widget-item"><span class="exam-dot"></span><span class="news-widget-text">${escHtml(e.title)} (${escHtml(e.subject)})${attach}</span><span class="news-widget-date">${dateStr} · ${diffDays === 0 ? 'Today' : diffDays + 'd left'}</span></div>`;
     }).join('') : `<div class="news-widget-empty">No exams scheduled</div>`;
 
     widget.classList.remove('hidden');
@@ -279,6 +311,7 @@ function renderNoteCourses() {
 function openNoteCourse(course) {
   currentNoteCourse = course;
   currentNoteSubject = null;
+  pushNavState();
   document.getElementById('notesCoursesGrid').classList.add('hidden');
   document.getElementById('notesFilesView').classList.add('hidden');
   document.getElementById('notesSubjectsView').classList.remove('hidden');
@@ -304,6 +337,7 @@ function openNoteCourse(course) {
 
 function openNoteSubject(subject) {
   currentNoteSubject = subject;
+  pushNavState();
   document.getElementById('notesSubjectsView').classList.add('hidden');
   document.getElementById('notesFilesView').classList.remove('hidden');
   document.getElementById('notesSubjectTitle').textContent = `📚 ${subject}`;
@@ -317,6 +351,7 @@ function backToNoteCourses() {
   currentNoteCourse = null;
   currentNoteSubject = null;
   renderNoteCourses();
+  pushNavState();
 }
 
 function backToNoteSubjects() {
@@ -551,6 +586,7 @@ function renderTimetableSections() {
 
 function openTimetableSection(section) {
   currentTimetableSection = section;
+  pushNavState();
   document.getElementById('timetableSectionsGrid').classList.add('hidden');
   document.getElementById('timetableFilesView').classList.remove('hidden');
   document.getElementById('timetableSectionTitle').textContent = `🗓 ${section} Timetable`;
@@ -563,7 +599,7 @@ function openTimetableSection(section) {
   files.forEach(f => grid.appendChild(buildTimetableCard(f)));
 }
 
-function backToSections() { renderTimetableSections(); }
+function backToSections() { renderTimetableSections(); pushNavState(); }
 
 function buildTimetableCard(t) {
   const div = document.createElement('div');
@@ -786,7 +822,7 @@ async function loadPlanner() {
             <div class="planner-card-left">
               <span class="planner-type-icon">${typeEmoji}</span>
               <div>
-                <div class="planner-title">${escHtml(e.title)}</div>
+                <div class="planner-title">${escHtml(e.title)} ${e.attachment_url ? `<a href="javascript:void(0)" onclick="openAttachment('${e.attachment_url}','${e.id}','event')" style="color:var(--accent);font-size:0.85rem;">📎</a>` : ''}</div>
                 <div class="planner-meta">📚 ${escHtml(e.subject)} • ${evDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
               </div>
             </div>
@@ -806,19 +842,24 @@ async function addEvent() {
   const subject = document.getElementById('eventSubject').value.trim();
   const date = document.getElementById('eventDate').value;
   const type = document.getElementById('eventType').value;
+  const fileInput = document.getElementById('eventFile');
 
   if (!title || !subject || !date) { toast('Please fill all fields', 'error'); return; }
 
-  const res = await fetch('/api/events', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, subject, event_date: date, event_type: type, created_by: currentUser })
-  });
+  const formData = new FormData();
+  formData.append('title', title); formData.append('subject', subject);
+  formData.append('event_date', date); formData.append('event_type', type);
+  formData.append('created_by', currentUser);
+  if (fileInput && fileInput.files[0]) formData.append('file', fileInput.files[0]);
+
+  const res = await fetch('/api/events', { method: 'POST', body: formData });
 
   if (res.ok) {
     toast('Event added! 📅', 'success');
     document.getElementById('eventTitle').value = '';
     document.getElementById('eventSubject').value = '';
     document.getElementById('eventDate').value = '';
+    if (fileInput) fileInput.value = '';
     loadPlanner();
   } else { const d = await res.json(); toast(d.error, 'error'); }
 }
@@ -1138,7 +1179,8 @@ async function loadAnnouncements() {
   if (!announcements.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No announcements yet</div>'; return; }
   container.innerHTML = announcements.map(a => {
     const date = new Date(a.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    return `<div class="announcement-item"><span class="announcement-item-text">${escHtml(a.message)}</span><span class="announcement-item-time">${date}</span>${currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-danger" onclick="deleteAnnouncement('${a.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>` : ''}</div>`;
+    const attach = a.attachment_url ? `<button class="btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="openAttachment('${a.attachment_url}','${a.id}','ann')">📎 View</button>` : '';
+    return `<div class="announcement-item"><span class="announcement-item-text">${escHtml(a.message)}</span>${attach}<span class="announcement-item-time">${date}</span>${currentUser?.toLowerCase() === ADMIN_NAME ? `<button class="btn-danger" onclick="deleteAnnouncement('${a.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button>` : ''}</div>`;
   }).join('');
 }
 
@@ -1151,9 +1193,27 @@ function dismissAnnouncement(id) {
 async function postAnnouncement() {
   const text = document.getElementById('announcementText').value.trim();
   if (!text) { toast('Please type an announcement', 'error'); return; }
-  const res = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, message: text }) });
-  if (res.ok) { toast('Announcement posted! 📢', 'success'); document.getElementById('announcementText').value = ''; loadAnnouncements(); }
+  const fileInput = document.getElementById('announcementFile');
+  const formData = new FormData();
+  formData.append('requester', currentUser);
+  formData.append('message', text);
+  if (fileInput && fileInput.files[0]) formData.append('file', fileInput.files[0]);
+  const res = await fetch('/api/announcements', { method: 'POST', body: formData });
+  if (res.ok) { toast('Announcement posted! 📢', 'success'); document.getElementById('announcementText').value = ''; if (fileInput) fileInput.value = ''; loadAnnouncements(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function openAttachment(url, id, type) {
+  let finalUrl = url;
+  if (url.startsWith('b2://')) {
+    try {
+      const endpoint = type === 'event' ? `/api/events/${id}/signed-url` : `/api/announcements/${id}/signed-url`;
+      const sres = await fetch(endpoint);
+      const sdata = await sres.json();
+      finalUrl = sdata.url;
+    } catch { toast('Failed to load attachment', 'error'); return; }
+  }
+  window.open(finalUrl, '_blank');
 }
 
 async function deleteAnnouncement(id) {
