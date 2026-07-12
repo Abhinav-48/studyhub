@@ -30,7 +30,6 @@ const supabase = createClient(
   }
 );
 
-const webpush = require('web-push');
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
