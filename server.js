@@ -445,6 +445,8 @@ app.get('/api/notes/:id/signed-url', async (req, res) => {
     res.json({ url });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.post('/api/notes/:id/download', async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('downloads').eq('id', req.params.id).single();
     if (note) {
