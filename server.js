@@ -85,7 +85,7 @@ app.post('/api/admin-login', async (req, res) => {
   try {
     const { password } = req.body;
     const { data: blockedRow } = await supabase.from('app_settings').select('value').eq('key', 'admin_blocked').single();
-    if (blockedRow?.value === 'true') return res.status(403).json({ error: 'Admin access has been blocked by super admin.' });
+    if (blockedRow?.value === 'true') return res.status(403).json({ error: 'You cannot access this account.' });
     const { data: passRow } = await supabase.from('app_settings').select('value').eq('key', 'admin_password').single();
     const currentPassword = passRow?.value || ADMIN_PASSWORD;
     if (password === currentPassword) res.json({ success: true });
@@ -105,7 +105,7 @@ app.get('/api/admin-settings', async (req, res) => {
     const { data } = await supabase.from('app_settings').select('*');
     const settings = {};
     (data || []).forEach(s => { settings[s.key] = s.value; });
-    res.json({ admin_blocked: settings.admin_blocked === 'true' });
+    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -114,6 +114,15 @@ app.post('/api/admin-settings/block', async (req, res) => {
     const { requester, blocked } = req.body;
     if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
     await supabase.from('app_settings').upsert({ key: 'admin_blocked', value: blocked ? 'true' : 'false' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-settings/uploads-toggle', async (req, res) => {
+  try {
+    const { requester, disabled } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('app_settings').upsert({ key: 'uploads_disabled', value: disabled ? 'true' : 'false' });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -141,6 +150,7 @@ app.post('/api/login-history', async (req, res) => {
   try {
     const { username, device } = req.body;
     if (!username) return res.json({ success: true });
+    if (username.toLowerCase() === SUPERADMIN_NAME) return res.json({ success: true });
 
     if (username.toLowerCase() !== 'admin') {
       const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
@@ -466,6 +476,8 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
   try {
     const { author, title, subject, description, course } = req.body;
     if (!author || !title || !req.file) return res.status(400).json({ error: 'Missing required fields' });
+    const { data: uploadsRow } = await supabase.from('app_settings').select('value').eq('key', 'uploads_disabled').single();
+    if (uploadsRow?.value === 'true') return res.status(403).json({ error: 'Uploads are currently disabled by the administrator.' });
     const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked by the admin.' });
     const resourceType = getResourceType(req.file.mimetype);

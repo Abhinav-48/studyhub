@@ -1108,15 +1108,29 @@ async function loadAdminSettings() {
     const data = await res.json();
     const statusText = document.getElementById('adminBlockStatusText');
     const btn = document.getElementById('toggleAdminBlockBtn');
-    if (!statusText || !btn) return;
-    if (data.admin_blocked) {
-      statusText.textContent = '🚫 Blocked';
-      statusText.style.color = 'var(--accent)';
-      btn.textContent = '✅ Unblock Admin Access';
-    } else {
-      statusText.textContent = '✅ Active';
-      statusText.style.color = 'var(--green)';
-      btn.textContent = '🚫 Block Admin Access';
+    if (statusText && btn) {
+      if (data.admin_blocked) {
+        statusText.textContent = '🚫 Blocked';
+        statusText.style.color = 'var(--accent)';
+        btn.textContent = '✅ Unblock Admin Access';
+      } else {
+        statusText.textContent = '✅ Active';
+        statusText.style.color = 'var(--green)';
+        btn.textContent = '🚫 Block Admin Access';
+      }
+    }
+    const uploadsText = document.getElementById('uploadsBlockStatusText');
+    const uploadsBtn = document.getElementById('toggleUploadsBtn');
+    if (uploadsText && uploadsBtn) {
+      if (data.uploads_disabled) {
+        uploadsText.textContent = '🚫 Disabled';
+        uploadsText.style.color = 'var(--accent)';
+        uploadsBtn.textContent = '✅ Enable Uploads';
+      } else {
+        uploadsText.textContent = '✅ Active';
+        uploadsText.style.color = 'var(--green)';
+        uploadsBtn.textContent = '🚫 Disable Uploads Globally';
+      }
     }
   } catch {}
 }
@@ -1129,6 +1143,17 @@ async function toggleAdminBlock() {
     body: JSON.stringify({ requester: currentUser, blocked: !currentlyBlocked })
   });
   if (res.ok) { toast(currentlyBlocked ? 'Admin access unblocked ✅' : 'Admin access blocked 🚫', 'success'); loadAdminSettings(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function toggleUploadsDisabled() {
+  const statusText = document.getElementById('uploadsBlockStatusText');
+  const currentlyDisabled = statusText?.textContent.includes('Disabled');
+  const res = await fetch('/api/admin-settings/uploads-toggle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, disabled: !currentlyDisabled })
+  });
+  if (res.ok) { toast(currentlyDisabled ? 'Uploads enabled ✅' : 'Uploads disabled globally 🚫', 'success'); loadAdminSettings(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
