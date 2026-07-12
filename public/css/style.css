@@ -406,6 +406,12 @@ h1, h2, h3 {
   transition: all 0.15s;
 }
 .logout-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.logout-btn-danger {
+  border-color: #e8a09a; color: #c0392b;
+}
+.logout-btn-danger:hover {
+  background: #c0392b; border-color: #c0392b; color: #fff;
+}
 
 /* ══════════════════════════════════════════════════
    MAIN LAYOUT
