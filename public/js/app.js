@@ -68,6 +68,7 @@ async function loginUser() {
   loadQuestions();
   loadAnnouncements();
   loadHomeWidgets();
+  loadCoursesForUpload();
   toast(`Welcome, ${name}! 👋`, 'success');
   updateStudyStreak();
 }
@@ -167,6 +168,25 @@ async function loadNotes() {
 
 let currentNoteCourse = null;
 let currentNoteSubject = null;
+let allCourses = [];
+
+async function loadCoursesForUpload() {
+  const res = await fetch('/api/courses');
+  allCourses = await res.json();
+  const sel = document.getElementById('noteCourse');
+  if (sel) sel.innerHTML = allCourses.map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`).join('');
+}
+
+async function renameCourse(id, oldName) {
+  const newName = prompt('Enter new folder name:', oldName);
+  if (!newName || !newName.trim() || newName.trim() === oldName) return;
+  const res = await fetch(`/api/courses/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, name: newName.trim() })
+  });
+  if (res.ok) { toast('Folder renamed! ✅', 'success'); loadNotes(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
 
 function renderNoteCourses() {
   document.getElementById('notesSubjectsView')?.classList.add('hidden');
@@ -177,18 +197,23 @@ function renderNoteCourses() {
   grid.classList.remove('hidden');
   document.getElementById('notesBreadcrumb').textContent = 'Select your course to browse notes';
 
-  const courses = [...new Set(allNotes.map(n => n.course || '6th Sem'))].sort();
+  const courses = allCourses.length ? allCourses.map(c => c.name) : [...new Set(allNotes.map(n => n.course || 'BCA 6th Sem'))];
 
   if (!courses.length) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
   empty.classList.add('hidden');
 
+  const isAdmin = currentUser?.toLowerCase() === ADMIN_NAME;
   grid.innerHTML = courses.map(c => {
-    const count = allNotes.filter(n => (n.course || '6th Sem') === c).length;
+    const dbCourse = allCourses.find(x => x.name === c);
+    const count = allNotes.filter(n => (n.course || 'BCA 6th Sem') === c).length;
     const safeC = escHtml(c).replace(/'/g, "\\'");
     return `
-      <div class="note-card" style="cursor:pointer;" onclick="openNoteCourse('${safeC}')">
-        <div class="note-title">🎓 ${escHtml(c)}</div>
-        <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+      <div class="note-card course-card">
+        <div style="cursor:pointer;" onclick="openNoteCourse('${safeC}')">
+          <div class="note-title">🎓 ${escHtml(c)}</div>
+          <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
+        </div>
+        ${isAdmin && dbCourse ? `<button class="btn-secondary" style="margin-top:10px;font-size:0.78rem;padding:5px 10px;" onclick="renameCourse('${dbCourse.id}','${safeC}')">✏️ Rename</button>` : ''}
       </div>`;
   }).join('');
 }
@@ -364,10 +389,11 @@ function previewNote(id) {
 // UPLOAD MODAL
 // ══════════════════════════════════════════════════
 
-function openUploadModal() {
+async function openUploadModal() {
   selectedFile = null;
   document.getElementById('noteTitle').value = '';
-  document.getElementById('noteCourse').value = currentNoteCourse || '';
+  await loadCoursesForUpload();
+  if (currentNoteCourse) document.getElementById('noteCourse').value = currentNoteCourse;
   document.getElementById('noteSubject').value = currentNoteSubject || '';
   document.getElementById('noteDesc').value = '';
   document.getElementById('fileInput').value = '';
@@ -1159,6 +1185,7 @@ socket.on('new_event', () => { if (document.getElementById('tab-planner')?.class
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
+socket.on('course_renamed', () => { loadNotes(); });
 
 // ══════════════════════════════════════════════════
 // MODAL HELPERS

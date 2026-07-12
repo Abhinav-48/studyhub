@@ -289,7 +289,28 @@ app.get('/api/quizzes/:id/results', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── NOTES ────────────────────────────────────────────────────────────────────
+// ─── COURSES (folders) ─────────────────────────────────────────────────────────
+app.get('/api/courses', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('courses').select('*').order('sort_order', { ascending: true });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/courses/:id', async (req, res) => {
+  try {
+    const { requester, name } = req.body;
+    if (requester?.toLowerCase() !== ADMIN_NAME) return res.status(403).json({ error: 'Only admin.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { data: old } = await supabase.from('courses').select('name').eq('id', req.params.id).single();
+    const { data, error } = await supabase.from('courses').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    if (old) await supabase.from('notes').update({ course: name.trim() }).eq('course', old.name);
+    io.emit('course_renamed');
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 function getResourceType(mimetype) {
   if (mimetype.startsWith('video/')) return 'video';
   if (mimetype.startsWith('image/')) return 'image';

@@ -1756,3 +1756,10 @@ h1, h2, h3 {
 @media (max-width: 768px) {
   .news-widget { grid-template-columns: 1fr; gap: 12px; }
 }
+.course-card { padding: 16px 18px !important; }
+.course-card .note-title { font-size: 1rem !important; }
+.course-card .meta-tag { font-size: 0.72rem !important; }
+
+.news-widget-col { padding: 14px 16px; }
+.news-widget-col h4 { font-size: 0.9rem; margin-bottom: 8px; }
+.news-widget-item { padding: 6px 0; font-size: 0.78rem; }
