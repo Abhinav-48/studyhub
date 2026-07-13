@@ -39,6 +39,7 @@ const supabase = createClient(
 
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const webpush = require('web-push');
 
 const b2 = new S3Client({
   region: process.env.B2_REGION,
@@ -54,6 +55,10 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails('mailto:admin@studyhub.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+}
 
 let onlineUsers = {};
 
@@ -250,6 +255,68 @@ app.delete('/api/announcements/:id', async (req, res) => {
     await supabase.from('announcements').delete().eq('id', req.params.id);
     io.emit('announcement_deleted', req.params.id);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── LATEST LINKS ─────────────────────────────────────────────────────────────
+app.get('/api/links', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('links').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/links', async (req, res) => {
+  try {
+    const { requester, title, url, description } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!title || !url) return res.status(400).json({ error: 'Title and URL required' });
+    const { data, error } = await supabase.from('links').insert({ title, url, description: description || '' }).select().single();
+    if (error) throw error;
+    io.emit('new_link', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/links/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('links').delete().eq('id', req.params.id);
+    io.emit('link_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
+app.get('/api/vapid-public-key', (req, res) => res.json({ key: process.env.VAPID_PUBLIC_KEY || null }));
+
+app.post('/api/push-subscribe', async (req, res) => {
+  try {
+    const { username, subscription } = req.body;
+    if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
+    await supabase.from('push_subscriptions').insert({ username, subscription });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/send-notification', async (req, res) => {
+  try {
+    const { requester, title, body } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!title || !body) return res.status(400).json({ error: 'Missing title or body' });
+    const { data: subs, error } = await supabase.from('push_subscriptions').select('*');
+    if (error) throw error;
+    const payload = JSON.stringify({ title, body });
+    let sent = 0;
+    await Promise.all((subs || []).map(async (row) => {
+      try { await webpush.sendNotification(row.subscription, payload); sent++; }
+      catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) await supabase.from('push_subscriptions').delete().eq('id', row.id);
+      }
+    }));
+    res.json({ success: true, sent });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -663,6 +730,59 @@ app.post('/api/notes/:id/download', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── TIMETABLE SECTIONS (folders) ──────────────────────────────────────────────
+app.get('/api/timetable-sections', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('timetable_sections').select('*').order('sort_order', { ascending: true });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/timetable-sections', async (req, res) => {
+  try {
+    const { requester, name } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { count } = await supabase.from('timetable_sections').select('id', { count: 'exact', head: true });
+    const { data, error } = await supabase.from('timetable_sections').insert({ name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(400).json({ error: 'Section already exists.' });
+      throw error;
+    }
+    io.emit('tt_section_added', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/timetable-sections/:id', async (req, res) => {
+  try {
+    const { requester, name } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    const { data: old } = await supabase.from('timetable_sections').select('name').eq('id', req.params.id).single();
+    const { data, error } = await supabase.from('timetable_sections').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    if (old) await supabase.from('timetables').update({ section: name.trim() }).eq('section', old.name);
+    io.emit('tt_section_renamed');
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/timetable-sections/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    const { data: sec } = await supabase.from('timetable_sections').select('name').eq('id', req.params.id).single();
+    if (!sec) return res.status(404).json({ error: 'Section not found' });
+    const { count } = await supabase.from('timetables').select('id', { count: 'exact', head: true }).eq('section', sec.name);
+    if (count && count > 0) return res.status(400).json({ error: `Cannot delete — section has ${count} file(s).` });
+    await supabase.from('timetable_sections').delete().eq('id', req.params.id);
+    io.emit('tt_section_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── TIMETABLE ────────────────────────────────────────────────────────────────
 app.post('/api/timetables', upload.single('file'), async (req, res) => {
   try {
@@ -812,7 +932,7 @@ app.post('/api/block', async (req, res) => {
   try {
     const { requester, targetUser } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
-    if (targetUser?.toLowerCase() === SUPERADMIN_NAME) return res.status(403).json({ error: 'Cannot block this user.' });
+    if (targetUser?.toLowerCase() === SUPERADMIN_NAME || targetUser?.toLowerCase() === ADMIN_NAME) return res.status(403).json({ error: 'Cannot block this user.' });
     await supabase.from('blocked_users').upsert({ username: targetUser.toLowerCase() });
     io.emit('user_blocked', targetUser.toLowerCase());
     res.json({ success: true });

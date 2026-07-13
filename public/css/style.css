@@ -1837,3 +1837,24 @@ h1, h2, h3 {
   .game-modal-box { width: 100%; }
   #gameCanvas { height: 160px; }
 }
+.mobile-jump-btn {
+  display: none;
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 600;
+  padding: 14px 32px; background: var(--accent); color: #fff;
+  border: none; border-radius: 99px;
+  font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 0.95rem;
+  box-shadow: 0 6px 20px rgba(200,75,49,0.4);
+}
+.mobile-jump-btn.show { display: block; }
+.mobile-jump-btn.hidden { display: none !important; }
+
+@media (max-width: 768px) {
+  #gameModal { align-items: center !important; }
+  #gameModal .modal-box { max-height: 80vh; }
+}
+
+.news-widget { grid-template-columns: repeat(3, 1fr) !important; }
+@media (max-width: 900px) {
+  .news-widget { grid-template-columns: 1fr !important; }
+}

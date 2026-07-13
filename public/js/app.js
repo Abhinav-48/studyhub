@@ -87,6 +87,7 @@ async function loginUser() {
 
   socket.emit('user_join', name);
   await loadCoursesForUpload();
+  setupPushNotifications();
   loadNotes();
   loadQuestions();
   loadAnnouncements();
@@ -177,7 +178,17 @@ function switchTab(tab) {
 
 async function loadHomeWidgets() {
   try {
-    const [annRes, evRes] = await Promise.all([fetch('/api/announcements'), fetch('/api/events')]);
+    const [annRes, evRes, linkRes] = await Promise.all([fetch('/api/announcements'), fetch('/api/events'), fetch('/api/links')]);
+    const links = await linkRes.json();
+    const linksList = document.getElementById('linksWidgetList');
+    if (linksList) {
+      linksList.innerHTML = links.length ? links.slice(0, 5).map(l => `
+        <div class="news-widget-item">
+          <span class="news-dot"></span>
+          <a href="${l.url}" target="_blank" class="news-widget-text" style="color:var(--accent);text-decoration:none;">${escHtml(l.title)}</a>
+        </div>${l.description ? `<div style="font-size:0.75rem;color:var(--text3);margin:-4px 0 4px 15px;">${escHtml(l.description)}</div>` : ''}`
+      ).join('') : `<div class="news-widget-empty">No links yet</div>`;
+    }
     const announcements = await annRes.json();
     const events = await evRes.json();
 
@@ -709,13 +720,14 @@ async function submitNote() {
 // ══════════════════════════════════════════════════
 
 let allTimetables = [];
+let allTTSections = [];
 let currentTimetableSection = null;
 let timetableSelectedFile = null;
-const TIMETABLE_SECTIONS = ['BCA 3A','BCA 3B','BCA 3C','BCA 3D','BCA 3E','BCA 3F','BCA 3G','BCA 3H'];
 
 async function loadTimetables() {
-  const res = await fetch('/api/timetables');
-  allTimetables = await res.json();
+  const [tRes, sRes] = await Promise.all([fetch('/api/timetables'), fetch('/api/timetable-sections')]);
+  allTimetables = await tRes.json();
+  allTTSections = await sRes.json();
   renderTimetableSections();
 }
 
@@ -723,14 +735,82 @@ function renderTimetableSections() {
   document.getElementById('timetableFilesView').classList.add('hidden');
   const grid = document.getElementById('timetableSectionsGrid');
   grid.classList.remove('hidden');
-  grid.innerHTML = TIMETABLE_SECTIONS.map(sec => {
-    const count = allTimetables.filter(t => t.section === sec).length;
+  const isAdmin = isAdminUser();
+
+  let html = allTTSections.map(sec => {
+    const count = allTimetables.filter(t => t.section === sec.name).length;
+    const safeName = escHtml(sec.name).replace(/'/g, "\\'");
     return `
-      <div class="note-card" style="cursor:pointer;" onclick="openTimetableSection('${sec}')">
-        <div class="note-title">📘 ${sec}</div>
-        <div class="note-meta"><span class="meta-tag">${count} file${count === 1 ? '' : 's'}</span></div>
+      <div class="note-card course-card" style="position:relative;">
+        ${isAdmin ? `<button onclick="showTTContextMenu(event,'${sec.id}','${safeName}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
+        <div style="cursor:pointer;" onclick="openTimetableSection('${safeName}')">
+          <div class="note-title">📘 ${escHtml(sec.name)}</div>
+          <div class="note-meta"><span class="meta-tag">${count} file${count === 1 ? '' : 's'}</span></div>
+        </div>
       </div>`;
   }).join('');
+
+  if (isAdmin) {
+    html += `
+      <div class="note-card" style="cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:90px;border:2px dashed var(--border);" onclick="addTTSectionPrompt()">
+        <div style="text-align:center;color:var(--text2);">
+          <div style="font-size:1.6rem;">➕</div>
+          <div style="font-size:0.85rem;margin-top:4px;">Add Section</div>
+        </div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+async function addTTSectionPrompt() {
+  const name = prompt('Enter new section name (e.g. BCA 3A):');
+  if (!name || !name.trim()) return;
+  const res = await fetch('/api/timetable-sections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, name: name.trim() }) });
+  if (res.ok) { toast('Section added! 📁', 'success'); loadTimetables(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function renameTTSection(id, oldName) {
+  const newName = prompt('Enter new section name:', oldName);
+  if (!newName || !newName.trim() || newName.trim() === oldName) return;
+  const res = await fetch(`/api/timetable-sections/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, name: newName.trim() }) });
+  if (res.ok) { toast('Section renamed! ✅', 'success'); loadTimetables(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function deleteTTSection(id, name) {
+  if (!confirm(`Delete section "${name}"?`)) return;
+  const res = await fetch(`/api/timetable-sections/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) { toast('Section deleted 🗑', 'success'); loadTimetables(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+function showTTContextMenu(e, id, name) {
+  e.preventDefault(); e.stopPropagation();
+  if (!isAdminUser()) return;
+  document.getElementById('folderCtxMenu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'folderCtxMenu';
+  menu.className = 'folder-ctx-menu';
+  const rect = e.currentTarget.getBoundingClientRect();
+  let top = rect.bottom, left = rect.left;
+  if (top + 90 > window.innerHeight) top = rect.top - 90;
+  if (left + 150 > window.innerWidth) left = window.innerWidth - 160;
+  menu.style.left = left + 'px'; menu.style.top = top + 'px';
+  const safeName = name.replace(/'/g, "\\'");
+  menu.innerHTML = `
+    <button onclick="renameTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    <button onclick="deleteTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>`;
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', function c() { document.getElementById('folderCtxMenu')?.remove(); document.removeEventListener('click', c); }), 0);
+}
+
+async function loadSectionsForUpload() {
+  const sel = document.getElementById('timetableSection');
+  if (!sel) return;
+  const res = await fetch('/api/timetable-sections');
+  allTTSections = await res.json();
+  sel.innerHTML = allTTSections.map(s => `<option value="${escHtml(s.name)}">${escHtml(s.name)}</option>`).join('');
 }
 
 function openTimetableSection(section) {
@@ -815,10 +895,12 @@ async function deleteTimetable(id) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
-function openTimetableUploadModal() {
+async function openTimetableUploadModal() {
   timetableSelectedFile = null;
   document.getElementById('timetableFileInput').value = '';
   document.getElementById('timetableDropInner').innerHTML = `<span class="drop-icon">📎</span><p>Click or drag & drop your file here</p><span class="file-types">PDF · JPG · PNG</span>`;
+  await loadSectionsForUpload();
+  if (currentTimetableSection) document.getElementById('timetableSection').value = currentTimetableSection;
   openModal('timetableUploadModal');
 }
 
@@ -1327,6 +1409,7 @@ async function loadAdminPanel() {
   await loadLoginHistory();
   await loadAdminMessages();
   await loadAnnouncements();
+  loadLinksAdmin();
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
@@ -1556,6 +1639,11 @@ socket.on('new_event', () => { if (document.getElementById('tab-planner')?.class
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
+socket.on('tt_section_added', () => loadTimetables());
+socket.on('tt_section_renamed', () => loadTimetables());
+socket.on('tt_section_deleted', () => loadTimetables());
+socket.on('new_link', () => { loadLinksAdmin(); loadHomeWidgets(); });
+socket.on('link_deleted', () => { loadLinksAdmin(); loadHomeWidgets(); });
 socket.on('course_renamed', async () => { await loadCoursesForUpload(); loadNotes(); });
 socket.on('course_added', async () => { await loadCoursesForUpload(); loadNotes(); });
 socket.on('course_deleted', async () => { await loadCoursesForUpload(); loadNotes(); });
@@ -1607,6 +1695,62 @@ function updateAdminStats() {
 // ══════════════════════════════════════════════════
 // STUDY STREAK
 // ══════════════════════════════════════════════════
+async function postLink() {
+  const title = document.getElementById('linkTitle').value.trim();
+  const url = document.getElementById('linkUrl').value.trim();
+  const description = document.getElementById('linkDesc').value.trim();
+  if (!title || !url) { toast('Title and URL required', 'error'); return; }
+  const res = await fetch('/api/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, title, url, description }) });
+  if (res.ok) { toast('Link added! 🔗', 'success'); document.getElementById('linkTitle').value=''; document.getElementById('linkUrl').value=''; document.getElementById('linkDesc').value=''; loadLinksAdmin(); loadHomeWidgets(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function loadLinksAdmin() {
+  const container = document.getElementById('linksAdminList');
+  if (!container) return;
+  const res = await fetch('/api/links');
+  const links = await res.json();
+  container.innerHTML = links.length ? links.map(l => `<div class="admin-user-item"><a href="${l.url}" target="_blank" style="color:var(--accent);">${escHtml(l.title)}</a><button class="btn-danger" onclick="deleteLink('${l.id}')" style="padding:4px 10px;font-size:0.75rem;">🗑</button></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No links yet</div>';
+}
+
+async function deleteLink(id) {
+  if (!confirm('Delete this link?')) return;
+  await fetch(`/api/links/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  toast('Link deleted', 'success');
+  loadLinksAdmin(); loadHomeWidgets();
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from([...atob(base64)].map(c => c.charCodeAt(0)));
+}
+
+async function setupPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    if (await reg.pushManager.getSubscription()) return;
+    if (Notification.permission === 'denied') return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const keyRes = await fetch('/api/vapid-public-key');
+    const { key } = await keyRes.json();
+    if (!key) return;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+    await fetch('/api/push-subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser, subscription: sub }) });
+  } catch {}
+}
+
+async function sendPushNotification() {
+  const title = document.getElementById('pushTitle').value.trim();
+  const body = document.getElementById('pushBody').value.trim();
+  if (!title || !body) { toast('Title aur message dono likho', 'error'); return; }
+  const res = await fetch('/api/send-notification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, title, body }) });
+  if (res.ok) { const d = await res.json(); toast(`Sent! (${d.sent} delivered)`, 'success'); document.getElementById('pushTitle').value=''; document.getElementById('pushBody').value=''; }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function updateStudyStreak() {
   try {
     const res = await fetch('/api/streak/update', {
@@ -1701,21 +1845,37 @@ function openGameModal() {
   openModal('gameModal');
   gameCanvas = document.getElementById('gameCanvas');
   gameCtx = gameCanvas.getContext('2d');
+  resizeGameCanvas();
   document.getElementById('gameBest').textContent = gameBest;
   resetGameState();
   drawGame();
   document.getElementById('gameOverlay').classList.remove('hidden');
   document.getElementById('gameOverlayText').textContent = 'Tap or press Space to start';
+  if (window.innerWidth <= 768) {
+    const btn = document.getElementById('mobileJumpBtn');
+    btn.classList.remove('hidden');
+    btn.classList.add('show');
+  }
+}
+
+function resizeGameCanvas() {
+  const isMobile = window.innerWidth <= 768;
+  gameCanvas.width = isMobile ? 340 : 700;
+  gameCanvas.height = isMobile ? 160 : 220;
 }
 
 function closeGameModal() {
   gameRunning = false;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
   closeModal('gameModal');
+  const btn = document.getElementById('mobileJumpBtn');
+  btn.classList.add('hidden');
+  btn.classList.remove('show');
 }
 
 function resetGameState() {
-  dino = { x: 40, y: 150, w: 24, h: 36, vy: 0, jumping: false, legPhase: 0 };
+  const groundY = gameCanvas.height - 50;
+  dino = { x: 40, y: groundY, groundY, w: 24, h: 36, vy: 0, jumping: false, legPhase: 0 };
   obstacles = [];
   gameSpeed = 3.2;
   score = 0;
@@ -1746,6 +1906,13 @@ document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
   document.getElementById('gameOverlay')?.addEventListener('click', jumpDino);
+  document.getElementById('mobileJumpBtn')?.addEventListener('click', jumpDino);
+});
+window.addEventListener('resize', () => {
+  if (gameCanvas && !document.getElementById('gameModal')?.classList.contains('hidden')) {
+    resizeGameCanvas();
+    if (dino) { dino.groundY = gameCanvas.height - 50; if (!dino.jumping) dino.y = dino.groundY; }
+  }
 });
 
 function loopGame() {
@@ -1753,10 +1920,10 @@ function loopGame() {
 
   dino.vy += 0.6;
   dino.y += dino.vy;
-  if (dino.y >= 150) { dino.y = 150; dino.vy = 0; dino.jumping = false; }
+  if (dino.y >= dino.groundY) { dino.y = dino.groundY; dino.vy = 0; dino.jumping = false; }
 
-  if (Math.random() < 0.02 && (!obstacles.length || obstacles[obstacles.length - 1].x < 400)) {
-    obstacles.push({ x: gameCanvas.width, y: 155, w: 16, h: 28 });
+  if (Math.random() < 0.02 && (!obstacles.length || obstacles[obstacles.length - 1].x < gameCanvas.width * 0.6)) {
+    obstacles.push({ x: gameCanvas.width, y: dino.groundY + 5, w: 16, h: 28 });
   }
   obstacles.forEach(o => o.x -= gameSpeed);
   obstacles = obstacles.filter(o => o.x + o.w > 0);
@@ -1785,8 +1952,8 @@ function drawGame() {
 
   gameCtx.strokeStyle = isDark ? '#404460' : '#cdc7bc';
   gameCtx.beginPath();
-  gameCtx.moveTo(0, 184);
-  gameCtx.lineTo(w, 184);
+  gameCtx.moveTo(0, dino.groundY + 34);
+  gameCtx.lineTo(w, dino.groundY + 34);
   gameCtx.stroke();
 
   drawRunner(dino);

@@ -177,6 +177,10 @@
         <h4>🗓 Upcoming Exam Dates</h4>
         <div id="examWidgetList"></div>
       </div>
+      <div class="news-widget-col">
+        <h4>🔗 Latest Links</h4>
+        <div id="linksWidgetList"></div>
+      </div>
     </div>
 
     <div class="section-header">
@@ -384,6 +388,26 @@
         <div id="announcementsList" class="admin-user-list" style="margin-top:12px;"></div>
       </div>
       <div class="admin-card wide">
+        <h3>🔗 Latest Links</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <input type="text" id="linkTitle" placeholder="Title (e.g. Movie name, Web series)" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
+          <input type="text" id="linkUrl" placeholder="https://..." style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
+          <input type="text" id="linkDesc" placeholder="Description (optional)" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
+          <button class="btn-primary" onclick="postLink()" style="align-self:flex-start;">🔗 Add Link</button>
+        </div>
+        <div id="linksAdminList" class="admin-user-list"></div>
+      </div>
+
+      <div class="admin-card wide">
+        <h3>🔔 Send Push Notification</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input type="text" id="pushTitle" placeholder="Notification title..." style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
+          <textarea id="pushBody" placeholder="Notification message..." rows="2" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;resize:vertical;"></textarea>
+          <button class="btn-primary" onclick="sendPushNotification()" style="align-self:flex-start;">🔔 Send to All Subscribers</button>
+        </div>
+      </div>
+
+      <div class="admin-card wide">
         <h3>📬 User Messages</h3>
         <div id="messagesList" class="admin-user-list"></div>
       </div>
@@ -470,16 +494,7 @@
     <p class="modal-sub">Select section and attach PDF or image</p>
     <div class="form-group">
       <label>Section *</label>
-      <select id="timetableSection">
-        <option value="BCA 3A">BCA 3A</option>
-        <option value="BCA 3B">BCA 3B</option>
-        <option value="BCA 3C">BCA 3C</option>
-        <option value="BCA 3D">BCA 3D</option>
-        <option value="BCA 3E">BCA 3E</option>
-        <option value="BCA 3F">BCA 3F</option>
-        <option value="BCA 3G">BCA 3G</option>
-        <option value="BCA 3H">BCA 3H</option>
-      </select>
+      <select id="timetableSection"></select>
     </div>
     <div class="form-group">
       <label>Attach File * <span class="hint">(PDF or Image — max 100MB)</span></label>
@@ -631,6 +646,8 @@
     </div>
   </div>
 </div>
+
+<button id="mobileJumpBtn" class="mobile-jump-btn hidden">⬆ JUMP</button>
 
 <!-- TOAST -->
 <div id="toast" class="toast hidden"></div>
