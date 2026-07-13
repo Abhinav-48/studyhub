@@ -9,6 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
   <meta name="theme-color" content="#c84b31" />
 <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QMB7D7G2KQ"></script>
@@ -192,6 +194,8 @@
           <p id="notesBreadcrumb">Select your course to browse notes</p>
         </div>
         <button class="game-btn" onclick="openGameModal()" title="Play a quick game!">🎮</button>
+        <button class="game-btn" onclick="openAttendanceModal()" title="Attendance Calculator">🧮</button>
+        <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
@@ -645,6 +649,43 @@
     <div class="game-score-row">
       <span>Score: <strong id="gameScore">0</strong></span>
       <span>Best: <strong id="gameBest">0</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ ATTENDANCE CALCULATOR MODAL ═══════════════════ -->
+<div id="attendanceModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'attendanceModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('attendanceModal')">✕</button>
+    <h3>🧮 Attendance Calculator</h3>
+    <p class="modal-sub">Percentage = 100 − (((Total Absent − Total OAA) / Total Lecture) × 100)</p>
+    <div class="form-group">
+      <label>Total Lecture *</label>
+      <input type="number" id="attTotalLecture" placeholder="e.g. 60" />
+    </div>
+    <div class="form-group">
+      <label>Total Absent *</label>
+      <input type="number" id="attTotalAbsent" placeholder="e.g. 10" />
+    </div>
+    <div class="form-group">
+      <label>Total OAA</label>
+      <input type="number" id="attTotalOAA" placeholder="e.g. 2 (0 if none)" />
+    </div>
+    <button class="btn-primary full-width" onclick="calcAttendance()">Calculate ✅</button>
+    <div id="attResult" style="margin-top:18px;text-align:center;font-size:1.6rem;font-weight:700;color:var(--accent);"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ CHATBOT MODAL ═══════════════════ -->
+<div id="chatbotModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'chatbotModal')">
+  <div class="modal-box" style="max-width:600px;display:flex;flex-direction:column;height:80vh;">
+    <button class="modal-close" onclick="closeModal('chatbotModal')">✕</button>
+    <h3>🤖 Question Paper Analyzer</h3>
+    <p class="modal-sub">Keyword se search karo — kaunsa topic kitni baar aaya, batayega</p>
+    <div id="chatbotMessages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:10px 0;"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <input type="text" id="chatbotInput" placeholder="e.g. Trigonometry, Networking, Data Structures..." style="flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none;" onkeydown="if(event.key==='Enter')sendChatbotMessage()" />
+      <button class="btn-primary" onclick="sendChatbotMessage()">➤</button>
     </div>
   </div>
 </div>

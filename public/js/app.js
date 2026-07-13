@@ -2021,3 +2021,62 @@ function endGame() {
   document.getElementById('gameOverlay').classList.remove('hidden');
   document.getElementById('gameOverlayText').textContent = `💥 Game Over! Score: ${finalScore} — tap to retry`;
 }
+
+// ══════════════════════════════════════════════════
+// ATTENDANCE CALCULATOR
+// ══════════════════════════════════════════════════
+function openAttendanceModal() {
+  document.getElementById('attTotalLecture').value = '';
+  document.getElementById('attTotalAbsent').value = '';
+  document.getElementById('attTotalOAA').value = '';
+  document.getElementById('attResult').textContent = '';
+  openModal('attendanceModal');
+}
+
+function calcAttendance() {
+  const totalLecture = parseFloat(document.getElementById('attTotalLecture').value);
+  const totalAbsent = parseFloat(document.getElementById('attTotalAbsent').value) || 0;
+  const totalOAA = parseFloat(document.getElementById('attTotalOAA').value) || 0;
+  if (!totalLecture || totalLecture <= 0) { toast('Total Lecture sahi bharo', 'error'); return; }
+  const percentage = 100 - (((totalAbsent - totalOAA) / totalLecture) * 100);
+  const el = document.getElementById('attResult');
+  el.textContent = `${percentage.toFixed(2)}%`;
+  el.style.color = percentage >= 75 ? 'var(--green)' : 'var(--accent)';
+}
+
+// ══════════════════════════════════════════════════
+// CHATBOT (Keyword-based, no API, 100% free)
+// ══════════════════════════════════════════════════
+function openChatbotModal() { openModal('chatbotModal'); }
+
+async function sendChatbotMessage() {
+  const input = document.getElementById('chatbotInput');
+  const query = input.value.trim();
+  if (!query) return;
+  const messages = document.getElementById('chatbotMessages');
+  messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-end;background:var(--accent-light);color:var(--accent);padding:10px 14px;border-radius:14px;max-width:80%;">${escHtml(query)}</div>`);
+  input.value = '';
+  messages.scrollTop = messages.scrollHeight;
+
+  const loadingId = 'load-' + Date.now();
+  messages.insertAdjacentHTML('beforeend', `<div id="${loadingId}" style="align-self:flex-start;color:var(--text3);font-size:0.85rem;">Searching...</div>`);
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const res = await fetch('/api/chatbot', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, course: currentNoteCourse, subject: currentNoteSubject })
+    });
+    const data = await res.json();
+    document.getElementById(loadingId)?.remove();
+    if (res.ok) {
+      messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;background:var(--bg2);padding:10px 14px;border-radius:14px;max-width:85%;white-space:pre-wrap;">${escHtml(data.answer)}</div>`);
+    } else {
+      messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;color:var(--accent);">${escHtml(data.error || 'Error')}</div>`);
+    }
+  } catch {
+    document.getElementById(loadingId)?.remove();
+    messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;color:var(--accent);">Connection failed</div>`);
+  }
+  messages.scrollTop = messages.scrollHeight;
+}

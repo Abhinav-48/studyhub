@@ -1772,6 +1772,18 @@ h1, h2, h3 {
 .news-widget-col { padding: 14px 16px; }
 .news-widget-col h4 { font-size: 0.9rem; margin-bottom: 8px; }
 .news-widget-item { padding: 6px 0; font-size: 0.78rem; }
+
+#newsWidgetList, #examWidgetList, #linksWidgetList {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#newsWidgetList::-webkit-scrollbar,
+#examWidgetList::-webkit-scrollbar,
+#linksWidgetList::-webkit-scrollbar { width: 4px; }
+#newsWidgetList::-webkit-scrollbar-thumb,
+#examWidgetList::-webkit-scrollbar-thumb,
+#linksWidgetList::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
 /* ══════════════════════════════════════════════════
    FOLDER CONTEXT MENU (3-dot menu)
    ══════════════════════════════════════════════════ */
@@ -1810,6 +1822,10 @@ h1, h2, h3 {
   transition: transform 0.2s ease;
 }
 .game-btn:hover { transform: scale(1.12) rotate(-6deg); }
+.chatbot-btn {
+  width: 50px; height: 50px; font-size: 1.6rem;
+  background: var(--accent-light); border-color: var(--accent);
+}
 
 .game-modal-box { width: 640px; }
 .game-wrap {

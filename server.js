@@ -10,6 +10,18 @@ const socketIo = require('socket.io');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const pdfParse = require('pdf-parse');
+
+function chunkText(text, chunkSize = 1200, overlap = 150) {
+  const chunks = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + chunkSize, text.length);
+    chunks.push(text.slice(start, end).trim());
+    start += chunkSize - overlap;
+  }
+  return chunks.filter(c => c.length > 40);
+}
 const { createClient } = require('@supabase/supabase-js');
 const cloudinary = require('cloudinary').v2;
 
@@ -483,6 +495,47 @@ app.get('/api/quizzes/:id/results', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── CHATBOT (No AI — Keyword-based Pattern Finder, 100% Free) ────────────────
+app.post('/api/chatbot', async (req, res) => {
+  try {
+    const { query, course, subject } = req.body;
+    if (!query || !query.trim()) return res.status(400).json({ error: 'Query required' });
+
+    let chunkQuery = supabase.from('note_chunks').select('chunk_text, title, subject, course').eq('status', 'approved').limit(500);
+    if (course) chunkQuery = chunkQuery.eq('course', course);
+    if (subject) chunkQuery = chunkQuery.eq('subject', subject);
+    const { data: chunks, error } = await chunkQuery;
+    if (error) throw error;
+
+    if (!chunks || !chunks.length) {
+      return res.json({ answer: 'Is course/subject me abhi koi approved PDF notes nahi mile. Pehle question papers upload/approve karo.' });
+    }
+
+    const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const matched = chunks.filter(c => {
+      const text = c.chunk_text.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+
+    if (!matched.length) {
+      return res.json({ answer: `"${query}" se related kuch nahi mila uploaded papers me. Alag keyword try karo (jaise topic ka naam, chapter, ya subject).` });
+    }
+
+    const paperGroups = {};
+    matched.forEach(c => { paperGroups[c.title] = (paperGroups[c.title] || 0) + 1; });
+    const sortedPapers = Object.entries(paperGroups).sort((a, b) => b[1] - a[1]);
+
+    let answer = `🔍 "${query}" se related content ${matched.length} jagah mila, ${sortedPapers.length} paper(s) me:\n\n`;
+    sortedPapers.slice(0, 8).forEach(([title, count]) => {
+      answer += `📄 ${title} — ${count} matching section${count > 1 ? 's' : ''}\n`;
+    });
+    answer += `\n📌 Sabse zyada repeat hua paper: "${sortedPapers[0][0]}"\n\n`;
+    answer += `Sample excerpt:\n"${matched[0].chunk_text.slice(0, 300)}..."`;
+
+    res.json({ answer, matchCount: matched.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── COURSES (folders) ─────────────────────────────────────────────────────────
 app.get('/api/courses', async (req, res) => {
   try {
@@ -642,6 +695,21 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
       file_url: fileUrl, file_size: req.file.size, downloads: 0, status: 'pending'
     }).select().single();
     if (dbError) throw dbError;
+
+    if (req.file.mimetype === 'application/pdf') {
+      try {
+        const parsed = await pdfParse(req.file.buffer);
+        const chunks = chunkText(parsed.text || '');
+        if (chunks.length) {
+          const rows = chunks.map(c => ({
+            note_id: note.id, course: note.course, subject: note.subject,
+            title: note.title, chunk_text: c, status: 'pending'
+          }));
+          await supabase.from('note_chunks').insert(rows);
+        }
+      } catch (e) { console.error('PDF chunk extraction failed:', e.message); }
+    }
+
     io.emit('new_pending_note', formatNote(note));
     res.json({ success: true, message: 'Note submitted for approval!' });
   } catch (err) { res.status(500).json({ error: 'Upload failed: ' + err.message }); }
@@ -669,6 +737,7 @@ app.post('/api/notes/:id/approve', async (req, res) => {
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     const { data: note, error } = await supabase.from('notes').update({ status: 'approved' }).eq('id', req.params.id).select().single();
     if (error) throw error;
+    await supabase.from('note_chunks').update({ status: 'approved' }).eq('note_id', req.params.id);
     const formatted = formatNote(note);
     io.emit('new_note', formatted);
     io.emit('note_approved', req.params.id);
@@ -685,6 +754,7 @@ app.post('/api/notes/:id/reject', async (req, res) => {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
       await cloudinary.uploader.destroy(publicId, { resource_type: getResourceType(note.file_type || '') }).catch(() => {});
     }
+    await supabase.from('note_chunks').delete().eq('note_id', req.params.id);
     await supabase.from('notes').delete().eq('id', req.params.id);
     io.emit('note_rejected', req.params.id);
     res.json({ success: true });
@@ -703,6 +773,7 @@ app.delete('/api/notes/:id', async (req, res) => {
       const publicId = 'studyhub/' + note.file_url.split('/').pop().split('.')[0];
       await cloudinary.uploader.destroy(publicId, { resource_type: getResourceType(note.file_type || '') }).catch(() => {});
     }
+    await supabase.from('note_chunks').delete().eq('note_id', req.params.id);
     await supabase.from('notes').delete().eq('id', req.params.id);
     io.emit('note_deleted', req.params.id);
     res.json({ success: true });
