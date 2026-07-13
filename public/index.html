@@ -8,6 +8,31 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+  @media (max-width: 640px) {
+    #chatbotModal .modal-box {
+      max-width: 100% !important;
+      width: 94vw !important;
+      height: 88vh !important;
+      padding: 16px !important;
+      box-sizing: border-box;
+    }
+    #chatbotMessages {
+      font-size: 0.85rem;
+    }
+    #chatbotInput {
+      min-width: 0;
+      font-size: 0.85rem !important;
+    }
+    #chatbotFileName {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 140px;
+      display: inline-block;
+    }
+  }
+  </style>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/icon-192.png" />

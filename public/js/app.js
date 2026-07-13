@@ -302,7 +302,12 @@ async function openAddFolderPrompt() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requester: currentUser, name: name.trim() })
   });
-  if (res.ok) { toast('Folder added! 📁', 'success'); await loadCoursesForUpload(); loadNotes(); }
+  if (res.ok) {
+    toast('Folder added! 📁 Opening it now...', 'success');
+    await loadCoursesForUpload();
+    await loadNotes();
+    openNoteCourse(name.trim());
+  }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -405,7 +410,10 @@ async function addSubjectFolderPrompt() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ requester: currentUser, course: currentNoteCourse, name: name.trim() })
   });
-  if (res.ok) { toast('Subject folder added! 📁', 'success'); openNoteCourse(currentNoteCourse); }
+  if (res.ok) {
+    toast('Subject folder added! 📁 Opening it now...', 'success');
+    openNoteSubject(name.trim());
+  }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -766,7 +774,11 @@ async function addTTSectionPrompt() {
   const name = prompt('Enter new section name (e.g. BCA 3A):');
   if (!name || !name.trim()) return;
   const res = await fetch('/api/timetable-sections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, name: name.trim() }) });
-  if (res.ok) { toast('Section added! 📁', 'success'); loadTimetables(); }
+  if (res.ok) {
+    toast('Section added! 📁 Opening it now...', 'success');
+    await loadTimetables();
+    openTimetableSection(name.trim());
+  }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
