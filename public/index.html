@@ -681,9 +681,15 @@
   <div class="modal-box" style="max-width:600px;display:flex;flex-direction:column;height:80vh;">
     <button class="modal-close" onclick="closeModal('chatbotModal')">✕</button>
     <h3>🤖 Question Paper Analyzer</h3>
-    <p class="modal-sub">Keyword se search karo — kaunsa topic kitni baar aaya, batayega</p>
+    <p class="modal-sub">Search by keyword, or attach a PDF/photo (max 30MB) to analyze it directly</p>
     <div id="chatbotMessages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:10px 0;"></div>
-    <div style="display:flex;gap:8px;margin-top:10px;">
+    <div id="chatbotFileChip" class="hidden" style="display:flex;align-items:center;gap:8px;background:var(--bg2);padding:6px 12px;border-radius:99px;font-size:0.82rem;margin-bottom:6px;">
+      <span id="chatbotFileName"></span>
+      <button onclick="clearChatbotFile()" style="background:none;border:none;cursor:pointer;color:var(--accent);font-weight:700;">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn-secondary" onclick="document.getElementById('chatbotFileInput').click()" title="Attach PDF or Photo (max 30MB)" style="padding:0 14px;">📎</button>
+      <input type="file" id="chatbotFileInput" hidden accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="handleChatbotFileSelect(event)" />
       <input type="text" id="chatbotInput" placeholder="e.g. Trigonometry, Networking, Data Structures..." style="flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none;" onkeydown="if(event.key==='Enter')sendChatbotMessage()" />
       <button class="btn-primary" onclick="sendChatbotMessage()">➤</button>
     </div>

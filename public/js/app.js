@@ -2047,14 +2047,33 @@ function calcAttendance() {
 // ══════════════════════════════════════════════════
 // CHATBOT (Keyword-based, no API, 100% free)
 // ══════════════════════════════════════════════════
+let chatbotSelectedFile = null;
+
 function openChatbotModal() { openModal('chatbotModal'); }
+
+function handleChatbotFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 50 * 1024 * 1024) { toast('File 50MB se bada hai', 'error'); e.target.value = ''; return; }
+  chatbotSelectedFile = file;
+  document.getElementById('chatbotFileName').textContent = `📎 ${file.name}`;
+  document.getElementById('chatbotFileChip').classList.remove('hidden');
+}
+
+function clearChatbotFile() {
+  chatbotSelectedFile = null;
+  document.getElementById('chatbotFileInput').value = '';
+  document.getElementById('chatbotFileChip').classList.add('hidden');
+}
 
 async function sendChatbotMessage() {
   const input = document.getElementById('chatbotInput');
   const query = input.value.trim();
-  if (!query) return;
+  if (!query && !chatbotSelectedFile) return;
+
   const messages = document.getElementById('chatbotMessages');
-  messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-end;background:var(--accent-light);color:var(--accent);padding:10px 14px;border-radius:14px;max-width:80%;">${escHtml(query)}</div>`);
+  const userLabel = query || (chatbotSelectedFile ? `📎 ${chatbotSelectedFile.name}` : '');
+  messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-end;background:var(--accent-light);color:var(--accent);padding:10px 14px;border-radius:14px;max-width:80%;">${escHtml(userLabel)}</div>`);
   input.value = '';
   messages.scrollTop = messages.scrollHeight;
 
@@ -2063,10 +2082,13 @@ async function sendChatbotMessage() {
   messages.scrollTop = messages.scrollHeight;
 
   try {
-    const res = await fetch('/api/chatbot', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, course: currentNoteCourse, subject: currentNoteSubject })
-    });
+    const formData = new FormData();
+    formData.append('query', query);
+    if (currentNoteCourse) formData.append('course', currentNoteCourse);
+    if (currentNoteSubject) formData.append('subject', currentNoteSubject);
+    if (chatbotSelectedFile) formData.append('file', chatbotSelectedFile);
+
+    const res = await fetch('/api/chatbot', { method: 'POST', body: formData });
     const data = await res.json();
     document.getElementById(loadingId)?.remove();
     if (res.ok) {
@@ -2078,5 +2100,6 @@ async function sendChatbotMessage() {
     document.getElementById(loadingId)?.remove();
     messages.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;color:var(--accent);">Connection failed</div>`);
   }
+  clearChatbotFile();
   messages.scrollTop = messages.scrollHeight;
 }

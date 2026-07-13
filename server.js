@@ -11,6 +11,7 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const pdfParse = require('pdf-parse');
+const Tesseract = require('tesseract.js');
 
 function chunkText(text, chunkSize = 1200, overlap = 150) {
   const chunks = [];
@@ -22,6 +23,20 @@ function chunkText(text, chunkSize = 1200, overlap = 150) {
   }
   return chunks.filter(c => c.length > 40);
 }
+
+function isHindiText(text) {
+  return /[\u0900-\u097F]/.test(text || '');
+}
+
+const chatbotUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only PDF or image files allowed (max 30MB)'));
+  }
+});
 const { createClient } = require('@supabase/supabase-js');
 const cloudinary = require('cloudinary').v2;
 
@@ -496,10 +511,90 @@ app.get('/api/quizzes/:id/results', async (req, res) => {
 });
 
 // ─── CHATBOT (No AI — Keyword-based Pattern Finder, 100% Free) ────────────────
-app.post('/api/chatbot', async (req, res) => {
+const CB_TEXT = {
+  en: {
+    noQuery: 'Please type something or attach a PDF/photo.',
+    noNotes: 'No approved PDF notes found for this course/subject yet. Ask admin to upload and approve question papers first.',
+    extracting: 'Could not read any text from the attached file. Try a clearer photo or a text-based PDF.',
+    fileHeader: (name) => `📎 Analyzed file: "${name}"\n\n`,
+    noMatch: (q) => `Nothing related to "${q}" found in the uploaded papers. Try a different keyword (topic name, chapter, or subject).`,
+    resultHeader: (q, count, papers) => `🔍 Found "${q}" related content in ${count} place(s) across ${papers} paper(s):\n\n`,
+    matchLine: (title, count) => `📄 ${title} — ${count} matching section${count > 1 ? 's' : ''}\n`,
+    topPaper: (title) => `\n📌 Most frequently repeated in: "${title}"\n\n`,
+    excerpt: 'Sample excerpt:',
+    topWordsHeader: '📊 Most frequently occurring terms in this file:\n\n',
+    fileTooShort: 'File processed, but not enough readable text found to analyze patterns.'
+  },
+  hi: {
+    noQuery: 'Kuch likho ya PDF/photo attach karo.',
+    noNotes: 'Is course/subject me abhi koi approved PDF notes nahi mile. Pehle admin se question papers upload/approve karwao.',
+    extracting: 'Attach ki gayi file se text nahi nikal paya. Clear photo ya text-wala PDF try karo.',
+    fileHeader: (name) => `📎 Analyze ki gayi file: "${name}"\n\n`,
+    noMatch: (q) => `"${q}" se related kuch nahi mila uploaded papers me. Alag keyword try karo (topic naam, chapter, ya subject).`,
+    resultHeader: (q, count, papers) => `🔍 "${q}" se related content ${count} jagah mila, ${papers} paper(s) me:\n\n`,
+    matchLine: (title, count) => `📄 ${title} — ${count} matching section${count > 1 ? 's' : ''}\n`,
+    topPaper: (title) => `\n📌 Sabse zyada repeat hua paper: "${title}"\n\n`,
+    excerpt: 'Sample excerpt:',
+    topWordsHeader: '📊 Is file me sabse zyada aane wale terms:\n\n',
+    fileTooShort: 'File process ho gayi, par pattern analyze karne layak text nahi mila.'
+  }
+};
+
+const CB_STOPWORDS = new Set(['the','and','for','that','this','with','from','have','are','was','were','you','your','which','their','they','into','also','such','can','will','has','not','all','any','been','more','other','some','than','then','when','what','where','how','why','who','why','use','used','using']);
+
+function topKeywords(text, n = 10) {
+  const words = (text.toLowerCase().match(/[a-zA-Z\u0900-\u097F]{4,}/g) || []).filter(w => !CB_STOPWORDS.has(w));
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+
+app.post('/api/chatbot', chatbotUpload.single('file'), async (req, res) => {
   try {
-    const { query, course, subject } = req.body;
-    if (!query || !query.trim()) return res.status(400).json({ error: 'Query required' });
+    const query = (req.body.query || '').trim();
+    const { course, subject } = req.body;
+    const lang = isHindiText(query) ? 'hi' : 'en';
+    const t = CB_TEXT[lang];
+
+    // ── Case 1: File uploaded ──
+    if (req.file) {
+      let extractedText = '';
+      try {
+        if (req.file.mimetype === 'application/pdf') {
+          const parsed = await pdfParse(req.file.buffer);
+          extractedText = parsed.text || '';
+        } else {
+          const result = await Tesseract.recognize(req.file.buffer, 'eng+hin');
+          extractedText = result?.data?.text || '';
+        }
+      } catch (e) { console.error('Extraction failed:', e.message); }
+
+      if (!extractedText.trim()) return res.json({ answer: t.extracting });
+
+      let answer = t.fileHeader(req.file.originalname);
+
+      if (query) {
+        const fileChunks = chunkText(extractedText);
+        const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const matched = fileChunks.filter(c => keywords.some(k => c.toLowerCase().includes(k)));
+        if (!matched.length) {
+          answer += t.noMatch(query);
+        } else {
+          answer += `${t.excerpt}\n"${matched[0].slice(0, 400)}..."\n\n(${matched.length} matching section(s) found in this file)`;
+        }
+      } else {
+        const top = topKeywords(extractedText);
+        if (!top.length) { answer += t.fileTooShort; }
+        else {
+          answer += t.topWordsHeader;
+          top.forEach(([w, c]) => { answer += `• ${w} — ${c}x\n`; });
+        }
+      }
+      return res.json({ answer });
+    }
+
+    // ── Case 2: Plain text query (search stored notes) ──
+    if (!query) return res.json({ answer: t.noQuery });
 
     let chunkQuery = supabase.from('note_chunks').select('chunk_text, title, subject, course').eq('status', 'approved').limit(500);
     if (course) chunkQuery = chunkQuery.eq('course', course);
@@ -507,30 +602,21 @@ app.post('/api/chatbot', async (req, res) => {
     const { data: chunks, error } = await chunkQuery;
     if (error) throw error;
 
-    if (!chunks || !chunks.length) {
-      return res.json({ answer: 'Is course/subject me abhi koi approved PDF notes nahi mile. Pehle question papers upload/approve karo.' });
-    }
+    if (!chunks || !chunks.length) return res.json({ answer: t.noNotes });
 
     const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const matched = chunks.filter(c => {
-      const text = c.chunk_text.toLowerCase();
-      return keywords.some(k => text.includes(k));
-    });
+    const matched = chunks.filter(c => keywords.some(k => c.chunk_text.toLowerCase().includes(k)));
 
-    if (!matched.length) {
-      return res.json({ answer: `"${query}" se related kuch nahi mila uploaded papers me. Alag keyword try karo (jaise topic ka naam, chapter, ya subject).` });
-    }
+    if (!matched.length) return res.json({ answer: t.noMatch(query) });
 
     const paperGroups = {};
     matched.forEach(c => { paperGroups[c.title] = (paperGroups[c.title] || 0) + 1; });
     const sortedPapers = Object.entries(paperGroups).sort((a, b) => b[1] - a[1]);
 
-    let answer = `🔍 "${query}" se related content ${matched.length} jagah mila, ${sortedPapers.length} paper(s) me:\n\n`;
-    sortedPapers.slice(0, 8).forEach(([title, count]) => {
-      answer += `📄 ${title} — ${count} matching section${count > 1 ? 's' : ''}\n`;
-    });
-    answer += `\n📌 Sabse zyada repeat hua paper: "${sortedPapers[0][0]}"\n\n`;
-    answer += `Sample excerpt:\n"${matched[0].chunk_text.slice(0, 300)}..."`;
+    let answer = t.resultHeader(query, matched.length, sortedPapers.length);
+    sortedPapers.slice(0, 8).forEach(([title, count]) => { answer += t.matchLine(title, count); });
+    answer += t.topPaper(sortedPapers[0][0]);
+    answer += `${t.excerpt}\n"${matched[0].chunk_text.slice(0, 300)}..."`;
 
     res.json({ answer, matchCount: matched.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
