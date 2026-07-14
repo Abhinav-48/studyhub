@@ -1891,26 +1891,36 @@ h1, h2, h3 {
 #snakeCanvas { display: block; background: #f7f4ee; }
 [data-theme="dark"] .snake-wrap, [data-theme="dark"] #snakeCanvas { background: #1e2130; }
 
-.snake-controls {
-  display: grid;
-  grid-template-columns: 56px 56px 56px;
-  grid-template-rows: 56px 56px;
-  gap: 6px;
-  justify-content: center;
-  margin: 18px auto 0;
+.snake-joystick-wrap {
+  display: flex; justify-content: center;
+  margin: 20px auto 0;
 }
-.snake-ctrl-btn {
-  border: 1.5px solid var(--border); background: var(--bg2);
-  border-radius: 12px; font-size: 1.4rem; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text); transition: all 0.15s;
+.snake-joystick {
+  position: relative;
+  width: 130px; height: 130px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  touch-action: none;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.snake-ctrl-btn:active { background: var(--accent); color: #fff; transform: scale(0.92); }
-.snake-ctrl-up { grid-column: 2; grid-row: 1; }
-.snake-ctrl-left { grid-column: 1; grid-row: 2; }
-.snake-ctrl-down { grid-column: 2; grid-row: 2; }
-.snake-ctrl-right { grid-column: 3; grid-row: 2; }
+.snake-joystick-knob {
+  position: absolute;
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 3px 10px rgba(200,75,49,0.4);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform 0.05s linear;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .snake-joystick { width: 150px; height: 150px; margin-bottom: 10px; }
+  .snake-joystick-knob { width: 62px; height: 62px; }
+}
 
 .snake-winner-overlay {
   position: absolute; inset: 0; z-index: 10;
@@ -1930,12 +1940,7 @@ h1, h2, h3 {
 }
 
 @media (max-width: 640px) {
-  .snake-modal-box { width: 100%; padding: 20px 16px; }
-  .snake-controls {
-    grid-template-columns: 64px 64px 64px;
-    grid-template-rows: 64px 64px;
-  }
-  .snake-ctrl-btn { font-size: 1.6rem; }
+  .snake-modal-box { width: 100%; padding: 20px 14px; max-height: 94vh; }
   .snake-winner-text { font-size: 2.2rem; }
   .snake-crown { font-size: 3rem; }
 }

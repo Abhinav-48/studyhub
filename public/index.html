@@ -699,11 +699,10 @@
       <span>Score: <strong id="snakeScore">0</strong></span>
       <span>Best: <strong id="snakeBest">0</strong></span>
     </div>
-    <div class="snake-controls">
-      <button class="snake-ctrl-btn snake-ctrl-up" onclick="snakeSetDir('up')">⬆</button>
-      <button class="snake-ctrl-btn snake-ctrl-left" onclick="snakeSetDir('left')">⬅</button>
-      <button class="snake-ctrl-btn snake-ctrl-right" onclick="snakeSetDir('right')">➡</button>
-      <button class="snake-ctrl-btn snake-ctrl-down" onclick="snakeSetDir('down')">⬇</button>
+    <div class="snake-joystick-wrap">
+      <div id="snakeJoystick" class="snake-joystick">
+        <div id="snakeJoystickKnob" class="snake-joystick-knob"></div>
+      </div>
     </div>
   </div>
 </div>

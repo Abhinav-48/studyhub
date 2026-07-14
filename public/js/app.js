@@ -2043,18 +2043,19 @@ let snakeCols = 22, snakeRows = 22;
 let snakeBody = [];
 let snakeDir = { x: 1, y: 0 };
 let snakeNextDir = { x: 1, y: 0 };
-let snakeFood = { x: 5, y: 5 };
+let snakeFood = { x: 5, y: 5, super: false };
 let snakeRunning = false;
 let snakeTimeoutId = null;
 let snakeScoreVal = 0;
 let snakeBestVal = parseInt(localStorage.getItem('studyhub_snake_best') || '0');
+let snakeFoodsEaten = 0;
 const snakeBaseDelay = 130;
 
 function resizeSnakeCanvas() {
   const isMobile = window.innerWidth <= 768;
-  snakeCellSize = isMobile ? 16 : 20;
-  snakeCols = isMobile ? 20 : 24;
-  snakeRows = isMobile ? 20 : 24;
+  snakeCellSize = isMobile ? 18 : 22;
+  snakeCols = isMobile ? 20 : 26;
+  snakeRows = isMobile ? 22 : 26;
   snakeCanvas.width = snakeCols * snakeCellSize;
   snakeCanvas.height = snakeRows * snakeCellSize;
 }
@@ -2068,7 +2069,8 @@ function openSnakeModal() {
   resetSnakeState();
   drawSnake();
   document.getElementById('snakeOverlay').classList.remove('hidden');
-  document.getElementById('snakeOverlayText').textContent = 'Tap Play or press an arrow key to start';
+  document.getElementById('snakeOverlayText').textContent = 'Tap Play or use the joystick to start';
+  setupSnakeJoystick();
 }
 
 function closeSnakeModal() {
@@ -2084,6 +2086,7 @@ function resetSnakeState() {
   snakeDir = { x: 1, y: 0 };
   snakeNextDir = { x: 1, y: 0 };
   snakeScoreVal = 0;
+  snakeFoodsEaten = 0;
   document.getElementById('snakeScore').textContent = '0';
   placeSnakeFood();
   document.getElementById('snakeWinnerOverlay')?.remove();
@@ -2094,7 +2097,8 @@ function placeSnakeFood() {
   do {
     pos = { x: Math.floor(Math.random() * snakeCols), y: Math.floor(Math.random() * snakeRows) };
   } while (snakeBody.some(s => s.x === pos.x && s.y === pos.y));
-  snakeFood = pos;
+  const isSuper = snakeFoodsEaten > 0 && snakeFoodsEaten % 5 === 0;
+  snakeFood = { x: pos.x, y: pos.y, super: isSuper };
 }
 
 function startSnakeGame() {
@@ -2128,6 +2132,50 @@ window.addEventListener('resize', () => {
   }
 });
 
+// ── Circular Joystick ──
+function setupSnakeJoystick() {
+  const joystick = document.getElementById('snakeJoystick');
+  const knob = document.getElementById('snakeJoystickKnob');
+  if (!joystick || joystick.dataset.bound) return;
+  joystick.dataset.bound = '1';
+
+  let active = false;
+  const maxDist = 40;
+
+  function handleMove(clientX, clientY) {
+    const rect = joystick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const dist = Math.min(Math.sqrt(dx * dx + dy * dy), maxDist);
+    const angle = Math.atan2(dy, dx);
+    const kx = Math.cos(angle) * dist;
+    const ky = Math.sin(angle) * dist;
+    knob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+
+    if (dist > 12) {
+      const deg = angle * 180 / Math.PI;
+      if (deg >= -45 && deg < 45) snakeSetDir('right');
+      else if (deg >= 45 && deg < 135) snakeSetDir('down');
+      else if (deg >= -135 && deg < -45) snakeSetDir('up');
+      else snakeSetDir('left');
+    }
+  }
+
+  function resetKnob() {
+    knob.style.transform = 'translate(-50%, -50%)';
+  }
+
+  joystick.addEventListener('touchstart', (e) => { active = true; e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  joystick.addEventListener('touchmove', (e) => { if (active) { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
+  joystick.addEventListener('touchend', () => { active = false; resetKnob(); });
+
+  joystick.addEventListener('mousedown', (e) => { active = true; handleMove(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', (e) => { if (active) handleMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => { if (active) { active = false; resetKnob(); } });
+}
+
 function snakeLoop() {
   if (!snakeRunning) return;
   snakeDir = snakeNextDir;
@@ -2139,8 +2187,13 @@ function snakeLoop() {
   snakeBody.unshift(head);
 
   if (head.x === snakeFood.x && head.y === snakeFood.y) {
-    snakeScoreVal++;
+    snakeScoreVal += snakeFood.super ? 3 : 1;
+    snakeFoodsEaten++;
     document.getElementById('snakeScore').textContent = snakeScoreVal;
+    if (snakeFood.super) {
+      snakeBody.push({ ...snakeBody[snakeBody.length - 1] });
+      snakeBody.push({ ...snakeBody[snakeBody.length - 1] });
+    }
     if (snakeBody.length >= snakeCols * snakeRows) { endSnakeGame(true); return; }
     placeSnakeFood();
   } else {
@@ -2162,12 +2215,40 @@ function drawSnake() {
   snakeCtx.lineWidth = 2;
   snakeCtx.strokeRect(1, 1, w - 2, h - 2);
 
-  snakeCtx.fillStyle = isDark ? '#f07050' : '#c84b31';
-  snakeCtx.fillRect(snakeFood.x * snakeCellSize + 2, snakeFood.y * snakeCellSize + 2, snakeCellSize - 4, snakeCellSize - 4);
+  // Food
+  const fx = snakeFood.x * snakeCellSize + snakeCellSize / 2;
+  const fy = snakeFood.y * snakeCellSize + snakeCellSize / 2;
+  const foodR = snakeFood.super ? snakeCellSize / 1.8 : snakeCellSize / 2.6;
+  snakeCtx.fillStyle = snakeFood.super ? '#ffd873' : (isDark ? '#f07050' : '#c84b31');
+  snakeCtx.beginPath();
+  snakeCtx.arc(fx, fy, foodR - 2, 0, Math.PI * 2);
+  snakeCtx.fill();
+  if (snakeFood.super) {
+    snakeCtx.strokeStyle = '#c47a1e';
+    snakeCtx.lineWidth = 2;
+    snakeCtx.stroke();
+  }
 
+  // Body (rounded segments)
   snakeBody.forEach((seg, i) => {
-    snakeCtx.fillStyle = i === 0 ? (isDark ? '#4ade9a' : '#2d7a5b') : (isDark ? '#3a5a48' : '#8fc4a8');
-    snakeCtx.fillRect(seg.x * snakeCellSize + 1, seg.y * snakeCellSize + 1, snakeCellSize - 2, snakeCellSize - 2);
+    const isHead = i === 0;
+    const cx = seg.x * snakeCellSize + snakeCellSize / 2;
+    const cy = seg.y * snakeCellSize + snakeCellSize / 2;
+    const r = (snakeCellSize / 2) - 1;
+    snakeCtx.fillStyle = isHead ? (isDark ? '#4ade9a' : '#2d7a5b') : (isDark ? '#3a5a48' : '#8fc4a8');
+    snakeCtx.beginPath();
+    snakeCtx.roundRect(cx - r, cy - r, r * 2, r * 2, r * 0.6);
+    snakeCtx.fill();
+
+    if (isHead) {
+      const eyeOffsetX = snakeDir.x !== 0 ? snakeDir.x * (r * 0.35) : r * 0.35;
+      const eyeOffsetY = snakeDir.y !== 0 ? snakeDir.y * (r * 0.35) : -r * 0.35;
+      snakeCtx.fillStyle = '#1a1612';
+      snakeCtx.beginPath();
+      snakeCtx.arc(cx + eyeOffsetX - (snakeDir.y !== 0 ? r * 0.35 : 0), cy + eyeOffsetY - (snakeDir.x !== 0 ? r * 0.35 : 0), r * 0.16, 0, Math.PI * 2);
+      snakeCtx.arc(cx + eyeOffsetX + (snakeDir.y !== 0 ? r * 0.35 : 0), cy + eyeOffsetY + (snakeDir.x !== 0 ? r * 0.35 : 0), r * 0.16, 0, Math.PI * 2);
+      snakeCtx.fill();
+    }
   });
 }
 
