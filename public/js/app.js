@@ -2035,6 +2035,164 @@ function endGame() {
 }
 
 // ══════════════════════════════════════════════════
+// SNAKE GAME
+// ══════════════════════════════════════════════════
+let snakeCanvas, snakeCtx;
+let snakeCellSize = 20;
+let snakeCols = 22, snakeRows = 22;
+let snakeBody = [];
+let snakeDir = { x: 1, y: 0 };
+let snakeNextDir = { x: 1, y: 0 };
+let snakeFood = { x: 5, y: 5 };
+let snakeRunning = false;
+let snakeTimeoutId = null;
+let snakeScoreVal = 0;
+let snakeBestVal = parseInt(localStorage.getItem('studyhub_snake_best') || '0');
+const snakeBaseDelay = 130;
+
+function resizeSnakeCanvas() {
+  const isMobile = window.innerWidth <= 768;
+  snakeCellSize = isMobile ? 16 : 20;
+  snakeCols = isMobile ? 20 : 24;
+  snakeRows = isMobile ? 20 : 24;
+  snakeCanvas.width = snakeCols * snakeCellSize;
+  snakeCanvas.height = snakeRows * snakeCellSize;
+}
+
+function openSnakeModal() {
+  openModal('snakeModal');
+  snakeCanvas = document.getElementById('snakeCanvas');
+  snakeCtx = snakeCanvas.getContext('2d');
+  resizeSnakeCanvas();
+  document.getElementById('snakeBest').textContent = snakeBestVal;
+  resetSnakeState();
+  drawSnake();
+  document.getElementById('snakeOverlay').classList.remove('hidden');
+  document.getElementById('snakeOverlayText').textContent = 'Tap Play or press an arrow key to start';
+}
+
+function closeSnakeModal() {
+  snakeRunning = false;
+  if (snakeTimeoutId) clearTimeout(snakeTimeoutId);
+  closeModal('snakeModal');
+  document.getElementById('snakeWinnerOverlay')?.remove();
+}
+
+function resetSnakeState() {
+  const midX = Math.floor(snakeCols / 2), midY = Math.floor(snakeRows / 2);
+  snakeBody = [{ x: midX, y: midY }, { x: midX - 1, y: midY }, { x: midX - 2, y: midY }];
+  snakeDir = { x: 1, y: 0 };
+  snakeNextDir = { x: 1, y: 0 };
+  snakeScoreVal = 0;
+  document.getElementById('snakeScore').textContent = '0';
+  placeSnakeFood();
+  document.getElementById('snakeWinnerOverlay')?.remove();
+}
+
+function placeSnakeFood() {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * snakeCols), y: Math.floor(Math.random() * snakeRows) };
+  } while (snakeBody.some(s => s.x === pos.x && s.y === pos.y));
+  snakeFood = pos;
+}
+
+function startSnakeGame() {
+  resetSnakeState();
+  document.getElementById('snakeOverlay').classList.add('hidden');
+  snakeRunning = true;
+  snakeLoop();
+}
+
+function snakeSetDir(dir) {
+  if (!snakeRunning) { startSnakeGame(); return; }
+  if (dir === 'up' && snakeDir.y === 0) snakeNextDir = { x: 0, y: -1 };
+  else if (dir === 'down' && snakeDir.y === 0) snakeNextDir = { x: 0, y: 1 };
+  else if (dir === 'left' && snakeDir.x === 0) snakeNextDir = { x: -1, y: 0 };
+  else if (dir === 'right' && snakeDir.x === 0) snakeNextDir = { x: 1, y: 0 };
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('snakeModal')?.classList.contains('hidden')) {
+    if (e.key === 'ArrowUp') { e.preventDefault(); snakeSetDir('up'); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); snakeSetDir('down'); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); snakeSetDir('left'); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); snakeSetDir('right'); }
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (snakeCanvas && !document.getElementById('snakeModal')?.classList.contains('hidden')) {
+    resizeSnakeCanvas();
+    drawSnake();
+  }
+});
+
+function snakeLoop() {
+  if (!snakeRunning) return;
+  snakeDir = snakeNextDir;
+  const head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
+
+  if (head.x < 0 || head.x >= snakeCols || head.y < 0 || head.y >= snakeRows) { endSnakeGame(false); return; }
+  if (snakeBody.some(s => s.x === head.x && s.y === head.y)) { endSnakeGame(false); return; }
+
+  snakeBody.unshift(head);
+
+  if (head.x === snakeFood.x && head.y === snakeFood.y) {
+    snakeScoreVal++;
+    document.getElementById('snakeScore').textContent = snakeScoreVal;
+    if (snakeBody.length >= snakeCols * snakeRows) { endSnakeGame(true); return; }
+    placeSnakeFood();
+  } else {
+    snakeBody.pop();
+  }
+
+  drawSnake();
+
+  const delay = Math.min(snakeBaseDelay + snakeBody.length * 1.5, 220);
+  snakeTimeoutId = setTimeout(snakeLoop, delay);
+}
+
+function drawSnake() {
+  const w = snakeCanvas.width, h = snakeCanvas.height;
+  snakeCtx.clearRect(0, 0, w, h);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  snakeCtx.strokeStyle = isDark ? '#404460' : '#cdc7bc';
+  snakeCtx.lineWidth = 2;
+  snakeCtx.strokeRect(1, 1, w - 2, h - 2);
+
+  snakeCtx.fillStyle = isDark ? '#f07050' : '#c84b31';
+  snakeCtx.fillRect(snakeFood.x * snakeCellSize + 2, snakeFood.y * snakeCellSize + 2, snakeCellSize - 4, snakeCellSize - 4);
+
+  snakeBody.forEach((seg, i) => {
+    snakeCtx.fillStyle = i === 0 ? (isDark ? '#4ade9a' : '#2d7a5b') : (isDark ? '#3a5a48' : '#8fc4a8');
+    snakeCtx.fillRect(seg.x * snakeCellSize + 1, seg.y * snakeCellSize + 1, snakeCellSize - 2, snakeCellSize - 2);
+  });
+}
+
+function endSnakeGame(won) {
+  snakeRunning = false;
+  if (snakeTimeoutId) clearTimeout(snakeTimeoutId);
+  if (snakeScoreVal > snakeBestVal) {
+    snakeBestVal = snakeScoreVal;
+    localStorage.setItem('studyhub_snake_best', snakeBestVal);
+    document.getElementById('snakeBest').textContent = snakeBestVal;
+  }
+  if (won) {
+    const wrap = document.querySelector('.snake-wrap');
+    const overlay = document.createElement('div');
+    overlay.id = 'snakeWinnerOverlay';
+    overlay.className = 'snake-winner-overlay';
+    overlay.innerHTML = `<div class="snake-crown">👑</div><div class="snake-winner-text">WINNER</div>`;
+    wrap.appendChild(overlay);
+  } else {
+    document.getElementById('snakeOverlay').classList.remove('hidden');
+    document.getElementById('snakeOverlayText').textContent = `💥 Game Over! Score: ${snakeScoreVal} — tap Play to retry`;
+  }
+}
+
+// ══════════════════════════════════════════════════
 // ATTENDANCE CALCULATOR
 // ══════════════════════════════════════════════════
 function openAttendanceModal() {

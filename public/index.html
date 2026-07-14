@@ -221,6 +221,7 @@
         <button class="game-btn" onclick="openGameModal()" title="Play a quick game!">🎮</button>
         <button class="game-btn" onclick="openAttendanceModal()" title="Attendance Calculator">🧮</button>
         <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
+        <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
@@ -674,6 +675,35 @@
     <div class="game-score-row">
       <span>Score: <strong id="gameScore">0</strong></span>
       <span>Best: <strong id="gameBest">0</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ SNAKE GAME MODAL ═══════════════════ -->
+<div id="snakeModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'snakeModal')">
+  <div class="modal-box snake-modal-box">
+    <button class="modal-close" onclick="closeSnakeModal()">✕</button>
+    <h3>🐍 Snake Game</h3>
+    <p class="modal-sub">Eat the food, grow your snake, don't hit the border!</p>
+    <div class="snake-wrap">
+      <canvas id="snakeCanvas"></canvas>
+      <div id="snakeOverlay" class="game-overlay">
+        <div class="game-overlay-inner">
+          <div style="font-size:2.5rem;">🐍</div>
+          <p id="snakeOverlayText" style="font-weight:600;margin:8px 0;">Tap Play or press an arrow key to start</p>
+          <button class="btn-primary" onclick="startSnakeGame()">▶ Play</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-score-row">
+      <span>Score: <strong id="snakeScore">0</strong></span>
+      <span>Best: <strong id="snakeBest">0</strong></span>
+    </div>
+    <div class="snake-controls">
+      <button class="snake-ctrl-btn snake-ctrl-up" onclick="snakeSetDir('up')">⬆</button>
+      <button class="snake-ctrl-btn snake-ctrl-left" onclick="snakeSetDir('left')">⬅</button>
+      <button class="snake-ctrl-btn snake-ctrl-right" onclick="snakeSetDir('right')">➡</button>
+      <button class="snake-ctrl-btn snake-ctrl-down" onclick="snakeSetDir('down')">⬇</button>
     </div>
   </div>
 </div>
