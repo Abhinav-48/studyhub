@@ -1855,7 +1855,7 @@ h1, h2, h3 {
 }
 .mobile-jump-btn {
   display: none;
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 24px; left: 20px; transform: none;
   z-index: 600;
   padding: 14px 32px; background: var(--accent); color: #fff;
   border: none; border-radius: 99px;
@@ -1883,6 +1883,14 @@ h1, h2, h3 {
 .snake-modal-box {
   width: 500px; max-width: 96vw; text-align: center;
   display: flex; flex-direction: column; align-items: center;
+  max-height: 95vh; overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .snake-modal-box { padding-top: 20px !important; }
+  .snake-modal-box::before { display: none; }
+  .snake-modal-box .modal-sub { margin-bottom: 12px; font-size: 0.8rem; }
+  .snake-modal-box h3 { font-size: 1.2rem; margin-bottom: 2px; }
 }
 
 .snake-wrap {
@@ -1926,9 +1934,9 @@ h1, h2, h3 {
 
 @media (max-width: 640px) {
   .snake-modal-box { width: 100%; }
-  .snake-joystick-wrap { display: flex; }
-  .snake-joystick { width: 170px; height: 170px; margin-bottom: 6px; }
-  .snake-joystick-knob { width: 70px; height: 70px; }
+  .snake-joystick { width: 150px; height: 150px; margin-bottom: 4px; }
+  .snake-joystick-knob { width: 62px; height: 62px; }
+  .snake-joystick-wrap { margin: 14px auto 2px; }
 }
 
 .snake-winner-overlay {

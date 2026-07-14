@@ -2069,7 +2069,10 @@ function openSnakeModal() {
   resetSnakeState();
   drawSnake();
   document.getElementById('snakeOverlay').classList.remove('hidden');
-  document.getElementById('snakeOverlayText').textContent = 'Tap Play or use the joystick to start';
+  const isMobileDevice = window.innerWidth <= 640 || 'ontouchstart' in window;
+  document.getElementById('snakeOverlayText').textContent = isMobileDevice ? 'Tap Play or use the joystick to start' : 'Tap Play or use arrow keys to start';
+  const joyWrap = document.getElementById('snakeJoystickWrap');
+  if (joyWrap) joyWrap.style.display = isMobileDevice ? 'flex' : 'none';
   setupSnakeJoystick();
 }
 
