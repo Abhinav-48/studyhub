@@ -1881,9 +1881,8 @@ h1, h2, h3 {
 .snake-btn { background: var(--green-light); border-color: var(--green); }
 
 .snake-modal-box {
-  width: 460px; max-width: 96vw; text-align: center;
+  width: 500px; max-width: 96vw; text-align: center;
   display: flex; flex-direction: column; align-items: center;
-  max-height: 92vh; overflow-y: auto;
 }
 
 .snake-wrap {
@@ -1897,7 +1896,8 @@ h1, h2, h3 {
 [data-theme="dark"] .snake-wrap, [data-theme="dark"] #snakeCanvas { background: #1e2130; }
 
 .snake-joystick-wrap {
-  display: flex; justify-content: center;
+  display: none;
+  justify-content: center;
   margin: 22px auto 4px;
   flex-shrink: 0;
 }
@@ -1925,6 +1925,8 @@ h1, h2, h3 {
 }
 
 @media (max-width: 640px) {
+  .snake-modal-box { width: 100%; }
+  .snake-joystick-wrap { display: flex; }
   .snake-joystick { width: 170px; height: 170px; margin-bottom: 6px; }
   .snake-joystick-knob { width: 70px; height: 70px; }
 }

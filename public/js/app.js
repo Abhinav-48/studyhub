@@ -2053,7 +2053,7 @@ const snakeBaseDelay = 130;
 
 function resizeSnakeCanvas() {
   const isMobile = window.innerWidth <= 768;
-  snakeCellSize = isMobile ? 14 : 18;
+  snakeCellSize = isMobile ? 16 : 20;
   snakeCols = isMobile ? 20 : 22;
   snakeRows = isMobile ? 20 : 22;
   snakeCanvas.width = snakeCols * snakeCellSize;
