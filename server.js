@@ -622,6 +622,52 @@ app.post('/api/chatbot', chatbotUpload.single('file'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── ANONYMOUS CONFESSIONS ──────────────────────────────────────────────────────
+const CONFESSION_BLOCKED_WORDS = [
+  'kill', 'murder', 'rape', 'bomb', 'terrorist', 'suicide bomb',
+  'nude', 'nudes', 'porn', 'xxx', 'sex video', 'sexting',
+  'kys', 'i will kill', 'i will hurt', 'gang rape'
+];
+
+function isConfessionSafe(text) {
+  const lower = text.toLowerCase();
+  return !CONFESSION_BLOCKED_WORDS.some(w => lower.includes(w));
+}
+
+app.get('/api/confessions', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('confessions').select('id, message, likes, created_at').order('created_at', { ascending: false }).limit(200);
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/confessions', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Message required' });
+    const trimmed = message.trim();
+    if (trimmed.length > 1000) return res.status(400).json({ error: 'Message too long (max 1000 characters)' });
+    if (!isConfessionSafe(trimmed)) return res.status(400).json({ error: 'Your confession violates community guidelines.' });
+
+    const { data, error } = await supabase.from('confessions').insert({ message: trimmed }).select('id, message, likes, created_at').single();
+    if (error) throw error;
+    io.emit('new_confession', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/confessions/:id/like', async (req, res) => {
+  try {
+    const { data: existing } = await supabase.from('confessions').select('likes').eq('id', req.params.id).single();
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const { data, error } = await supabase.from('confessions').update({ likes: (existing.likes || 0) + 1 }).eq('id', req.params.id).select('id, likes').single();
+    if (error) throw error;
+    io.emit('confession_liked', { id: data.id, likes: data.likes });
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── COURSES (folders) ─────────────────────────────────────────────────────────
 app.get('/api/courses', async (req, res) => {
   try {

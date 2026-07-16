@@ -222,6 +222,7 @@
         <button class="game-btn" onclick="openAttendanceModal()" title="Attendance Calculator">🧮</button>
         <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
         <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
+        <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
@@ -746,6 +747,42 @@
       <input type="file" id="chatbotFileInput" hidden accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="handleChatbotFileSelect(event)" />
       <input type="text" id="chatbotInput" placeholder="e.g. Trigonometry, Networking, Data Structures..." style="flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none;" onkeydown="if(event.key==='Enter')sendChatbotMessage()" />
       <button class="btn-primary" onclick="sendChatbotMessage()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ ANONYMOUS CONFESSION MODAL ═══════════════════ -->
+<div id="confessionModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'confessionModal')">
+  <div class="modal-box confession-modal-box">
+    <button class="modal-close" onclick="closeModal('confessionModal')">✕</button>
+    <h3>🎭 Anonymous Confession</h3>
+    <p class="modal-sub">Share your thoughts, feelings, or stories — completely anonymously</p>
+
+    <div class="confession-privacy-notice">
+      <div class="confession-privacy-title">🔒 100% Anonymous</div>
+      <ul>
+        <li>Your name is never collected</li>
+        <li>No login identity is displayed</li>
+        <li>No username is stored</li>
+        <li>No email is shown</li>
+        <li>Even the administrator cannot see who submitted this</li>
+      </ul>
+    </div>
+
+    <div class="form-group">
+      <textarea id="confessionText" placeholder="Share your thoughts anonymously..." rows="4" maxlength="1000" oninput="updateConfessionCharCount()"></textarea>
+      <div class="confession-char-count"><span id="confessionCharCount">0</span> / 1000</div>
+    </div>
+    <div class="confession-form-actions">
+      <button class="btn-secondary" onclick="clearConfessionForm()">Clear</button>
+      <button class="btn-primary" onclick="postConfession()" id="confessionPostBtn">Post Anonymously 🎭</button>
+    </div>
+
+    <div class="confession-feed-wrap">
+      <div id="confessionFeed" class="confession-feed"></div>
+      <div id="confessionEmpty" class="empty-state hidden">
+        <span>🤫</span><p>No confessions yet. Be the first to share anonymously.</p>
+      </div>
     </div>
   </div>
 </div>

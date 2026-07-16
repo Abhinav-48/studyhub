@@ -2357,3 +2357,128 @@ async function sendChatbotMessage() {
   clearChatbotFile();
   messages.scrollTop = messages.scrollHeight;
 }
+// ══════════════════════════════════════════════════
+// ANONYMOUS CONFESSION
+// ══════════════════════════════════════════════════
+let confessionSubmitting = false;
+
+function openConfessionModal() {
+  openModal('confessionModal');
+  loadConfessions();
+}
+
+function updateConfessionCharCount() {
+  const text = document.getElementById('confessionText').value;
+  document.getElementById('confessionCharCount').textContent = text.length;
+}
+
+function clearConfessionForm() {
+  document.getElementById('confessionText').value = '';
+  updateConfessionCharCount();
+}
+
+async function loadConfessions() {
+  try {
+    const res = await fetch('/api/confessions');
+    const confessions = await res.json();
+    renderConfessions(confessions);
+  } catch {}
+}
+
+function renderConfessions(confessions) {
+  const feed = document.getElementById('confessionFeed');
+  const empty = document.getElementById('confessionEmpty');
+  if (!confessions.length) { feed.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  feed.innerHTML = confessions.map(c => buildConfessionCardHTML(c)).join('');
+}
+
+function buildConfessionCardHTML(c) {
+  const d = new Date(c.created_at);
+  const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `
+    <div class="confession-card" id="confession-${c.id}">
+      <div class="confession-card-header">
+        <div class="confession-avatar">👤</div>
+        <div>
+          <div class="confession-anon-label">Anonymous</div>
+          <div class="confession-datetime">${dateStr} • ${timeStr}</div>
+        </div>
+      </div>
+      <div class="confession-message">${escHtml(c.message)}</div>
+      <div class="confession-card-footer">
+        <button class="confession-like-btn" onclick="likeConfession('${c.id}')">❤️ <span id="confession-likes-${c.id}">${c.likes || 0}</span></button>
+        <button class="confession-copy-btn" onclick="copyConfession('${c.id}')">📋 Copy</button>
+      </div>
+    </div>`;
+}
+
+async function postConfession() {
+  if (confessionSubmitting) return;
+  const textEl = document.getElementById('confessionText');
+  const message = textEl.value.trim();
+  if (!message) { toast('Please write something first', 'error'); return; }
+  if (message.length > 1000) { toast('Message too long (max 1000 characters)', 'error'); return; }
+
+  confessionSubmitting = true;
+  const btn = document.getElementById('confessionPostBtn');
+  btn.disabled = true; btn.textContent = 'Posting...';
+
+  try {
+    const res = await fetch('/api/confessions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      toast('Posted anonymously! 🎭', 'success');
+      clearConfessionForm();
+      const feed = document.getElementById('confessionFeed');
+      document.getElementById('confessionEmpty').classList.add('hidden');
+      const card = document.createElement('div');
+      card.innerHTML = buildConfessionCardHTML(data);
+      const newCard = card.firstElementChild;
+      newCard.classList.add('confession-card-new');
+      feed.insertBefore(newCard, feed.firstChild);
+      newCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      toast(data.error || 'Failed to post', 'error');
+    }
+  } catch { toast('Failed to post. Check your connection.', 'error'); }
+
+  confessionSubmitting = false;
+  btn.disabled = false; btn.textContent = 'Post Anonymously 🎭';
+}
+
+async function likeConfession(id) {
+  try {
+    const res = await fetch(`/api/confessions/${id}/like`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      const el = document.getElementById(`confession-likes-${id}`);
+      if (el) el.textContent = data.likes;
+    }
+  } catch {}
+}
+
+function copyConfession(id) {
+  const card = document.getElementById(`confession-${id}`);
+  const text = card?.querySelector('.confession-message')?.textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard 📋', 'success')).catch(() => toast('Copy failed', 'error'));
+}
+
+socket.on('new_confession', (c) => {
+  if (document.getElementById('confessionModal')?.classList.contains('hidden')) return;
+  const feed = document.getElementById('confessionFeed');
+  if (!feed) return;
+  document.getElementById('confessionEmpty')?.classList.add('hidden');
+  const card = document.createElement('div');
+  card.innerHTML = buildConfessionCardHTML(c);
+  feed.insertBefore(card.firstElementChild, feed.firstChild);
+});
+socket.on('confession_liked', ({ id, likes }) => {
+  const el = document.getElementById(`confession-likes-${id}`);
+  if (el) el.textContent = likes;
+});
