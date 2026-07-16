@@ -137,7 +137,7 @@ app.get('/api/admin-settings', async (req, res) => {
     const { data } = await supabase.from('app_settings').select('*');
     const settings = {};
     (data || []).forEach(s => { settings[s.key] = s.value; });
-    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true' });
+    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true', confessions_disabled: settings.confessions_disabled === 'true' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -155,6 +155,16 @@ app.post('/api/admin-settings/uploads-toggle', async (req, res) => {
     const { requester, disabled } = req.body;
     if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
     await supabase.from('app_settings').upsert({ key: 'uploads_disabled', value: disabled ? 'true' : 'false' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-settings/confessions-toggle', async (req, res) => {
+  try {
+    const { requester, disabled } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin can do this.' });
+    await supabase.from('app_settings').upsert({ key: 'confessions_disabled', value: disabled ? 'true' : 'false' });
+    io.emit('confessions_toggle_changed', disabled);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -644,6 +654,9 @@ app.get('/api/confessions', async (req, res) => {
 
 app.post('/api/confessions', async (req, res) => {
   try {
+    const { data: settingRow } = await supabase.from('app_settings').select('value').eq('key', 'confessions_disabled').single();
+    if (settingRow?.value === 'true') return res.status(403).json({ error: 'Confessions are currently disabled by the administrator.' });
+
     const { message } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: 'Message required' });
     const trimmed = message.trim();
@@ -659,12 +672,24 @@ app.post('/api/confessions', async (req, res) => {
 
 app.post('/api/confessions/:id/like', async (req, res) => {
   try {
+    const { requester } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin can like confessions.' });
     const { data: existing } = await supabase.from('confessions').select('likes').eq('id', req.params.id).single();
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const { data, error } = await supabase.from('confessions').update({ likes: (existing.likes || 0) + 1 }).eq('id', req.params.id).select('id, likes').single();
     if (error) throw error;
     io.emit('confession_liked', { id: data.id, likes: data.likes });
     res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/confessions/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('confessions').delete().eq('id', req.params.id);
+    io.emit('confession_deleted', req.params.id);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

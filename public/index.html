@@ -402,6 +402,10 @@
             <button class="btn-warn" id="toggleUploadsBtn" onclick="toggleUploadsDisabled()">🚫 Disable Uploads Globally</button>
           </div>
           <div>
+            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Confessions status: <strong id="confessionsBlockStatusText">Loading...</strong></p>
+            <button class="btn-warn" id="toggleConfessionsBtn" onclick="toggleConfessionsDisabled()">🚫 Disable Confessions Globally</button>
+          </div>
+          <div>
             <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
             <div style="display:flex;gap:8px;">
               <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
@@ -756,32 +760,21 @@
   <div class="modal-box confession-modal-box">
     <button class="modal-close" onclick="closeModal('confessionModal')">✕</button>
     <h3>🎭 Anonymous Confession</h3>
-    <p class="modal-sub">Share your thoughts, feelings, or stories — completely anonymously</p>
-
-    <div class="confession-privacy-notice">
-      <div class="confession-privacy-title">🔒 100% Anonymous</div>
-      <ul>
-        <li>Your name is never collected</li>
-        <li>No login identity is displayed</li>
-        <li>No username is stored</li>
-        <li>No email is shown</li>
-        <li>Even the administrator cannot see who submitted this</li>
-      </ul>
-    </div>
-
-    <div class="form-group">
-      <textarea id="confessionText" placeholder="Share your thoughts anonymously..." rows="4" maxlength="1000" oninput="updateConfessionCharCount()"></textarea>
-      <div class="confession-char-count"><span id="confessionCharCount">0</span> / 1000</div>
-    </div>
-    <div class="confession-form-actions">
-      <button class="btn-secondary" onclick="clearConfessionForm()">Clear</button>
-      <button class="btn-primary" onclick="postConfession()" id="confessionPostBtn">Post Anonymously 🎭</button>
-    </div>
+    <div class="confession-privacy-notice">🔒 100% Anonymous — no name, login, username, email or IP is ever stored, not even visible to admin.</div>
 
     <div class="confession-feed-wrap">
       <div id="confessionFeed" class="confession-feed"></div>
       <div id="confessionEmpty" class="empty-state hidden">
         <span>🤫</span><p>No confessions yet. Be the first to share anonymously.</p>
+      </div>
+    </div>
+
+    <div class="confession-input-bar">
+      <div class="confession-char-count"><span id="confessionCharCount">0</span> / 1000</div>
+      <div class="confession-input-row">
+        <textarea id="confessionText" placeholder="Share your thoughts anonymously..." rows="1" maxlength="1000" oninput="updateConfessionCharCount()"></textarea>
+        <button class="btn-secondary confession-clear-btn" onclick="clearConfessionForm()" title="Clear">✕</button>
+        <button class="btn-primary confession-send-btn" onclick="postConfession()" id="confessionPostBtn" title="Post Anonymously">➤</button>
       </div>
     </div>
   </div>

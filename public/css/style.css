@@ -1962,57 +1962,43 @@ h1, h2, h3 {
   .snake-crown { font-size: 3rem; }
 }
 /* ══════════════════════════════════════════════════
-   ANONYMOUS CONFESSION
+   ANONYMOUS CONFESSION (WhatsApp-style layout)
    ══════════════════════════════════════════════════ */
 .confession-btn { background: var(--purple-light); border-color: var(--purple); }
 
 .confession-modal-box {
   width: 560px; max-width: 96vw;
+  height: 78vh; max-height: 78vh;
   display: flex; flex-direction: column;
-  max-height: 90vh;
+  padding-bottom: 0 !important;
+  overflow: hidden;
 }
 
 .confession-privacy-notice {
   background: var(--purple-light);
-  border: 1.5px solid var(--purple);
+  border: 1px solid var(--purple);
   border-radius: var(--radius-sm);
-  padding: 14px 18px;
-  margin-bottom: 20px;
-}
-.confession-privacy-title {
-  font-weight: 700; color: var(--purple);
-  font-size: 0.95rem; margin-bottom: 8px;
-}
-.confession-privacy-notice ul {
-  margin: 0; padding-left: 18px;
-  font-size: 0.82rem; color: var(--text2);
-  line-height: 1.7;
-}
-
-.confession-char-count {
-  text-align: right; font-size: 0.75rem;
-  color: var(--text3); margin-top: 4px;
-}
-
-.confession-form-actions {
-  display: flex; gap: 10px; justify-content: flex-end;
-  margin-bottom: 20px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  font-size: 0.78rem; color: var(--purple);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .confession-feed-wrap {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-  overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .confession-feed {
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column-reverse; gap: 14px;
 }
 
 .confession-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px 18px;
+  border-radius: var(--radius); padding: 14px 16px;
   transition: transform 0.15s, box-shadow 0.15s;
   animation: fadeInUp 0.3s ease both;
 }
@@ -2025,34 +2011,71 @@ h1, h2, h3 {
 
 .confession-card-header {
   display: flex; align-items: center; gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .confession-avatar {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: var(--purple-light); border: 1.5px solid var(--purple);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; flex-shrink: 0;
+  font-size: 1rem; flex-shrink: 0;
 }
-.confession-anon-label { font-weight: 600; font-size: 0.88rem; color: var(--text); }
-.confession-datetime { font-size: 0.75rem; color: var(--text3); }
+.confession-anon-label { font-weight: 600; font-size: 0.85rem; color: var(--text); }
+.confession-datetime { font-size: 0.72rem; color: var(--text3); }
+.confession-delete-btn { margin-left: auto; padding: 4px 10px; font-size: 0.72rem; }
 
 .confession-message {
-  font-size: 0.92rem; color: var(--text);
-  line-height: 1.6; margin-bottom: 12px;
+  font-size: 0.9rem; color: var(--text);
+  line-height: 1.6; margin-bottom: 10px;
   white-space: pre-wrap; word-break: break-word;
 }
 
-.confession-card-footer { display: flex; gap: 8px; }
+.confession-card-footer { display: flex; gap: 8px; align-items: center; }
 .confession-like-btn, .confession-copy-btn {
-  padding: 6px 14px; background: var(--bg2);
+  padding: 5px 12px; background: var(--bg2);
   border: 1.5px solid var(--border); border-radius: 99px;
-  font-size: 0.8rem; font-weight: 600; color: var(--text2);
+  font-size: 0.76rem; font-weight: 600; color: var(--text2);
   cursor: pointer; transition: all 0.15s;
+}
+.confession-like-display {
+  font-size: 0.76rem; color: var(--text2); font-weight: 600;
 }
 .confession-like-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
 .confession-copy-btn:hover { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
 
+/* Bottom input bar — WhatsApp style */
+.confession-input-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 10px 0 16px;
+  margin-top: 8px;
+}
+.confession-char-count {
+  text-align: right; font-size: 0.7rem;
+  color: var(--text3); margin-bottom: 4px;
+}
+.confession-input-row {
+  display: flex; align-items: flex-end; gap: 8px;
+}
+.confession-input-row textarea {
+  flex: 1; resize: none;
+  max-height: 90px; min-height: 40px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border); border-radius: 20px;
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  outline: none; transition: border-color 0.2s;
+}
+.confession-input-row textarea:focus { border-color: var(--purple); }
+.confession-clear-btn, .confession-send-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  padding: 0; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+}
+.confession-send-btn { font-size: 1.1rem; }
+
 @media (max-width: 640px) {
-  .confession-modal-box { width: 100%; max-height: 94vh; }
-  .confession-privacy-notice ul { font-size: 0.78rem; }
+  .confession-modal-box { width: 100%; height: 88vh; max-height: 88vh; }
+  .confession-privacy-notice { font-size: 0.72rem; }
 }

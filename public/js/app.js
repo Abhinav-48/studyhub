@@ -1352,7 +1352,31 @@ async function loadAdminSettings() {
         uploadsBtn.textContent = '🚫 Disable Uploads Globally';
       }
     }
+    const confText = document.getElementById('confessionsBlockStatusText');
+    const confBtn = document.getElementById('toggleConfessionsBtn');
+    if (confText && confBtn) {
+      if (data.confessions_disabled) {
+        confText.textContent = '🚫 Disabled';
+        confText.style.color = 'var(--accent)';
+        confBtn.textContent = '✅ Enable Confessions';
+      } else {
+        confText.textContent = '✅ Active';
+        confText.style.color = 'var(--green)';
+        confBtn.textContent = '🚫 Disable Confessions Globally';
+      }
+    }
   } catch {}
+}
+
+async function toggleConfessionsDisabled() {
+  const statusText = document.getElementById('confessionsBlockStatusText');
+  const currentlyDisabled = statusText?.textContent.includes('Disabled');
+  const res = await fetch('/api/admin-settings/confessions-toggle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, disabled: !currentlyDisabled })
+  });
+  if (res.ok) { toast(currentlyDisabled ? 'Confessions enabled ✅' : 'Confessions disabled globally 🚫', 'success'); loadAdminSettings(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 async function toggleAdminBlock() {
@@ -2397,6 +2421,7 @@ function buildConfessionCardHTML(c) {
   const d = new Date(c.created_at);
   const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const isAdmin = isAdminUser();
   return `
     <div class="confession-card" id="confession-${c.id}">
       <div class="confession-card-header">
@@ -2405,10 +2430,11 @@ function buildConfessionCardHTML(c) {
           <div class="confession-anon-label">Anonymous</div>
           <div class="confession-datetime">${dateStr} • ${timeStr}</div>
         </div>
+        ${isAdmin ? `<button class="btn-danger confession-delete-btn" onclick="deleteConfession('${c.id}')">🗑</button>` : ''}
       </div>
       <div class="confession-message">${escHtml(c.message)}</div>
       <div class="confession-card-footer">
-        <button class="confession-like-btn" onclick="likeConfession('${c.id}')">❤️ <span id="confession-likes-${c.id}">${c.likes || 0}</span></button>
+        ${isAdmin ? `<button class="confession-like-btn" onclick="likeConfession('${c.id}')">❤️ <span id="confession-likes-${c.id}">${c.likes || 0}</span></button>` : `<span class="confession-like-display">❤️ ${c.likes || 0}</span>`}
         <button class="confession-copy-btn" onclick="copyConfession('${c.id}')">📋 Copy</button>
       </div>
     </div>`;
@@ -2423,7 +2449,7 @@ async function postConfession() {
 
   confessionSubmitting = true;
   const btn = document.getElementById('confessionPostBtn');
-  btn.disabled = true; btn.textContent = 'Posting...';
+  btn.disabled = true;
 
   try {
     const res = await fetch('/api/confessions', {
@@ -2434,32 +2460,39 @@ async function postConfession() {
     if (res.ok) {
       toast('Posted anonymously! 🎭', 'success');
       clearConfessionForm();
-      const feed = document.getElementById('confessionFeed');
-      document.getElementById('confessionEmpty').classList.add('hidden');
-      const card = document.createElement('div');
-      card.innerHTML = buildConfessionCardHTML(data);
-      const newCard = card.firstElementChild;
-      newCard.classList.add('confession-card-new');
-      feed.insertBefore(newCard, feed.firstChild);
-      newCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Card is added via the 'new_confession' socket event below — not here — to avoid duplicates.
     } else {
       toast(data.error || 'Failed to post', 'error');
     }
   } catch { toast('Failed to post. Check your connection.', 'error'); }
 
   confessionSubmitting = false;
-  btn.disabled = false; btn.textContent = 'Post Anonymously 🎭';
+  btn.disabled = false;
 }
 
 async function likeConfession(id) {
+  if (!isAdminUser()) return;
   try {
-    const res = await fetch(`/api/confessions/${id}/like`, { method: 'POST' });
+    const res = await fetch(`/api/confessions/${id}/like`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requester: currentUser })
+    });
     const data = await res.json();
     if (res.ok) {
       const el = document.getElementById(`confession-likes-${id}`);
       if (el) el.textContent = data.likes;
-    }
+    } else { toast(data.error, 'error'); }
   } catch {}
+}
+
+async function deleteConfession(id) {
+  if (!confirm('Delete this confession permanently?')) return;
+  const res = await fetch(`/api/confessions/${id}`, {
+    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser })
+  });
+  if (res.ok) toast('Confession deleted', 'success');
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 function copyConfession(id) {
@@ -2470,15 +2503,26 @@ function copyConfession(id) {
 }
 
 socket.on('new_confession', (c) => {
-  if (document.getElementById('confessionModal')?.classList.contains('hidden')) return;
+  if (document.getElementById(`confession-${c.id}`)) return; // prevent duplicate
   const feed = document.getElementById('confessionFeed');
   if (!feed) return;
   document.getElementById('confessionEmpty')?.classList.add('hidden');
   const card = document.createElement('div');
   card.innerHTML = buildConfessionCardHTML(c);
-  feed.insertBefore(card.firstElementChild, feed.firstChild);
+  const newCard = card.firstElementChild;
+  newCard.classList.add('confession-card-new');
+  feed.insertBefore(newCard, feed.firstChild);
+  if (!document.getElementById('confessionModal')?.classList.contains('hidden')) {
+    document.getElementById('confessionFeed').scrollTop = 0;
+  }
 });
 socket.on('confession_liked', ({ id, likes }) => {
   const el = document.getElementById(`confession-likes-${id}`);
   if (el) el.textContent = likes;
 });
+socket.on('confession_deleted', (id) => {
+  document.getElementById(`confession-${id}`)?.remove();
+  const feed = document.getElementById('confessionFeed');
+  if (feed && !feed.children.length) document.getElementById('confessionEmpty')?.classList.remove('hidden');
+});
+socket.on('confessions_toggle_changed', () => { if (isSuperAdmin) loadAdminSettings(); });
