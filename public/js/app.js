@@ -2532,10 +2532,10 @@ socket.on('confessions_toggle_changed', () => { if (isSuperAdmin) loadAdminSetti
 const KW_WORDS = ['time','year','people','way','day','man','thing','woman','life','child','world','school','state','family','student','group','country','problem','hand','part','place','case','week','company','system','program','question','work','government','number','night','point','home','water','room','mother','area','money','story','fact','month','lot','right','study','book','eye','job','word','business','issue','side','kind','head','house','service','friend','father','power','hour','game','line','end','member','law','car','city','community','name','president','team','minute','idea','body','information','back','parent','face','others','level','office','door','health','person','art','war','history','party','result','change','morning','reason','research','girl','guy','moment','air','teacher','force','education','foot','boy','age','policy','process','music','market','sense','nation','plan','college','interest','death','experience','effect','use','class','control','care','field','development','role','effort','rate','heart','drug','show','leader','light','voice','wife','police','mind','price','report','decision','son','view','relationship','town','road','arm','ground','future','value','wood','industry','media','court','staff','future','position','million','coffee','baseball','impact','south','environment','event','military','clock','stage','vote','picture','author','magic','ocean','dragon','castle','forest','shadow','thunder','flame','crystal','journey','warrior','legend','battle','victory','ancient','mystery','phantom','glacier','horizon','whisper','cascade','emerald','falcon','saber','quantum','nebula','vortex','crimson','frontier','tempest','labyrinth','sanctuary','avalanche'];
 
 const KW_DIFFICULTY = {
-  easy: { minLen: 3, maxLen: 5, timeLimit: 6500, enemyHealth: 60, healthStep: 8, comboCrit: 6, damageMul: 1 },
-  medium: { minLen: 4, maxLen: 7, timeLimit: 5200, enemyHealth: 90, healthStep: 12, comboCrit: 5, damageMul: 1.15 },
-  hard: { minLen: 6, maxLen: 9, timeLimit: 4200, enemyHealth: 130, healthStep: 16, comboCrit: 4, damageMul: 1.3 },
-  insane: { minLen: 8, maxLen: 13, timeLimit: 3300, enemyHealth: 180, healthStep: 22, comboCrit: 3, damageMul: 1.5 }
+  easy: { minLen: 3, maxLen: 5, timeLimit: 5000, enemyHealth: 60, healthStep: 8, comboCrit: 6, damageMul: 1 },
+  medium: { minLen: 4, maxLen: 7, timeLimit: 3800, enemyHealth: 90, healthStep: 12, comboCrit: 5, damageMul: 1.15 },
+  hard: { minLen: 6, maxLen: 9, timeLimit: 3000, enemyHealth: 130, healthStep: 16, comboCrit: 4, damageMul: 1.3 },
+  insane: { minLen: 8, maxLen: 13, timeLimit: 2400, enemyHealth: 180, healthStep: 22, comboCrit: 3, damageMul: 1.5 }
 };
 
 let kwState = {
@@ -2667,8 +2667,10 @@ function kwArmWordTimer() {
     return;
   }
   const cfg = KW_DIFFICULTY[kwState.diff];
+  const waveShrink = Math.max(0.55, 1 - (kwState.wave - 1) * 0.05);
+  const effectiveLimit = cfg.timeLimit * waveShrink;
   kwState.wordStartTime = Date.now();
-  kwState.wordTimeoutId = setTimeout(() => { if (kwState.running) kwEnemyAttacks(); }, cfg.timeLimit);
+  kwState.wordTimeoutId = setTimeout(() => { if (kwState.running) kwEnemyAttacks(); }, effectiveLimit);
 }
 
 function kwRenderWord() {
@@ -2850,8 +2852,21 @@ function kwDrawScene() {
   ctx.beginPath(); ctx.moveTo(0, h * 0.72); ctx.lineTo(w, h * 0.72); ctx.stroke();
 
   const scale = Math.min(w / 700, 1.1) * (window.innerWidth <= 640 ? 0.8 : 1);
-  kwDrawStickman(w * 0.28, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true);
-  kwDrawStickman(w * 0.72, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false);
+
+  const lungeDist = w * 0.16;
+  const playerPhase = Math.min(kwState.playerAttackAnim, 1);
+  const enemyPhase = Math.min(kwState.enemyAttackAnim, 1);
+  const playerLunge = Math.sin(playerPhase * Math.PI) * lungeDist;
+  const enemyLunge = Math.sin(enemyPhase * Math.PI) * lungeDist;
+
+  const playerX = w * 0.28 + playerLunge;
+  const enemyX = w * 0.72 - enemyLunge;
+
+  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true);
+  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false);
+
+  if (playerPhase > 0.35 && playerPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, playerPhase);
+  if (enemyPhase > 0.35 && enemyPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, enemyPhase);
 
   // floating numbers
   kwState.floatingNumbers.forEach(fn => {
@@ -2863,6 +2878,25 @@ function kwDrawScene() {
     ctx.fillText(`-${fn.val}`, w * fn.x, h * fn.y - (1 - fn.life) * 40);
     ctx.restore();
   });
+}
+
+function kwDrawClash(x, y, phase) {
+  const ctx = kwCtx;
+  const alpha = 1 - Math.abs(phase - 0.5) * 4;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.strokeStyle = '#ffd873';
+  ctx.lineWidth = 4;
+  const spread = 16;
+  for (let i = 0; i < 4; i++) {
+    const angle = (Math.PI / 2) * i + phase * 3;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(angle) * 4, y + Math.sin(angle) * 4);
+    ctx.lineTo(x + Math.cos(angle) * spread, y + Math.sin(angle) * spread);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function kwLoop() {
