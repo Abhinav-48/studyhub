@@ -2667,7 +2667,7 @@ function kwArmWordTimer() {
     return;
   }
   const cfg = KW_DIFFICULTY[kwState.diff];
-  const waveShrink = Math.max(0.55, 1 - (kwState.wave - 1) * 0.05);
+  const waveShrink = Math.max(0.4, 1 - (kwState.wave - 1) * 0.08);
   const effectiveLimit = cfg.timeLimit * waveShrink;
   kwState.wordStartTime = Date.now();
   kwState.wordTimeoutId = setTimeout(() => { if (kwState.running) kwEnemyAttacks(); }, effectiveLimit);
