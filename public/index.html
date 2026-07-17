@@ -223,6 +223,7 @@
         <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
         <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
         <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
+        <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
       </div>
       <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
     </div>
@@ -775,6 +776,73 @@
         <textarea id="confessionText" placeholder="Share your thoughts anonymously..." rows="1" maxlength="1000" oninput="updateConfessionCharCount()"></textarea>
         <button class="btn-secondary confession-clear-btn" onclick="clearConfessionForm()" title="Clear">✕</button>
         <button class="btn-primary confession-send-btn" onclick="postConfession()" id="confessionPostBtn" title="Post Anonymously">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ KEYBOARD WARRIOR MODAL ═══════════════════ -->
+<div id="kwModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'kwModal')">
+  <div class="modal-box kw-modal-box">
+    <button class="modal-close" onclick="closeKWModal()">✕</button>
+
+    <!-- MENU SCREEN -->
+    <div id="kwMenuScreen" class="kw-screen">
+      <h3 class="kw-title">⚔️ Keyboard Warrior</h3>
+      <p class="modal-sub">Type words to fight — the faster and more accurate, the harder you hit</p>
+      <div class="kw-diff-row">
+        <button class="kw-diff-btn" data-diff="easy" onclick="kwSelectDifficulty('easy')">Easy</button>
+        <button class="kw-diff-btn" data-diff="medium" onclick="kwSelectDifficulty('medium')">Medium</button>
+        <button class="kw-diff-btn" data-diff="hard" onclick="kwSelectDifficulty('hard')">Hard</button>
+        <button class="kw-diff-btn" data-diff="insane" onclick="kwSelectDifficulty('insane')">Insane</button>
+      </div>
+      <input type="text" id="kwNickname" class="kw-nickname-input" placeholder="Your nickname (optional)" maxlength="20" />
+      <button class="btn-primary full-width kw-start-btn" onclick="kwStartGame()">▶ Start Battle</button>
+      <div class="kw-leaderboard">
+        <h4>🏆 Top Warriors</h4>
+        <div id="kwLeaderboardList"></div>
+      </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="kwGameScreen" class="kw-screen hidden">
+      <div class="kw-hud">
+        <div class="kw-health-block">
+          <div class="kw-health-label">YOU</div>
+          <div class="kw-health-bar"><div id="kwPlayerHealthFill" class="kw-health-fill kw-player-fill"></div></div>
+        </div>
+        <div class="kw-mid-stats">
+          <span id="kwComboDisplay">Combo: 0</span>
+          <span id="kwScoreDisplay">Score: 0</span>
+          <span id="kwWaveDisplay">Wave: 1</span>
+        </div>
+        <div class="kw-health-block">
+          <div class="kw-health-label">ENEMY</div>
+          <div class="kw-health-bar"><div id="kwEnemyHealthFill" class="kw-health-fill kw-enemy-fill"></div></div>
+        </div>
+      </div>
+      <div class="kw-canvas-wrap" id="kwCanvasWrap">
+        <canvas id="kwCanvas"></canvas>
+        <div id="kwWordDisplay" class="kw-word-display"></div>
+        <div id="kwPowerupBadge" class="kw-powerup-badge hidden"></div>
+      </div>
+      <input type="text" id="kwTypeInput" class="kw-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word..." />
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="kwGameOverScreen" class="kw-screen hidden">
+      <h3 class="kw-title kw-gameover-title">💀 Defeated</h3>
+      <div class="kw-stats-grid">
+        <div class="kw-stat-box"><span id="kwFinalScore">0</span><label>Score</label></div>
+        <div class="kw-stat-box"><span id="kwFinalWPM">0</span><label>WPM</label></div>
+        <div class="kw-stat-box"><span id="kwFinalAccuracy">0%</span><label>Accuracy</label></div>
+        <div class="kw-stat-box"><span id="kwFinalCombo">0</span><label>Best Combo</label></div>
+        <div class="kw-stat-box"><span id="kwFinalEnemies">0</span><label>Enemies Defeated</label></div>
+        <div class="kw-stat-box"><span id="kwFinalTime">0s</span><label>Time Survived</label></div>
+      </div>
+      <div class="kw-gameover-actions">
+        <button class="btn-secondary" onclick="kwGoToMenu()">Main Menu</button>
+        <button class="btn-primary" onclick="kwStartGame()">Play Again</button>
       </div>
     </div>
   </div>

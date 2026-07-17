@@ -2079,3 +2079,150 @@ h1, h2, h3 {
   .confession-modal-box { width: 100%; height: 88vh; max-height: 88vh; }
   .confession-privacy-notice { font-size: 0.72rem; }
 }
+/* ══════════════════════════════════════════════════
+   KEYBOARD WARRIOR
+   ══════════════════════════════════════════════════ */
+.kw-btn { background: #1a0e2e; border-color: #a855f7; }
+
+.kw-modal-box {
+  width: 720px; max-width: 97vw;
+  background: #0a0a14; color: #e8eaf6;
+  border: 1px solid #2d1b4e;
+  box-shadow: 0 0 60px rgba(168,85,247,0.25), var(--shadow-lg);
+}
+.kw-modal-box .modal-close { background: #1a0e2e; border-color: #a855f7; color: #e8eaf6; }
+.kw-modal-box .modal-sub { color: #9ba0c0; }
+
+.kw-screen { display: flex; flex-direction: column; align-items: center; }
+
+.kw-title {
+  font-family: 'DM Mono', monospace; font-weight: 700;
+  font-size: 1.7rem; text-align: center;
+  color: #fff; text-shadow: 0 0 12px #a855f7, 0 0 24px #a855f7;
+  margin-bottom: 4px; letter-spacing: 1px;
+}
+.kw-gameover-title { text-shadow: 0 0 12px #f07050, 0 0 24px #f07050; }
+
+.kw-diff-row { display: flex; gap: 8px; margin: 18px 0; flex-wrap: wrap; justify-content: center; }
+.kw-diff-btn {
+  padding: 10px 20px; background: #14101f;
+  border: 1.5px solid #3d2a5c; border-radius: 10px;
+  color: #c0b8e0; font-family: 'DM Sans', sans-serif; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.kw-diff-btn:hover { border-color: #a855f7; color: #fff; }
+.kw-diff-btn.active { background: #a855f7; border-color: #a855f7; color: #fff; box-shadow: 0 0 16px rgba(168,85,247,0.5); }
+
+.kw-nickname-input {
+  width: 100%; padding: 11px 16px; margin-bottom: 14px;
+  background: #14101f; border: 1.5px solid #3d2a5c; border-radius: 10px;
+  color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.92rem;
+  outline: none; text-align: center;
+}
+.kw-nickname-input:focus { border-color: #a855f7; }
+
+.kw-start-btn {
+  background: linear-gradient(135deg, #a855f7, #f07050) !important;
+  box-shadow: 0 0 20px rgba(168,85,247,0.4) !important;
+}
+
+.kw-leaderboard { width: 100%; margin-top: 20px; max-height: 180px; overflow-y: auto; }
+.kw-leaderboard h4 { color: #c0b8e0; font-size: 0.9rem; margin-bottom: 10px; text-align: center; }
+.kw-lb-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 12px; background: #14101f; border-radius: 8px; margin-bottom: 6px;
+  font-size: 0.82rem; color: #c0b8e0;
+}
+.kw-lb-row strong { color: #fff; }
+.kw-lb-rank { color: #a855f7; font-weight: 700; margin-right: 8px; }
+
+.kw-hud {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.kw-health-block { flex: 1; }
+.kw-health-label { font-size: 0.7rem; color: #9ba0c0; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
+.kw-health-bar { height: 14px; background: #14101f; border-radius: 99px; overflow: hidden; border: 1px solid #3d2a5c; }
+.kw-health-fill { height: 100%; transition: width 0.25s ease; border-radius: 99px; }
+.kw-player-fill { background: linear-gradient(90deg, #4ade9a, #2d7a5b); }
+.kw-enemy-fill { background: linear-gradient(90deg, #f07050, #c0392b); margin-left: auto; }
+.kw-mid-stats {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-family: 'DM Mono', monospace; font-size: 0.8rem; color: #c0b8e0; flex-shrink: 0;
+}
+
+.kw-canvas-wrap {
+  position: relative; width: 100%;
+  border-radius: 12px; overflow: hidden;
+  border: 1.5px solid #3d2a5c;
+  background: radial-gradient(ellipse at center, #1a0e2e 0%, #0a0a14 100%);
+}
+#kwCanvas { display: block; width: 100%; }
+.kw-canvas-wrap.kw-shake { animation: kwShake 0.25s ease; }
+@keyframes kwShake {
+  0%, 100% { transform: translate(0,0); }
+  20% { transform: translate(-6px, 3px); }
+  40% { transform: translate(6px, -3px); }
+  60% { transform: translate(-4px, 2px); }
+  80% { transform: translate(4px, -2px); }
+}
+
+.kw-word-display {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 700;
+  letter-spacing: 2px; padding: 8px 20px;
+  background: rgba(10,10,20,0.7); border-radius: 10px;
+  border: 1px solid #3d2a5c;
+}
+.kw-word-display .kw-typed { color: #4ade9a; text-shadow: 0 0 8px #4ade9a; }
+.kw-word-display .kw-untyped { color: #6b7099; }
+.kw-word-display.kw-wrong { animation: kwWordShake 0.2s ease; }
+@keyframes kwWordShake {
+  0%, 100% { transform: translateX(-50%); }
+  25% { transform: translateX(calc(-50% - 8px)); }
+  75% { transform: translateX(calc(-50% + 8px)); }
+}
+
+.kw-powerup-badge {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 6px 16px; border-radius: 99px;
+  background: linear-gradient(135deg, #ffd873, #f07050);
+  color: #1a0e2e; font-weight: 700; font-size: 0.8rem;
+  animation: kwPowerupPop 1.5s ease forwards;
+}
+@keyframes kwPowerupPop {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(0.9); }
+}
+
+.kw-type-input {
+  width: 100%; margin-top: 14px; padding: 12px 16px;
+  background: #14101f; border: 1.5px solid #3d2a5c; border-radius: 10px;
+  color: #fff; font-family: 'DM Mono', monospace; font-size: 1rem;
+  text-align: center; outline: none; letter-spacing: 1px;
+}
+.kw-type-input:focus { border-color: #a855f7; box-shadow: 0 0 12px rgba(168,85,247,0.3); }
+
+.kw-stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  width: 100%; margin: 20px 0;
+}
+.kw-stat-box {
+  text-align: center; padding: 14px 8px;
+  background: #14101f; border: 1px solid #3d2a5c; border-radius: 10px;
+}
+.kw-stat-box span { display: block; font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 700; color: #a855f7; }
+.kw-stat-box label { font-size: 0.72rem; color: #9ba0c0; }
+
+.kw-gameover-actions { display: flex; gap: 10px; width: 100%; }
+.kw-gameover-actions button { flex: 1; }
+
+@media (max-width: 640px) {
+  .kw-modal-box { width: 100%; }
+  .kw-diff-row { gap: 6px; }
+  .kw-diff-btn { padding: 8px 14px; font-size: 0.82rem; }
+  .kw-word-display { font-size: 1.1rem; padding: 6px 14px; }
+  .kw-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}

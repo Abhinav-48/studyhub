@@ -2526,3 +2526,384 @@ socket.on('confession_deleted', (id) => {
   if (feed && !feed.children.length) document.getElementById('confessionEmpty')?.classList.remove('hidden');
 });
 socket.on('confessions_toggle_changed', () => { if (isSuperAdmin) loadAdminSettings(); });
+// ══════════════════════════════════════════════════
+// KEYBOARD WARRIOR
+// ══════════════════════════════════════════════════
+const KW_WORDS = ['time','year','people','way','day','man','thing','woman','life','child','world','school','state','family','student','group','country','problem','hand','part','place','case','week','company','system','program','question','work','government','number','night','point','home','water','room','mother','area','money','story','fact','month','lot','right','study','book','eye','job','word','business','issue','side','kind','head','house','service','friend','father','power','hour','game','line','end','member','law','car','city','community','name','president','team','minute','idea','body','information','back','parent','face','others','level','office','door','health','person','art','war','history','party','result','change','morning','reason','research','girl','guy','moment','air','teacher','force','education','foot','boy','age','policy','process','music','market','sense','nation','plan','college','interest','death','experience','effect','use','class','control','care','field','development','role','effort','rate','heart','drug','show','leader','light','voice','wife','police','mind','price','report','decision','son','view','relationship','town','road','arm','ground','future','value','wood','industry','media','court','staff','future','position','million','coffee','baseball','impact','south','environment','event','military','clock','stage','vote','picture','author','magic','ocean','dragon','castle','forest','shadow','thunder','flame','crystal','journey','warrior','legend','battle','victory','ancient','mystery','phantom','glacier','horizon','whisper','cascade','emerald','falcon','saber','quantum','nebula','vortex','crimson','frontier','tempest','labyrinth','sanctuary','avalanche'];
+
+const KW_DIFFICULTY = {
+  easy: { minLen: 3, maxLen: 5, timeLimit: 6500, enemyHealth: 60, healthStep: 8, comboCrit: 6, damageMul: 1 },
+  medium: { minLen: 4, maxLen: 7, timeLimit: 5200, enemyHealth: 90, healthStep: 12, comboCrit: 5, damageMul: 1.15 },
+  hard: { minLen: 6, maxLen: 9, timeLimit: 4200, enemyHealth: 130, healthStep: 16, comboCrit: 4, damageMul: 1.3 },
+  insane: { minLen: 8, maxLen: 13, timeLimit: 3300, enemyHealth: 180, healthStep: 22, comboCrit: 3, damageMul: 1.5 }
+};
+
+let kwState = {
+  running: false, diff: 'easy', wave: 1, playerHP: 100, playerMaxHP: 100,
+  enemyHP: 100, enemyMaxHP: 100, combo: 0, bestCombo: 0, score: 0,
+  currentWord: '', typedIdx: 0, wordStartTime: 0, lastWord: '',
+  enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
+  startTime: 0, wordTimeoutId: null, animFrame: null,
+  playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
+  floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
+};
+let kwCtx, kwCanvas;
+let kwAudioCtx = null;
+
+function kwGetAudioCtx() {
+  if (!kwAudioCtx) kwAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return kwAudioCtx;
+}
+function kwBeep(freq, duration, type = 'square', vol = 0.08) {
+  try {
+    const ctx = kwGetAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  } catch {}
+}
+function kwSoundType() { kwBeep(600 + Math.random() * 200, 0.05, 'square', 0.04); }
+function kwSoundPunch() { kwBeep(120, 0.12, 'sawtooth', 0.12); }
+function kwSoundCombo() { kwBeep(440, 0.1, 'triangle', 0.1); setTimeout(() => kwBeep(660, 0.12, 'triangle', 0.1), 80); }
+function kwSoundCrit() { kwBeep(220, 0.05, 'sawtooth', 0.15); setTimeout(() => kwBeep(880, 0.15, 'square', 0.12), 50); }
+function kwSoundVictory() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => kwBeep(f, 0.2, 'triangle', 0.1), i * 120)); }
+function kwSoundGameOver() { [400, 300, 200, 100].forEach((f, i) => setTimeout(() => kwBeep(f, 0.25, 'sawtooth', 0.1), i * 150)); }
+
+function openKWModal() {
+  openModal('kwModal');
+  kwGoToMenu();
+  kwLoadLeaderboard();
+}
+function closeKWModal() {
+  kwState.running = false;
+  if (kwState.animFrame) cancelAnimationFrame(kwState.animFrame);
+  if (kwState.wordTimeoutId) clearTimeout(kwState.wordTimeoutId);
+  closeModal('kwModal');
+}
+
+function kwGoToMenu() {
+  kwState.running = false;
+  if (kwState.animFrame) cancelAnimationFrame(kwState.animFrame);
+  if (kwState.wordTimeoutId) clearTimeout(kwState.wordTimeoutId);
+  document.getElementById('kwMenuScreen').classList.remove('hidden');
+  document.getElementById('kwGameScreen').classList.add('hidden');
+  document.getElementById('kwGameOverScreen').classList.add('hidden');
+  kwLoadLeaderboard();
+}
+
+function kwSelectDifficulty(d) {
+  kwState.diff = d;
+  document.querySelectorAll('.kw-diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === d));
+}
+kwSelectDifficulty('easy');
+
+async function kwLoadLeaderboard() {
+  try {
+    const res = await fetch('/api/kw-leaderboard');
+    const rows = await res.json();
+    const list = document.getElementById('kwLeaderboardList');
+    if (!list) return;
+    list.innerHTML = rows.length ? rows.map((r, i) => `
+      <div class="kw-lb-row"><span><span class="kw-lb-rank">#${i + 1}</span><strong>${escHtml(r.nickname)}</strong></span><span>${r.score} pts · ${Math.round(r.wpm)} WPM</span></div>
+    `).join('') : '<div style="text-align:center;color:#6b7099;font-size:0.8rem;">No warriors yet — be the first!</div>';
+  } catch {}
+}
+
+function kwPickWord() {
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  let pool = KW_WORDS.filter(w => w.length >= cfg.minLen && w.length <= cfg.maxLen && w !== kwState.lastWord);
+  if (!pool.length) pool = KW_WORDS.filter(w => w !== kwState.lastWord);
+  const word = pool[Math.floor(Math.random() * pool.length)];
+  kwState.lastWord = word;
+  return word;
+}
+
+function kwStartGame() {
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  kwState = {
+    ...kwState, running: true, wave: 1, playerHP: 100, playerMaxHP: 100,
+    enemyHP: cfg.enemyHealth, enemyMaxHP: cfg.enemyHealth, combo: 0, bestCombo: 0, score: 0,
+    typedIdx: 0, lastWord: '', enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
+    startTime: Date.now(), playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
+    floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
+  };
+  kwState.currentWord = kwPickWord();
+
+  document.getElementById('kwMenuScreen').classList.add('hidden');
+  document.getElementById('kwGameOverScreen').classList.add('hidden');
+  document.getElementById('kwGameScreen').classList.remove('hidden');
+
+  kwCanvas = document.getElementById('kwCanvas');
+  kwCtx = kwCanvas.getContext('2d');
+  kwResizeCanvas();
+
+  const input = document.getElementById('kwTypeInput');
+  input.value = '';
+  input.disabled = false;
+  setTimeout(() => input.focus(), 100);
+
+  kwUpdateHUD();
+  kwRenderWord();
+  kwArmWordTimer();
+  kwLoop();
+}
+
+function kwResizeCanvas() {
+  const wrap = document.getElementById('kwCanvasWrap');
+  const w = wrap.clientWidth;
+  kwCanvas.width = w;
+  kwCanvas.height = window.innerWidth <= 640 ? 260 : 320;
+}
+window.addEventListener('resize', () => { if (kwState.running && kwCanvas) kwResizeCanvas(); });
+
+function kwArmWordTimer() {
+  if (kwState.wordTimeoutId) clearTimeout(kwState.wordTimeoutId);
+  if (Date.now() < kwState.freezeUntil) {
+    kwState.wordTimeoutId = setTimeout(kwArmWordTimer, kwState.freezeUntil - Date.now());
+    return;
+  }
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  kwState.wordStartTime = Date.now();
+  kwState.wordTimeoutId = setTimeout(() => { if (kwState.running) kwEnemyAttacks(); }, cfg.timeLimit);
+}
+
+function kwRenderWord() {
+  const el = document.getElementById('kwWordDisplay');
+  const word = kwState.currentWord;
+  const typed = word.slice(0, kwState.typedIdx);
+  const rest = word.slice(kwState.typedIdx);
+  el.innerHTML = `<span class="kw-typed">${typed}</span><span class="kw-untyped">${rest}</span>`;
+}
+
+document.getElementById('kwTypeInput')?.addEventListener('input', (e) => {
+  if (!kwState.running) return;
+  const val = e.target.value;
+  const word = kwState.currentWord;
+  const expectedChar = word[kwState.typedIdx];
+  const typedChar = val[val.length - 1];
+
+  if (val.length > kwState.typedIdx && typedChar && typedChar.toLowerCase() === (expectedChar || '').toLowerCase()) {
+    kwState.typedIdx++;
+    kwState.correctChars++;
+    kwState.totalChars++;
+    kwSoundType();
+    kwRenderWord();
+    if (kwState.typedIdx >= word.length) {
+      kwCompleteWord();
+      e.target.value = '';
+    }
+  } else if (val.length > 0) {
+    kwState.totalChars++;
+    kwState.combo = Math.max(0, kwState.combo - 3);
+    kwUpdateHUD();
+    const wd = document.getElementById('kwWordDisplay');
+    wd.classList.remove('kw-wrong'); void wd.offsetWidth; wd.classList.add('kw-wrong');
+    e.target.value = '';
+  }
+});
+
+function kwCompleteWord() {
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  const timeTaken = Date.now() - kwState.wordStartTime;
+  const fast = timeTaken < cfg.timeLimit * 0.55;
+  kwState.combo++;
+  kwState.bestCombo = Math.max(kwState.bestCombo, kwState.combo);
+  kwState.wordsCompleted++;
+
+  let damage = (10 + kwState.combo * 1.8) * cfg.damageMul;
+  let isCrit = kwState.combo % cfg.comboCrit === 0 || fast;
+  if (isCrit) damage *= 1.6;
+  if (Date.now() < kwState.doubleDmgUntil) damage *= 2;
+  damage = Math.round(damage);
+
+  kwState.score += Math.round(damage + kwState.combo * 2);
+  kwState.enemyHP = Math.max(0, kwState.enemyHP - damage);
+  kwState.playerAttackAnim = 1;
+  kwState.enemyHitFlash = 1;
+  kwState.floatingNumbers.push({ x: 0.72, y: 0.45, val: damage, crit: isCrit, life: 1 });
+  kwShakeCanvas();
+
+  if (isCrit) kwSoundCrit(); else kwSoundPunch();
+  if (kwState.combo > 0 && kwState.combo % 3 === 0) kwSoundCombo();
+
+  // Random power-up (15% chance)
+  if (Math.random() < 0.15) kwTriggerPowerup();
+
+  kwUpdateHUD();
+
+  if (kwState.enemyHP <= 0) {
+    kwEnemyDefeated();
+  } else {
+    kwState.typedIdx = 0;
+    kwState.currentWord = kwPickWord();
+    kwRenderWord();
+    kwArmWordTimer();
+  }
+}
+
+function kwTriggerPowerup() {
+  const types = ['freeze', 'double', 'heal', 'lightning', 'instantCombo'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const badge = document.getElementById('kwPowerupBadge');
+  let label = '';
+  if (type === 'freeze') { kwState.freezeUntil = Date.now() + 3000; label = '❄️ Freeze Time!'; }
+  else if (type === 'double') { kwState.doubleDmgUntil = Date.now() + 5000; label = '⚡ Double Damage!'; }
+  else if (type === 'heal') { kwState.playerHP = Math.min(kwState.playerMaxHP, kwState.playerHP + 20); label = '💚 Healed +20!'; }
+  else if (type === 'lightning') { kwState.enemyHP = Math.max(0, kwState.enemyHP - 25); kwState.floatingNumbers.push({ x: 0.72, y: 0.35, val: 25, crit: true, life: 1 }); label = '⚡ Lightning Strike!'; }
+  else if (type === 'instantCombo') { kwState.combo += 5; kwState.bestCombo = Math.max(kwState.bestCombo, kwState.combo); label = '🔥 Instant Combo +5!'; }
+
+  badge.textContent = label;
+  badge.classList.remove('hidden');
+  void badge.offsetWidth;
+  badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+  setTimeout(() => badge.classList.add('hidden'), 1500);
+  kwUpdateHUD();
+}
+
+function kwEnemyDefeated() {
+  kwState.enemiesDefeated++;
+  kwState.wave++;
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  kwState.enemyMaxHP = cfg.enemyHealth + kwState.wave * cfg.healthStep;
+  kwState.enemyHP = kwState.enemyMaxHP;
+  kwState.typedIdx = 0;
+  kwState.currentWord = kwPickWord();
+  kwRenderWord();
+  kwArmWordTimer();
+  kwUpdateHUD();
+}
+
+function kwEnemyAttacks() {
+  if (!kwState.running) return;
+  const cfg = KW_DIFFICULTY[kwState.diff];
+  const dmg = Math.round(8 + kwState.wave * 1.5);
+  kwState.playerHP = Math.max(0, kwState.playerHP - dmg);
+  kwState.enemyAttackAnim = 1;
+  kwState.playerHitFlash = 1;
+  kwState.combo = 0;
+  kwState.floatingNumbers.push({ x: 0.28, y: 0.45, val: dmg, crit: false, life: 1, enemy: true });
+  kwShakeCanvas();
+  kwSoundPunch();
+  kwUpdateHUD();
+
+  kwState.typedIdx = 0;
+  document.getElementById('kwTypeInput').value = '';
+  kwState.currentWord = kwPickWord();
+  kwRenderWord();
+
+  if (kwState.playerHP <= 0) { kwGameOver(); return; }
+  kwArmWordTimer();
+}
+
+function kwShakeCanvas() {
+  const wrap = document.getElementById('kwCanvasWrap');
+  wrap.classList.remove('kw-shake'); void wrap.offsetWidth; wrap.classList.add('kw-shake');
+}
+
+function kwUpdateHUD() {
+  document.getElementById('kwPlayerHealthFill').style.width = `${(kwState.playerHP / kwState.playerMaxHP) * 100}%`;
+  document.getElementById('kwEnemyHealthFill').style.width = `${(kwState.enemyHP / kwState.enemyMaxHP) * 100}%`;
+  document.getElementById('kwComboDisplay').textContent = `Combo: ${kwState.combo}`;
+  document.getElementById('kwScoreDisplay').textContent = `Score: ${kwState.score}`;
+  document.getElementById('kwWaveDisplay').textContent = `Wave: ${kwState.wave}`;
+}
+
+function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight) {
+  const ctx = kwCtx;
+  const dir = facingRight ? 1 : -1;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = hitFlash > 0.05 ? '#ff4444' : color;
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+
+  const punch = Math.sin(Math.min(attackAnim, 1) * Math.PI) * 22;
+
+  // head
+  ctx.beginPath(); ctx.arc(0, -60, 12, 0, Math.PI * 2); ctx.fill();
+  // body
+  ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(0, -10); ctx.stroke();
+  // back arm
+  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22); ctx.stroke();
+  // front arm (punching)
+  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(dir * (14 + punch), -30 + punch * 0.3); ctx.stroke();
+  ctx.beginPath(); ctx.arc(dir * (14 + punch), -30 + punch * 0.3, 4, 0, Math.PI * 2); ctx.fill();
+  // legs
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-10, 20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10, 20); ctx.stroke();
+
+  ctx.restore();
+}
+
+function kwDrawScene() {
+  const ctx = kwCtx, w = kwCanvas.width, h = kwCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // ground line
+  ctx.strokeStyle = '#3d2a5c'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, h * 0.72); ctx.lineTo(w, h * 0.72); ctx.stroke();
+
+  const scale = Math.min(w / 700, 1.1) * (window.innerWidth <= 640 ? 0.8 : 1);
+  kwDrawStickman(w * 0.28, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true);
+  kwDrawStickman(w * 0.72, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false);
+
+  // floating numbers
+  kwState.floatingNumbers.forEach(fn => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fn.life);
+    ctx.fillStyle = fn.enemy ? '#f07050' : (fn.crit ? '#ffd873' : '#4ade9a');
+    ctx.font = `${fn.crit ? 'bold ' : ''}${fn.crit ? 26 : 18}px 'DM Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`-${fn.val}`, w * fn.x, h * fn.y - (1 - fn.life) * 40);
+    ctx.restore();
+  });
+}
+
+function kwLoop() {
+  if (!kwState.running) return;
+  kwState.playerAttackAnim = Math.max(0, kwState.playerAttackAnim - 0.06);
+  kwState.enemyAttackAnim = Math.max(0, kwState.enemyAttackAnim - 0.06);
+  kwState.playerHitFlash = Math.max(0, kwState.playerHitFlash - 0.05);
+  kwState.enemyHitFlash = Math.max(0, kwState.enemyHitFlash - 0.05);
+  kwState.floatingNumbers.forEach(fn => fn.life -= 0.02);
+  kwState.floatingNumbers = kwState.floatingNumbers.filter(fn => fn.life > 0);
+  kwDrawScene();
+  kwState.animFrame = requestAnimationFrame(kwLoop);
+}
+
+async function kwGameOver() {
+  kwState.running = false;
+  if (kwState.wordTimeoutId) clearTimeout(kwState.wordTimeoutId);
+  if (kwState.animFrame) cancelAnimationFrame(kwState.animFrame);
+  document.getElementById('kwTypeInput').disabled = true;
+  kwSoundGameOver();
+
+  const elapsedMin = Math.max(0.05, (Date.now() - kwState.startTime) / 60000);
+  const wpm = Math.round(kwState.wordsCompleted / elapsedMin);
+  const accuracy = kwState.totalChars > 0 ? Math.round((kwState.correctChars / kwState.totalChars) * 100) : 100;
+  const timeSurvived = Math.round((Date.now() - kwState.startTime) / 1000);
+
+  document.getElementById('kwFinalScore').textContent = kwState.score;
+  document.getElementById('kwFinalWPM').textContent = wpm;
+  document.getElementById('kwFinalAccuracy').textContent = `${accuracy}%`;
+  document.getElementById('kwFinalCombo').textContent = kwState.bestCombo;
+  document.getElementById('kwFinalEnemies').textContent = kwState.enemiesDefeated;
+  document.getElementById('kwFinalTime').textContent = `${timeSurvived}s`;
+
+  document.getElementById('kwGameScreen').classList.add('hidden');
+  document.getElementById('kwGameOverScreen').classList.remove('hidden');
+
+  const nickname = document.getElementById('kwNickname').value.trim() || 'Anonymous';
+  try {
+    await fetch('/api/kw-leaderboard', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, score: kwState.score, wpm, accuracy })
+    });
+  } catch {}
+}
