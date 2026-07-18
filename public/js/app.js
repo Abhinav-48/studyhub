@@ -2545,6 +2545,7 @@ let kwState = {
   enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
   startTime: 0, wordTimeoutId: null, animFrame: null,
   playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
+  playerJab: 0,
   floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
 };
 let kwCtx, kwCanvas;
@@ -2629,6 +2630,7 @@ function kwStartGame() {
     enemyHP: cfg.enemyHealth, enemyMaxHP: cfg.enemyHealth, combo: 0, bestCombo: 0, score: 0,
     typedIdx: 0, lastWord: '', enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
     startTime: Date.now(), playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
+    playerJab: 0,
     floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
   };
   kwState.currentWord = kwPickWord();
@@ -2684,27 +2686,28 @@ function kwRenderWord() {
 document.getElementById('kwTypeInput')?.addEventListener('input', (e) => {
   if (!kwState.running) return;
   const val = e.target.value;
+  if (!val) return;
   const word = kwState.currentWord;
   const expectedChar = word[kwState.typedIdx];
   const typedChar = val[val.length - 1];
+  e.target.value = '';
 
-  if (val.length > kwState.typedIdx && typedChar && typedChar.toLowerCase() === (expectedChar || '').toLowerCase()) {
+  if (typedChar && expectedChar && typedChar.toLowerCase() === expectedChar.toLowerCase()) {
     kwState.typedIdx++;
     kwState.correctChars++;
     kwState.totalChars++;
+    kwState.playerJab = 1;
     kwSoundType();
     kwRenderWord();
     if (kwState.typedIdx >= word.length) {
       kwCompleteWord();
-      e.target.value = '';
     }
-  } else if (val.length > 0) {
+  } else {
     kwState.totalChars++;
     kwState.combo = Math.max(0, kwState.combo - 3);
     kwUpdateHUD();
     const wd = document.getElementById('kwWordDisplay');
     wd.classList.remove('kw-wrong'); void wd.offsetWidth; wd.classList.add('kw-wrong');
-    e.target.value = '';
   }
 });
 
@@ -2814,7 +2817,7 @@ function kwUpdateHUD() {
   document.getElementById('kwWaveDisplay').textContent = `Wave: ${kwState.wave}`;
 }
 
-function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight) {
+function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, jab) {
   const ctx = kwCtx;
   const dir = facingRight ? 1 : -1;
   ctx.save();
@@ -2825,20 +2828,37 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight) {
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
 
-  const punch = Math.sin(Math.min(attackAnim, 1) * Math.PI) * 22;
+  const phase = Math.min(attackAnim, 1);
+  const punch = Math.sin(phase * Math.PI) * 26 + (jab || 0) * 14;
+  const runSwing = Math.sin(phase * Math.PI * 4) * 12;
+  const lean = phase * dir * 4;
 
   // head
   ctx.beginPath(); ctx.arc(0, -60, 12, 0, Math.PI * 2); ctx.fill();
-  // body
-  ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(0, -10); ctx.stroke();
+  // body (leans forward while lunging)
+  ctx.beginPath(); ctx.moveTo(lean, -48); ctx.lineTo(0, -10); ctx.stroke();
   // back arm
   ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22); ctx.stroke();
-  // front arm (punching)
-  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(dir * (14 + punch), -30 + punch * 0.3); ctx.stroke();
-  ctx.beginPath(); ctx.arc(dir * (14 + punch), -30 + punch * 0.3, 4, 0, Math.PI * 2); ctx.fill();
-  // legs
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-10, 20); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10, 20); ctx.stroke();
+  // front arm (punching / holding weapon)
+  const handX = dir * (14 + punch);
+  const handY = -30 + punch * 0.3;
+  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(handX, handY); ctx.stroke();
+  ctx.beginPath(); ctx.arc(handX, handY, 4, 0, Math.PI * 2); ctx.fill();
+
+  // weapon — small blade held in the front hand, thrusts forward with the punch
+  ctx.save();
+  ctx.strokeStyle = '#e8eaf6';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(handX, handY);
+  ctx.lineTo(handX + dir * 20, handY - 10);
+  ctx.stroke();
+  ctx.restore();
+
+  // legs — running/scissor motion, wider stance while lunging
+  const legSpread = 10 + phase * 6;
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20); ctx.stroke();
 
   ctx.restore();
 }
@@ -2853,7 +2873,7 @@ function kwDrawScene() {
 
   const scale = Math.min(w / 700, 1.1) * (window.innerWidth <= 640 ? 0.8 : 1);
 
-  const lungeDist = w * 0.16;
+  const lungeDist = w * 0.22;
   const playerPhase = Math.min(kwState.playerAttackAnim, 1);
   const enemyPhase = Math.min(kwState.enemyAttackAnim, 1);
   const playerLunge = Math.sin(playerPhase * Math.PI) * lungeDist;
@@ -2862,8 +2882,8 @@ function kwDrawScene() {
   const playerX = w * 0.28 + playerLunge;
   const enemyX = w * 0.72 - enemyLunge;
 
-  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true);
-  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false);
+  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true, kwState.playerJab);
+  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false, 0);
 
   if (playerPhase > 0.35 && playerPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, playerPhase);
   if (enemyPhase > 0.35 && enemyPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, enemyPhase);
@@ -2903,6 +2923,7 @@ function kwLoop() {
   if (!kwState.running) return;
   kwState.playerAttackAnim = Math.max(0, kwState.playerAttackAnim - 0.06);
   kwState.enemyAttackAnim = Math.max(0, kwState.enemyAttackAnim - 0.06);
+  kwState.playerJab = Math.max(0, kwState.playerJab - 0.12);
   kwState.playerHitFlash = Math.max(0, kwState.playerHitFlash - 0.05);
   kwState.enemyHitFlash = Math.max(0, kwState.enemyHitFlash - 0.05);
   kwState.floatingNumbers.forEach(fn => fn.life -= 0.02);
