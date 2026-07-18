@@ -2126,8 +2126,16 @@ h1, h2, h3 {
   box-shadow: 0 0 20px rgba(168,85,247,0.4) !important;
 }
 
-.kw-leaderboard { width: 100%; margin-top: 20px; max-height: 180px; overflow-y: auto; }
+.kw-leaderboard { width: 100%; margin-top: 20px; max-height: 220px; overflow-y: auto; }
 .kw-leaderboard h4 { color: #c0b8e0; font-size: 0.9rem; margin-bottom: 10px; text-align: center; }
+.kw-lb-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+.kw-lb-tab {
+  padding: 5px 12px; background: #14101f; border: 1.5px solid #3d2a5c;
+  border-radius: 99px; color: #9ba0c0; font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.kw-lb-tab:hover { color: #fff; border-color: #a855f7; }
+.kw-lb-tab.active { background: #a855f7; border-color: #a855f7; color: #fff; }
 .kw-lb-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 7px 12px; background: #14101f; border-radius: 8px; margin-bottom: 6px;

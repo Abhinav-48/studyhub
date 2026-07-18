@@ -2552,7 +2552,7 @@ let kwState = {
   enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
   startTime: 0, wordTimeoutId: null, animFrame: null,
   playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
-  playerJab: 0,
+  playerJab: 0, playerStagger: 0, enemyStagger: 0,
   floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
 };
 let kwCtx, kwCanvas;
@@ -2609,10 +2609,20 @@ function kwSelectDifficulty(d) {
 }
 kwSelectDifficulty('easy');
 
+let kwLbFilter = 'all';
+
+function kwSetLbFilter(f) {
+  kwLbFilter = f;
+  document.querySelectorAll('.kw-lb-tab').forEach(b => b.classList.toggle('active', b.dataset.lb === f));
+  kwLoadLeaderboard();
+}
+
 async function kwLoadLeaderboard() {
   try {
-    const res = await fetch('/api/kw-leaderboard');
-    const rows = await res.json();
+    const url = kwLbFilter === 'all' ? '/api/kw-leaderboard' : `/api/kw-leaderboard?diff=${kwLbFilter}`;
+    const res = await fetch(url);
+    let rows = await res.json();
+    rows = rows.slice(0, 5); // top 5 only — client-side safety net either way
     const list = document.getElementById('kwLeaderboardList');
     if (!list) return;
     list.innerHTML = rows.length ? rows.map((r, i) => `
@@ -2736,6 +2746,7 @@ function kwCompleteWord() {
   kwState.enemyHP = Math.max(0, kwState.enemyHP - damage);
   kwState.playerAttackAnim = 1;
   kwState.enemyHitFlash = 1;
+  kwState.enemyStagger = 1;
   kwState.floatingNumbers.push({ x: 0.72, y: 0.45, val: damage, crit: isCrit, life: 1 });
   kwShakeCanvas();
 
@@ -2796,6 +2807,7 @@ function kwEnemyAttacks() {
   kwState.playerHP = Math.max(0, kwState.playerHP - dmg);
   kwState.enemyAttackAnim = 1;
   kwState.playerHitFlash = 1;
+  kwState.playerStagger = 1;
   kwState.combo = 0;
   kwState.floatingNumbers.push({ x: 0.28, y: 0.45, val: dmg, crit: false, life: 1, enemy: true });
   kwShakeCanvas();
@@ -2824,28 +2836,36 @@ function kwUpdateHUD() {
   document.getElementById('kwWaveDisplay').textContent = `Wave: ${kwState.wave}`;
 }
 
-function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, jab) {
+function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, jab, stagger, idleT) {
   const ctx = kwCtx;
   const dir = facingRight ? 1 : -1;
+  const phase = Math.min(attackAnim, 1);
+  const st = Math.min(stagger || 0, 1);
+
+  const jumpH = Math.sin(phase * Math.PI) * 14;
+  const knockSlide = -dir * st * 22;
+  const tilt = -dir * st * 0.35;
+  const idleBob = (phase < 0.02 && st < 0.02) ? Math.sin((idleT || 0) * 3) * 2 : 0;
+
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(x + knockSlide, y - jumpH + idleBob);
+  ctx.rotate(tilt);
   ctx.scale(scale, scale);
   ctx.strokeStyle = hitFlash > 0.05 ? '#ff4444' : color;
   ctx.fillStyle = ctx.strokeStyle;
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
 
-  const phase = Math.min(attackAnim, 1);
   const punch = Math.sin(phase * Math.PI) * 26 + (jab || 0) * 14;
   const runSwing = Math.sin(phase * Math.PI * 4) * 12;
-  const lean = phase * dir * 4;
+  const lean = phase * dir * 4 - st * dir * 6;
 
   // head
   ctx.beginPath(); ctx.arc(0, -60, 12, 0, Math.PI * 2); ctx.fill();
-  // body (leans forward while lunging)
+  // body (leans forward while lunging, buckles when staggered)
   ctx.beginPath(); ctx.moveTo(lean, -48); ctx.lineTo(0, -10); ctx.stroke();
   // back arm
-  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22 + st * 10); ctx.stroke();
   // front arm (punching / holding weapon)
   const handX = dir * (14 + punch);
   const handY = -30 + punch * 0.3;
@@ -2862,10 +2882,11 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, j
   ctx.stroke();
   ctx.restore();
 
-  // legs — running/scissor motion, wider stance while lunging
+  // legs — running/scissor motion, buckles at the knee when staggered
   const legSpread = 10 + phase * 6;
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20); ctx.stroke();
+  const kneeBuckle = st * 10;
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
 
   ctx.restore();
 }
@@ -2886,11 +2907,14 @@ function kwDrawScene() {
   const playerLunge = Math.sin(playerPhase * Math.PI) * lungeDist;
   const enemyLunge = Math.sin(enemyPhase * Math.PI) * lungeDist;
 
-  const playerX = w * 0.28 + playerLunge;
-  const enemyX = w * 0.72 - enemyLunge;
+  const idleT = Date.now() / 1000;
+  const pacing = (playerPhase < 0.02 && enemyPhase < 0.02) ? Math.sin(idleT * 1.3) * 8 : 0;
 
-  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true, kwState.playerJab);
-  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false, 0);
+  const playerX = w * 0.28 + playerLunge + pacing;
+  const enemyX = w * 0.72 - enemyLunge - pacing;
+
+  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true, kwState.playerJab, kwState.playerStagger, idleT);
+  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false, 0, kwState.enemyStagger, idleT + 1.7);
 
   if (playerPhase > 0.35 && playerPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, playerPhase);
   if (enemyPhase > 0.35 && enemyPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, enemyPhase);
@@ -2931,6 +2955,8 @@ function kwLoop() {
   kwState.playerAttackAnim = Math.max(0, kwState.playerAttackAnim - 0.06);
   kwState.enemyAttackAnim = Math.max(0, kwState.enemyAttackAnim - 0.06);
   kwState.playerJab = Math.max(0, kwState.playerJab - 0.12);
+  kwState.playerStagger = Math.max(0, kwState.playerStagger - 0.05);
+  kwState.enemyStagger = Math.max(0, kwState.enemyStagger - 0.05);
   kwState.playerHitFlash = Math.max(0, kwState.playerHitFlash - 0.05);
   kwState.enemyHitFlash = Math.max(0, kwState.enemyHitFlash - 0.05);
   kwState.floatingNumbers.forEach(fn => fn.life -= 0.02);
@@ -2965,7 +2991,8 @@ async function kwGameOver() {
   try {
     await fetch('/api/kw-leaderboard', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nickname, score: kwState.score, wpm, accuracy })
+      body: JSON.stringify({ nickname, score: kwState.score, wpm, accuracy, diff: kwState.diff })
     });
   } catch {}
+  kwLoadLeaderboard();
 }

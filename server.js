@@ -633,9 +633,14 @@ app.post('/api/chatbot', chatbotUpload.single('file'), async (req, res) => {
 });
 
 // ─── KEYBOARD WARRIOR LEADERBOARD ────────────────────────────────────────────────
+const KW_VALID_DIFFS = ['easy', 'medium', 'hard', 'insane'];
+
 app.get('/api/kw-leaderboard', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('kw_leaderboard').select('nickname, score, wpm, accuracy, created_at').order('score', { ascending: false }).limit(20);
+    const { diff } = req.query;
+    let query = supabase.from('kw_leaderboard').select('nickname, score, wpm, accuracy, diff, created_at').order('score', { ascending: false }).limit(5);
+    if (diff && KW_VALID_DIFFS.includes(diff)) query = query.eq('diff', diff);
+    const { data, error } = await query;
     if (error) throw error;
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -643,12 +648,13 @@ app.get('/api/kw-leaderboard', async (req, res) => {
 
 app.post('/api/kw-leaderboard', async (req, res) => {
   try {
-    let { nickname, score, wpm, accuracy } = req.body;
+    let { nickname, score, wpm, accuracy, diff } = req.body;
     nickname = (nickname || 'Anonymous').toString().trim().slice(0, 20) || 'Anonymous';
     score = Math.max(0, Math.min(999999, parseInt(score) || 0));
     wpm = Math.max(0, Math.min(500, parseFloat(wpm) || 0));
     accuracy = Math.max(0, Math.min(100, parseFloat(accuracy) || 0));
-    const { data, error } = await supabase.from('kw_leaderboard').insert({ nickname, score, wpm, accuracy }).select().single();
+    diff = KW_VALID_DIFFS.includes(diff) ? diff : 'easy';
+    const { data, error } = await supabase.from('kw_leaderboard').insert({ nickname, score, wpm, accuracy, diff }).select().single();
     if (error) throw error;
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }

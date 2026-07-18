@@ -800,6 +800,13 @@
       <button class="btn-primary full-width kw-start-btn" onclick="kwStartGame()">▶ Start Battle</button>
       <div class="kw-leaderboard">
         <h4>🏆 Top Warriors</h4>
+        <div class="kw-lb-tabs">
+          <button class="kw-lb-tab active" data-lb="all" onclick="kwSetLbFilter('all')">Overall</button>
+          <button class="kw-lb-tab" data-lb="easy" onclick="kwSetLbFilter('easy')">Easy</button>
+          <button class="kw-lb-tab" data-lb="medium" onclick="kwSetLbFilter('medium')">Medium</button>
+          <button class="kw-lb-tab" data-lb="hard" onclick="kwSetLbFilter('hard')">Hard</button>
+          <button class="kw-lb-tab" data-lb="insane" onclick="kwSetLbFilter('insane')">Insane</button>
+        </div>
         <div id="kwLeaderboardList"></div>
       </div>
     </div>
