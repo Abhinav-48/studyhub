@@ -1874,8 +1874,12 @@ function setTheme(theme) {
 // ══════════════════════════════════════════════════
 // MINI GAME — Study Break Runner (Dino-style)
 // ══════════════════════════════════════════════════
-let gameCtx, gameCanvas, gameRunning = false, gameLoopId = null;
+let gameCtx, gameCanvas, gameRunning = false, gameLoopId = null, gameLastTime = 0;
 let dino, obstacles, gameSpeed, score, gameBest = parseInt(localStorage.getItem('studyhub_game_best') || '0');
+const GAME_BASE_SPEED = 260;     // px per second (was ~192 before)
+const GAME_MAX_SPEED = 560;      // px per second (was ~390 before)
+const GAME_GRAVITY = 2400;       // px per second²
+const GAME_JUMP_VELOCITY = -720; // px per second
 
 function openGameModal() {
   openModal('gameModal');
@@ -1913,8 +1917,9 @@ function resetGameState() {
   const groundY = gameCanvas.height - 50;
   dino = { x: 40, y: groundY, groundY, w: 24, h: 36, vy: 0, jumping: false, legPhase: 0 };
   obstacles = [];
-  gameSpeed = 3.2;
+  gameSpeed = GAME_BASE_SPEED;
   score = 0;
+  gameLastTime = 0;
   document.getElementById('gameScore').textContent = '0';
 }
 
@@ -1922,14 +1927,14 @@ function startGame() {
   resetGameState();
   document.getElementById('gameOverlay').classList.add('hidden');
   gameRunning = true;
-  loopGame();
+  gameLoopId = requestAnimationFrame(loopGame);
 }
 
 function jumpDino() {
   if (!gameRunning) { startGame(); return; }
   if (!dino.jumping) {
     dino.jumping = true;
-    dino.vy = -11;
+    dino.vy = GAME_JUMP_VELOCITY;
   }
 }
 
@@ -1938,7 +1943,6 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.key === 'ArrowUp') { e.preventDefault(); jumpDino(); }
   }
 });
-document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gameCanvas')?.addEventListener('click', jumpDino);
   document.getElementById('gameOverlay')?.addEventListener('click', jumpDino);
@@ -1951,17 +1955,20 @@ window.addEventListener('resize', () => {
   }
 });
 
-function loopGame() {
+function loopGame(timestamp) {
   if (!gameRunning) return;
+  if (!gameLastTime) gameLastTime = timestamp;
+  const dt = Math.min((timestamp - gameLastTime) / 1000, 0.05); // cap so a stutter never causes a big jump
+  gameLastTime = timestamp;
 
-  dino.vy += 0.6;
-  dino.y += dino.vy;
+  dino.vy += GAME_GRAVITY * dt;
+  dino.y += dino.vy * dt;
   if (dino.y >= dino.groundY) { dino.y = dino.groundY; dino.vy = 0; dino.jumping = false; }
 
-  if (Math.random() < 0.02 && (!obstacles.length || obstacles[obstacles.length - 1].x < gameCanvas.width * 0.6)) {
+  if (Math.random() < dt * 1.4 && (!obstacles.length || obstacles[obstacles.length - 1].x < gameCanvas.width * 0.6)) {
     obstacles.push({ x: gameCanvas.width, y: dino.groundY + 5, w: 16, h: 28 });
   }
-  obstacles.forEach(o => o.x -= gameSpeed);
+  obstacles.forEach(o => o.x -= gameSpeed * dt);
   obstacles = obstacles.filter(o => o.x + o.w > 0);
 
   for (const o of obstacles) {
@@ -1971,9 +1978,9 @@ function loopGame() {
     }
   }
 
-  score += 1;
-  gameSpeed = Math.min(3.2 + Math.floor(score / 800) * 0.3, 6.5);
-  dino.legPhase += 0.35;
+  score += dt * 60;
+  gameSpeed = Math.min(GAME_BASE_SPEED + Math.floor(score / 400) * 25, GAME_MAX_SPEED);
+  dino.legPhase += dt * 21;
   document.getElementById('gameScore').textContent = Math.floor(score / 10);
 
   drawGame();
