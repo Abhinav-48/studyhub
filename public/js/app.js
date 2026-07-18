@@ -2553,6 +2553,8 @@ let kwState = {
   startTime: 0, wordTimeoutId: null, animFrame: null,
   playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
   playerJab: 0, playerStagger: 0, enemyStagger: 0,
+  goodHits: 0, missHits: 0, moveCounts: { punch: 0, kick: 0, slam: 0, upper: 0 },
+  currentMove: 'punch', bgScroll: 0,
   floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
 };
 let kwCtx, kwCanvas;
@@ -2647,7 +2649,9 @@ function kwStartGame() {
     enemyHP: cfg.enemyHealth, enemyMaxHP: cfg.enemyHealth, combo: 0, bestCombo: 0, score: 0,
     typedIdx: 0, lastWord: '', enemiesDefeated: 0, totalChars: 0, correctChars: 0, wordsCompleted: 0,
     startTime: Date.now(), playerAttackAnim: 0, enemyAttackAnim: 0, enemyHitFlash: 0, playerHitFlash: 0,
-    playerJab: 0,
+    playerJab: 0, playerStagger: 0, enemyStagger: 0,
+    goodHits: 0, missHits: 0, moveCounts: { punch: 0, kick: 0, slam: 0, upper: 0 },
+    currentMove: 'punch', bgScroll: 0,
     floatingNumbers: [], slowMo: false, freezeUntil: 0, doubleDmgUntil: 0
   };
   kwState.currentWord = kwPickWord();
@@ -2721,8 +2725,10 @@ document.getElementById('kwTypeInput')?.addEventListener('input', (e) => {
     }
   } else {
     kwState.totalChars++;
+    kwState.missHits++;
     kwState.combo = Math.max(0, kwState.combo - 3);
     kwUpdateHUD();
+    kwUpdateStatsBar();
     const wd = document.getElementById('kwWordDisplay');
     wd.classList.remove('kw-wrong'); void wd.offsetWidth; wd.classList.add('kw-wrong');
   }
@@ -2744,11 +2750,17 @@ function kwCompleteWord() {
 
   kwState.score += Math.round(damage + kwState.combo * 2);
   kwState.enemyHP = Math.max(0, kwState.enemyHP - damage);
+  kwState.goodHits++;
+  const kwMoveOrder = ['punch', 'kick', 'slam', 'upper'];
+  const kwMove = kwMoveOrder[kwState.wordsCompleted % kwMoveOrder.length];
+  kwState.currentMove = kwMove;
+  kwState.moveCounts[kwMove] = (kwState.moveCounts[kwMove] || 0) + 1;
   kwState.playerAttackAnim = 1;
   kwState.enemyHitFlash = 1;
   kwState.enemyStagger = 1;
   kwState.floatingNumbers.push({ x: 0.72, y: 0.45, val: damage, crit: isCrit, life: 1 });
   kwShakeCanvas();
+  kwUpdateStatsBar();
 
   if (isCrit) kwSoundCrit(); else kwSoundPunch();
   if (kwState.combo > 0 && kwState.combo % 3 === 0) kwSoundCombo();
@@ -2827,6 +2839,23 @@ function kwShakeCanvas() {
   const wrap = document.getElementById('kwCanvasWrap');
   wrap.classList.remove('kw-shake'); void wrap.offsetWidth; wrap.classList.add('kw-shake');
 }
+function kwUpdateStatsBar() {
+  const total = kwState.goodHits + kwState.missHits;
+  const acc = total > 0 ? Math.round((kwState.goodHits / total) * 100) : 100;
+  const elapsed = Math.max(0, Math.floor((Date.now() - kwState.startTime) / 1000));
+  const mm = Math.floor(elapsed / 60);
+  const ss = String(elapsed % 60).padStart(2, '0');
+  const line = document.getElementById('kwStatsLine');
+  if (line) line.textContent = `${kwState.goodHits} GOOD / ${kwState.missHits} MISS / ${acc}% / ${mm}:${ss}`;
+  const big = document.getElementById('kwBigScore');
+  if (big) big.textContent = kwState.score;
+  const heart = document.getElementById('kwHeartVal');
+  if (heart) heart.textContent = Math.round(kwState.playerHP);
+  const p = document.getElementById('kwCountPunch'); if (p) p.textContent = kwState.moveCounts.punch;
+  const k = document.getElementById('kwCountKick'); if (k) k.textContent = kwState.moveCounts.kick;
+  const s = document.getElementById('kwCountSlam'); if (s) s.textContent = kwState.moveCounts.slam;
+  const u = document.getElementById('kwCountUpper'); if (u) u.textContent = kwState.moveCounts.upper;
+}
 
 function kwUpdateHUD() {
   document.getElementById('kwPlayerHealthFill').style.width = `${(kwState.playerHP / kwState.playerMaxHP) * 100}%`;
@@ -2836,11 +2865,12 @@ function kwUpdateHUD() {
   document.getElementById('kwWaveDisplay').textContent = `Wave: ${kwState.wave}`;
 }
 
-function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, jab, stagger, idleT) {
+function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, jab, stagger, idleT, moveType) {
   const ctx = kwCtx;
   const dir = facingRight ? 1 : -1;
   const phase = Math.min(attackAnim, 1);
   const st = Math.min(stagger || 0, 1);
+  const move = moveType || 'punch';
 
   const jumpH = Math.sin(phase * Math.PI) * 14;
   const knockSlide = -dir * st * 22;
@@ -2862,42 +2892,86 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, j
 
   // head
   ctx.beginPath(); ctx.arc(0, -60, 12, 0, Math.PI * 2); ctx.fill();
-  // body (leans forward while lunging, buckles when staggered)
+  // body
   ctx.beginPath(); ctx.moveTo(lean, -48); ctx.lineTo(0, -10); ctx.stroke();
-  // back arm
-  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22 + st * 10); ctx.stroke();
-  // front arm (punching / holding weapon)
-  const handX = dir * (14 + punch);
-  const handY = -30 + punch * 0.3;
-  ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(handX, handY); ctx.stroke();
-  ctx.beginPath(); ctx.arc(handX, handY, 4, 0, Math.PI * 2); ctx.fill();
 
-  // weapon — small blade held in the front hand, thrusts forward with the punch
-  ctx.save();
-  ctx.strokeStyle = '#e8eaf6';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(handX, handY);
-  ctx.lineTo(handX + dir * 20, handY - 10);
-  ctx.stroke();
+  if (move === 'kick') {
+    const kickLift = Math.sin(phase * Math.PI) * 30;
+    // both arms tucked back
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 12, -30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 12, -22); ctx.stroke();
+    // back leg planted
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-dir * 10, 20); ctx.stroke();
+    // front leg kicks forward and up
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(dir * (14 + punch * 0.5), 14 - kickLift); ctx.stroke();
+    ctx.beginPath(); ctx.arc(dir * (14 + punch * 0.5), 14 - kickLift, 4, 0, Math.PI * 2); ctx.fill();
+  } else {
+    let handX, handY;
+    if (move === 'slam') { handX = dir * (10 + punch * 0.4); handY = -52 + punch * 0.85; }
+    else if (move === 'upper') { handX = dir * (10 + punch * 0.7); handY = -18 - punch * 0.55; }
+    else { handX = dir * (14 + punch); handY = -30 + punch * 0.3; }
+
+    // back arm
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 14, -22 + st * 10); ctx.stroke();
+    // front arm
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(handX, handY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(handX, handY, 4, 0, Math.PI * 2); ctx.fill();
+
+    // weapon
+    ctx.save();
+    ctx.strokeStyle = '#e8eaf6';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(handX, handY);
+    ctx.lineTo(handX + dir * 20, handY - 10);
+    ctx.stroke();
+    ctx.restore();
+
+    // legs — running motion
+    const legSpread = 10 + phase * 6;
+    const kneeBuckle = st * 10;
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
+  }
+
   ctx.restore();
+}
 
-  // legs — running/scissor motion, buckles at the knee when staggered
-  const legSpread = 10 + phase * 6;
-  const kneeBuckle = st * 10;
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
+function kwDrawBackground(w, h, scroll) {
+  const ctx = kwCtx;
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.72);
+  skyGrad.addColorStop(0, '#1a0e2e');
+  skyGrad.addColorStop(1, '#2d1b4e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, w, h * 0.72);
 
-  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  const starTile = 60;
+  const starOffset = (scroll * 0.4) % starTile;
+  for (let gx = -starOffset; gx < w + starTile; gx += starTile) {
+    ctx.beginPath(); ctx.arc(gx, h * 0.28, 2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.fillStyle = '#120a1f';
+  ctx.fillRect(0, h * 0.72, w, h * 0.28);
+
+  ctx.strokeStyle = 'rgba(168,85,247,0.4)';
+  ctx.lineWidth = 2;
+  const tile = 26;
+  const offset = scroll % tile;
+  for (let gx = -offset; gx < w + tile; gx += tile) {
+    ctx.beginPath();
+    ctx.moveTo(gx, h * 0.72);
+    ctx.lineTo(gx - 6, h * 0.72 + 10);
+    ctx.stroke();
+  }
 }
 
 function kwDrawScene() {
   const ctx = kwCtx, w = kwCanvas.width, h = kwCanvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  // ground line
-  ctx.strokeStyle = '#3d2a5c'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, h * 0.72); ctx.lineTo(w, h * 0.72); ctx.stroke();
+  kwDrawBackground(w, h, kwState.bgScroll || 0);
 
   const scale = Math.min(w / 700, 1.1) * (window.innerWidth <= 640 ? 0.8 : 1);
 
@@ -2913,8 +2987,8 @@ function kwDrawScene() {
   const playerX = w * 0.28 + playerLunge + pacing;
   const enemyX = w * 0.72 - enemyLunge - pacing;
 
-  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true, kwState.playerJab, kwState.playerStagger, idleT);
-  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false, 0, kwState.enemyStagger, idleT + 1.7);
+  kwDrawStickman(playerX, h * 0.72, scale, '#4ade9a', kwState.playerAttackAnim, kwState.playerHitFlash, true, kwState.playerJab, kwState.playerStagger, idleT, kwState.currentMove);
+  kwDrawStickman(enemyX, h * 0.72, scale, '#f07050', kwState.enemyAttackAnim, kwState.enemyHitFlash, false, 0, kwState.enemyStagger, idleT + 1.7, 'punch');
 
   if (playerPhase > 0.35 && playerPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, playerPhase);
   if (enemyPhase > 0.35 && enemyPhase < 0.7) kwDrawClash((playerX + enemyX) / 2, h * 0.72 - 45 * scale, enemyPhase);
@@ -2959,9 +3033,11 @@ function kwLoop() {
   kwState.enemyStagger = Math.max(0, kwState.enemyStagger - 0.05);
   kwState.playerHitFlash = Math.max(0, kwState.playerHitFlash - 0.05);
   kwState.enemyHitFlash = Math.max(0, kwState.enemyHitFlash - 0.05);
+  kwState.bgScroll = (kwState.bgScroll || 0) + 1.5;
   kwState.floatingNumbers.forEach(fn => fn.life -= 0.02);
   kwState.floatingNumbers = kwState.floatingNumbers.filter(fn => fn.life > 0);
   kwDrawScene();
+  kwUpdateStatsBar();
   kwState.animFrame = requestAnimationFrame(kwLoop);
 }
 

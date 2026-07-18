@@ -828,12 +828,23 @@
           <div class="kw-health-bar"><div id="kwEnemyHealthFill" class="kw-health-fill kw-enemy-fill"></div></div>
         </div>
       </div>
+      <div class="kw-stats-strip">
+        <span id="kwStatsLine">0 GOOD / 0 MISS / 100% / 0:00</span>
+        <span id="kwBigScore">0</span>
+      </div>
       <div class="kw-canvas-wrap" id="kwCanvasWrap">
         <canvas id="kwCanvas"></canvas>
         <div id="kwWordDisplay" class="kw-word-display"></div>
         <div id="kwPowerupBadge" class="kw-powerup-badge hidden"></div>
       </div>
       <input type="text" id="kwTypeInput" class="kw-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word..." />
+      <div class="kw-combo-row">
+        <div class="kw-combo-heart">❤️<span id="kwHeartVal">100</span></div>
+        <div class="kw-combo-icon"><span class="kw-combo-emoji">👊</span><span id="kwCountPunch">0</span></div>
+        <div class="kw-combo-icon"><span class="kw-combo-emoji">🦵</span><span id="kwCountKick">0</span></div>
+        <div class="kw-combo-icon"><span class="kw-combo-emoji">⚔️</span><span id="kwCountSlam">0</span></div>
+        <div class="kw-combo-icon"><span class="kw-combo-emoji">🌀</span><span id="kwCountUpper">0</span></div>
+      </div>
     </div>
 
     <!-- GAME OVER SCREEN -->

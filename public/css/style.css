@@ -2159,6 +2159,23 @@ h1, h2, h3 {
   font-family: 'DM Mono', monospace; font-size: 0.8rem; color: #c0b8e0; flex-shrink: 0;
 }
 
+.kw-stats-strip {
+  width: 100%; display: flex; justify-content: space-between; align-items: baseline;
+  margin: 6px 0 8px; font-family: 'DM Mono', monospace;
+}
+#kwStatsLine { font-size: 0.75rem; color: #9ba0c0; letter-spacing: 0.5px; }
+#kwBigScore { font-size: 1.6rem; font-weight: 700; color: #ffd873; text-shadow: 0 0 8px rgba(255,216,115,0.5); }
+
+.kw-combo-row {
+  display: flex; gap: 8px; margin-top: 12px; width: 100%; justify-content: center; flex-wrap: wrap;
+}
+.kw-combo-heart, .kw-combo-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: #14101f; border: 1px solid #3d2a5c; border-radius: 8px;
+  padding: 6px 10px; font-size: 0.85rem; color: #fff; min-width: 44px;
+}
+.kw-combo-emoji { font-size: 1.1rem; }
+
 .kw-canvas-wrap {
   position: relative; width: 100%;
   border-radius: 12px; overflow: hidden;
