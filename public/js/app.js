@@ -2702,6 +2702,8 @@ function kwRenderWord() {
   const typed = word.slice(0, kwState.typedIdx);
   const rest = word.slice(kwState.typedIdx);
   el.innerHTML = `<span class="kw-typed">${typed}</span><span class="kw-untyped">${rest}</span>`;
+  const nextKey = document.getElementById('kwNextKeyBox');
+  if (nextKey) nextKey.textContent = word[kwState.typedIdx] || '';
 }
 
 document.getElementById('kwTypeInput')?.addEventListener('input', (e) => {
@@ -2872,13 +2874,16 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, j
   const st = Math.min(stagger || 0, 1);
   const move = moveType || 'punch';
 
-  const jumpH = Math.sin(phase * Math.PI) * 14;
-  const knockSlide = -dir * st * 22;
-  const tilt = -dir * st * 0.35;
-  const idleBob = (phase < 0.02 && st < 0.02) ? Math.sin((idleT || 0) * 3) * 2 : 0;
+  const isIdle = phase < 0.02 && st < 0.02;
+  const t = idleT || 0;
+  const jumpH = Math.sin(phase * Math.PI) * 14 + (isIdle ? Math.abs(Math.sin(t * 2.4)) * 6 : 0);
+  const knockSlide = -dir * st * st * 55;
+  const knockDrop = st * st * 10;
+  const tilt = -dir * st * 1.1 + (isIdle ? Math.sin(t * 1.6) * 0.05 : 0);
+  const idleSway = isIdle ? Math.sin(t * 1.9) * 4 : 0;
 
   ctx.save();
-  ctx.translate(x + knockSlide, y - jumpH + idleBob);
+  ctx.translate(x + knockSlide + idleSway, y - jumpH + knockDrop);
   ctx.rotate(tilt);
   ctx.scale(scale, scale);
   ctx.strokeStyle = hitFlash > 0.05 ? '#ff4444' : color;
@@ -2888,14 +2893,31 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, j
 
   const punch = Math.sin(phase * Math.PI) * 26 + (jab || 0) * 14;
   const runSwing = Math.sin(phase * Math.PI * 4) * 12;
-  const lean = phase * dir * 4 - st * dir * 6;
+  const lean = phase * dir * 4 - st * dir * 6 + (isIdle ? Math.sin(t * 2.2) * 2 : 0);
 
   // head
   ctx.beginPath(); ctx.arc(0, -60, 12, 0, Math.PI * 2); ctx.fill();
   // body
   ctx.beginPath(); ctx.moveTo(lean, -48); ctx.lineTo(0, -10); ctx.stroke();
 
-  if (move === 'kick') {
+  if (isIdle) {
+    // fighting stance — guard up, weight shifting, bent knees, weapon held ready
+    const guardSway = Math.sin(t * 2.4) * 5;
+    const kneeBend = Math.abs(Math.sin(t * 2.4)) * 4;
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 12, -34 + guardSway * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(dir * (14 + guardSway), -32 - guardSway * 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(dir * (14 + guardSway), -32 - guardSway * 0.4, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.strokeStyle = '#e8eaf6';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(dir * (14 + guardSway), -32 - guardSway * 0.4);
+    ctx.lineTo(dir * (14 + guardSway) + dir * 18, -42 - guardSway * 0.4);
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-10 - guardSway * 0.3, 20 - kneeBend); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10 + guardSway * 0.3, 20 - kneeBend); ctx.stroke();
+  } else if (move === 'kick') {
     const kickLift = Math.sin(phase * Math.PI) * 30;
     // both arms tucked back
     ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(-dir * 12, -30); ctx.stroke();
@@ -2933,7 +2955,6 @@ function kwDrawStickman(x, y, scale, color, attackAnim, hitFlash, facingRight, j
     ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(legSpread + runSwing, 20 - kneeBuckle); ctx.stroke();
   }
-
   ctx.restore();
 }
 

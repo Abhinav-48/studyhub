@@ -2201,6 +2201,14 @@ h1, h2, h3 {
 }
 .kw-word-display .kw-typed { color: #4ade9a; text-shadow: 0 0 8px #4ade9a; }
 .kw-word-display .kw-untyped { color: #6b7099; }
+
+.kw-next-key {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  background: #f07050; color: #fff; font-family: 'DM Mono', monospace;
+  font-weight: 700; font-size: 1.1rem; border-radius: 6px;
+  box-shadow: 0 3px 0 #a8442f; text-transform: uppercase;
+}
 .kw-word-display.kw-wrong { animation: kwWordShake 0.2s ease; }
 @keyframes kwWordShake {
   0%, 100% { transform: translateX(-50%); }
