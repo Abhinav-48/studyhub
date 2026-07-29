@@ -62,14 +62,19 @@ async function loginUser() {
     if (blockData.blocked) { toast('⛔ You have been blocked by the admin.', 'error'); return; }
   }
 
-  currentUser = name;
-  localStorage.setItem('studyhub_user', name);
-
   const device = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
-  fetch('/api/login-history', {
+  const historyRes = await fetch('/api/login-history', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: name, device })
   });
+  if (!historyRes.ok) {
+    const d = await historyRes.json().catch(() => ({}));
+    toast('⚠️ ' + (d.error || 'You cannot login with this name.'), 'error');
+    return;
+  }
+
+  currentUser = name;
+  localStorage.setItem('studyhub_user', name);
 
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').classList.remove('hidden');
@@ -254,6 +259,34 @@ async function renameCourse(id, oldName) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
+async function checkFolderUnlock(prefix, id, name, obj) {
+  if (!obj?.locked) return true;
+  const sessionKey = `sh_unlocked_${prefix}_${id}`;
+  if (sessionStorage.getItem(sessionKey) === 'yes') return true;
+  const pwd = prompt(`"${name}" is locked. Enter password:`);
+  if (pwd === null) return false;
+  const res = await fetch(`/api/${prefix}/${id}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
+  const d = await res.json();
+  if (d.ok) { sessionStorage.setItem(sessionKey, 'yes'); return true; }
+  toast('❌ Wrong password', 'error');
+  return false;
+}
+
+async function lockFolder(prefix, id) {
+  const pwd = prompt('Set a password to lock this folder:');
+  if (!pwd) return;
+  const res = await fetch(`/api/${prefix}/${id}/lock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, password: pwd }) });
+  if (res.ok) toast('Folder locked 🔒', 'success');
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function unlockFolder(prefix, id) {
+  if (!confirm('Remove the lock on this folder?')) return;
+  const res = await fetch(`/api/${prefix}/${id}/unlock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) toast('Folder unlocked 🔓', 'success');
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 function showFolderContextMenu(e, id, name) {
   e.preventDefault();
   e.stopPropagation();
@@ -272,8 +305,13 @@ function showFolderContextMenu(e, id, name) {
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
   const safeName = name.replace(/'/g,"\\'");
+  const dbC = allCourses.find(c => c.id === id);
+  const lockBtn = dbC?.locked
+    ? `<button onclick="unlockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
   menu.innerHTML = `
     <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtn}
     <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
@@ -354,6 +392,8 @@ function renderNoteCourses() {
 }
 
 async function openNoteCourse(course) {
+  const dbC = allCourses.find(c => c.name === course);
+  if (dbC && !(await checkFolderUnlock('courses', dbC.id, course, dbC))) return;
   currentNoteCourse = course;
   currentNoteSubject = null;
   pushNavState();
@@ -438,7 +478,15 @@ async function deleteSubject(id, name) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
-function showSubjectContextMenu(e, id, name) {
+const dbS = currentCourseSubjects.find(s => s.id === id);
+  const lockBtnS = dbS?.locked
+    ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  menu.innerHTML = `
+    <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtnS}
+    <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
+  `;
   e.preventDefault();
   e.stopPropagation();
   if (!isAdminUser()) return;
@@ -455,8 +503,13 @@ function showSubjectContextMenu(e, id, name) {
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
   const safeName = name.replace(/'/g,"\\'");
+  const dbS = currentCourseSubjects.find(s => s.id === id);
+  const lockBtnS = dbS?.locked
+    ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
   menu.innerHTML = `
     <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtnS}
     <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
@@ -468,7 +521,9 @@ function showSubjectContextMenu(e, id, name) {
   }, 0);
 }
 
-function openNoteSubject(subject) {
+async function openNoteSubject(subject) {
+  const dbS = currentCourseSubjects.find(s => s.name === subject);
+  if (dbS && !(await checkFolderUnlock('subjects', dbS.id, subject, dbS))) return;
   currentNoteSubject = subject;
   pushNavState();
   document.getElementById('notesSubjectsView').classList.add('hidden');
@@ -810,8 +865,13 @@ function showTTContextMenu(e, id, name) {
   if (left + 150 > window.innerWidth) left = window.innerWidth - 160;
   menu.style.left = left + 'px'; menu.style.top = top + 'px';
   const safeName = name.replace(/'/g, "\\'");
+  const dbT = allTTSections.find(s => s.id === id);
+  const lockBtnT = dbT?.locked
+    ? `<button onclick="unlockFolder('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
   menu.innerHTML = `
     <button onclick="renameTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtnT}
     <button onclick="deleteTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>`;
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function c() { document.getElementById('folderCtxMenu')?.remove(); document.removeEventListener('click', c); }), 0);
@@ -825,7 +885,9 @@ async function loadSectionsForUpload() {
   sel.innerHTML = allTTSections.map(s => `<option value="${escHtml(s.name)}">${escHtml(s.name)}</option>`).join('');
 }
 
-function openTimetableSection(section) {
+async function openTimetableSection(section) {
+  const dbT = allTTSections.find(s => s.name === section);
+  if (dbT && !(await checkFolderUnlock('timetable-sections', dbT.id, section, dbT))) return;
   currentTimetableSection = section;
   pushNavState();
   document.getElementById('timetableSectionsGrid').classList.add('hidden');
@@ -1675,6 +1737,12 @@ socket.on('new_event', () => { if (document.getElementById('tab-planner')?.class
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
+socket.on('courses_locked', () => loadNotes());
+socket.on('courses_unlocked', () => loadNotes());
+socket.on('subjects_locked', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
+socket.on('subjects_unlocked', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
+socket.on('timetable-sections_locked', () => loadTimetables());
+socket.on('timetable-sections_unlocked', () => loadTimetables());
 socket.on('tt_section_added', () => loadTimetables());
 socket.on('tt_section_renamed', () => loadTimetables());
 socket.on('tt_section_deleted', () => loadTimetables());

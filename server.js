@@ -55,6 +55,13 @@ function isPrivileged(name) {
   return n === ADMIN_NAME || n === SUPERADMIN_NAME;
 }
 
+const BAD_WORDS = ['fuck','fuk','fck','shit','bitch','asshole','bastard','dick','pussy','cunt','slut','whore','nigger','nigga','faggot','fag','retard','rape','porn','sex','xxx','chutiya','madarchod','behenchod','bhosdi','randi','gandu','harami','saala','kutta','kamina','lund','chut','gaand'];
+function containsBadWord(text) {
+  if (!text) return false;
+  const clean = text.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, '');
+  return BAD_WORDS.some(w => clean.includes(w));
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY,
@@ -194,6 +201,10 @@ app.post('/api/login-history', async (req, res) => {
     if (!username) return res.json({ success: true });
     if (username.toLowerCase() === SUPERADMIN_NAME) return res.json({ success: true });
 
+    if (containsBadWord(username)) {
+      return res.status(400).json({ error: 'Inappropriate language is not allowed. You cannot login with this name.' });
+    }
+
     if (username.toLowerCase() !== 'admin') {
       const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
       const lower = username.toLowerCase().replace(/\s/g,'');
@@ -263,6 +274,7 @@ app.post('/api/announcements', upload.single('file'), async (req, res) => {
   try {
     const { requester, message } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     let attachment_url = null, attachment_type = null;
     if (req.file) {
       const up = await uploadGeneric(req.file);
@@ -309,6 +321,7 @@ app.post('/api/links', async (req, res) => {
     const { requester, title, url, description } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!title || !url) return res.status(400).json({ error: 'Title and URL required' });
+    if (containsBadWord(title) || containsBadWord(description)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data, error } = await supabase.from('links').insert({ title, url, description: description || '' }).select().single();
     if (error) throw error;
     io.emit('new_link', data);
@@ -362,6 +375,7 @@ app.post('/api/messages', async (req, res) => {
   try {
     const { from_user, message } = req.body;
     if (!from_user || !message) return res.status(400).json({ error: 'Missing fields' });
+    if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase());
     if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
     const { data, error } = await supabase.from('messages').insert({ from_user, message }).select().single();
@@ -744,11 +758,44 @@ app.put('/api/courses/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+function lockRoutes(tableName, prefix) {
+  app.put(`/api/${prefix}/:id/lock`, async (req, res) => {
+    try {
+      const { requester, password } = req.body;
+      if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+      if (!password) return res.status(400).json({ error: 'Password required' });
+      await supabase.from(tableName).update({ locked: true, lock_password: password }).eq('id', req.params.id);
+      io.emit(`${prefix}_locked`, req.params.id);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+  app.put(`/api/${prefix}/:id/unlock`, async (req, res) => {
+    try {
+      const { requester } = req.body;
+      if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+      await supabase.from(tableName).update({ locked: false, lock_password: null }).eq('id', req.params.id);
+      io.emit(`${prefix}_unlocked`, req.params.id);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+  app.post(`/api/${prefix}/:id/verify`, async (req, res) => {
+    try {
+      const { password } = req.body;
+      const { data } = await supabase.from(tableName).select('lock_password').eq('id', req.params.id).single();
+      res.json({ ok: !!data && data.lock_password === password });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+}
+lockRoutes('courses', 'courses');
+lockRoutes('subjects', 'subjects');
+lockRoutes('timetable_sections', 'timetable-sections');
+
 app.post('/api/courses', async (req, res) => {
   try {
     const { requester, name } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    if (containsBadWord(name)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { count } = await supabase.from('courses').select('id', { count: 'exact', head: true });
     const { data, error } = await supabase.from('courses').insert({ name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
     if (error) throw error;
@@ -788,6 +835,7 @@ app.post('/api/subjects', async (req, res) => {
     const { requester, course, name } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!course || !name || !name.trim()) return res.status(400).json({ error: 'Course and name required' });
+    if (containsBadWord(name)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { count } = await supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('course', course);
     const { data, error } = await supabase.from('subjects').insert({ course, name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
     if (error) {
@@ -837,6 +885,7 @@ app.post('/api/notes', upload.single('file'), async (req, res) => {
   try {
     const { author, title, subject, description, course } = req.body;
     if (!author || !title || !req.file) return res.status(400).json({ error: 'Missing required fields' });
+    if (containsBadWord(title) || containsBadWord(description)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data: uploadsRow } = await supabase.from('app_settings').select('value').eq('key', 'uploads_disabled').single();
     if (uploadsRow?.value === 'true') return res.status(403).json({ error: 'Uploads are currently disabled by the administrator.' });
     const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
@@ -1000,6 +1049,7 @@ app.post('/api/timetable-sections', async (req, res) => {
     const { requester, name } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
+    if (containsBadWord(name)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { count } = await supabase.from('timetable_sections').select('id', { count: 'exact', head: true });
     const { data, error } = await supabase.from('timetable_sections').insert({ name: name.trim(), sort_order: (count || 0) + 1 }).select().single();
     if (error) {
@@ -1113,6 +1163,7 @@ app.post('/api/questions', async (req, res) => {
   try {
     const { author, text } = req.body;
     if (!author || !text) return res.status(400).json({ error: 'Missing fields' });
+    if (containsBadWord(text)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data: blocked } = await supabase.from('blocked_users').select('username').eq('username', author.toLowerCase()).single();
     if (blocked) return res.status(403).json({ error: 'You have been blocked.' });
     const { data: q, error } = await supabase.from('questions').insert({ author, text }).select().single();
@@ -1126,6 +1177,7 @@ app.post('/api/questions', async (req, res) => {
 app.post('/api/questions/:id/reply', async (req, res) => {
   try {
     const { author, text } = req.body;
+    if (containsBadWord(text)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', author?.toLowerCase());
     if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
     const { data: reply, error } = await supabase.from('replies').insert({ question_id: req.params.id, author, text }).select().single();
