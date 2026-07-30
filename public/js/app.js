@@ -272,18 +272,24 @@ async function checkFolderUnlock(prefix, id, name, obj) {
   return false;
 }
 
+async function refreshFolderView(prefix) {
+  if (prefix === 'courses') { await loadCoursesForUpload(); renderNoteCourses(); }
+  else if (prefix === 'subjects') { if (currentNoteCourse) await openNoteCourse(currentNoteCourse); }
+  else if (prefix === 'timetable-sections') { await loadTimetables(); }
+}
+
 async function lockFolder(prefix, id) {
   const pwd = prompt('Set a password to lock this folder:');
   if (!pwd) return;
   const res = await fetch(`/api/${prefix}/${id}/lock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, password: pwd }) });
-  if (res.ok) toast('Folder locked 🔒', 'success');
+  if (res.ok) { toast('Folder locked 🔒', 'success'); await refreshFolderView(prefix); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 async function unlockFolder(prefix, id) {
   if (!confirm('Remove the lock on this folder?')) return;
   const res = await fetch(`/api/${prefix}/${id}/unlock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
-  if (res.ok) toast('Folder unlocked 🔓', 'success');
+  if (res.ok) { toast('Folder unlocked 🔓', 'success'); await refreshFolderView(prefix); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -1729,8 +1735,8 @@ socket.on('new_event', () => { if (document.getElementById('tab-planner')?.class
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
 socket.on('quiz_deleted', () => { loadQuizList(); });
-socket.on('courses_locked', () => loadNotes());
-socket.on('courses_unlocked', () => loadNotes());
+socket.on('courses_locked', () => refreshFolderView('courses'));
+socket.on('courses_unlocked', () => refreshFolderView('courses'));
 socket.on('subjects_locked', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
 socket.on('subjects_unlocked', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
 socket.on('timetable-sections_locked', () => loadTimetables());
