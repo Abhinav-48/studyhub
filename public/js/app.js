@@ -478,15 +478,7 @@ async function deleteSubject(id, name) {
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
-const dbS = currentCourseSubjects.find(s => s.id === id);
-  const lockBtnS = dbS?.locked
-    ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
-    : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
-  menu.innerHTML = `
-    <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
-    ${lockBtnS}
-    <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
-  `;
+function showSubjectContextMenu(e, id, name) {
   e.preventDefault();
   e.stopPropagation();
   if (!isAdminUser()) return;

@@ -55,7 +55,27 @@ function isPrivileged(name) {
   return n === ADMIN_NAME || n === SUPERADMIN_NAME;
 }
 
-const BAD_WORDS = ['fuck','fuk','fck','shit','bitch','asshole','bastard','dick','pussy','cunt','slut','whore','nigger','nigga','faggot','fag','retard','rape','porn','sex','xxx','chutiya','madarchod','behenchod','bhosdi','randi','gandu','harami','saala','kutta','kamina','lund','chut','gaand'];
+const BAD_WORDS = [
+  'fuck','fuk','fck','shit','bitch','asshole','bastard','dick','pussy','cunt','slut','whore',
+  'nigger','nigga','faggot','fag','retard','rape','porn','sex','xxx',
+  'hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman',
+  'xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar',
+  'madarchod','maderchod','madarchood','mc','behenchod','bhenchod','bhosadchod','bc',
+  'chutiya','chutia','chutiye','chutiyapa',
+  'randi','randibaaz','rand',
+  'gandu','gaandu','gand','gaand',
+  'harami','haramzada','haramkhor',
+  'kutta','kutti','kamina','kamini',
+  'saala','saali',
+  'bhosdike','bhosdiwala','bhosda','bhosdi',
+  'lund','lauda','laude','lodu',
+  'chod','chodu','chodne','chut',
+  'suar','sooar',
+  'jhant','jhaant',
+  'raand',
+  'bhikari',
+  'chinal'
+];
 function containsBadWord(text) {
   if (!text) return false;
   const clean = text.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, '');
