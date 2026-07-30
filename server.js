@@ -254,6 +254,16 @@ app.get('/api/login-history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.delete('/api/login-history', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('login_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    io.emit('login_history_cleared');
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
 app.get('/api/announcements', async (req, res) => {
   try {
@@ -398,8 +408,53 @@ app.post('/api/messages', async (req, res) => {
     if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase());
     if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
+    const { data: msgBlocked } = await supabase.from('message_blocked_users').select('username').eq('username', from_user.toLowerCase()).single();
+    if (msgBlocked) return res.status(403).json({ error: 'Admin has disabled messaging for you.' });
     const { data, error } = await supabase.from('messages').insert({ from_user, message }).select().single();
     if (error) throw error;
+    io.emit('new_message', data);
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/messages/block-sender', async (req, res) => {
+  try {
+    const { requester, targetUser } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('message_blocked_users').upsert({ username: targetUser.toLowerCase() });
+    io.emit('sender_blocked', targetUser.toLowerCase());
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/messages/unblock-sender', async (req, res) => {
+  try {
+    const { requester, targetUser } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('message_blocked_users').delete().eq('username', targetUser.toLowerCase());
+    io.emit('sender_unblocked', targetUser.toLowerCase());
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/messages/blocked-senders', async (req, res) => {
+  try {
+    const { data } = await supabase.from('message_blocked_users').select('username');
+    res.json((data || []).map(u => u.username));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/messages/admin-initiated', async (req, res) => {
+  try {
+    const { requester, targetUser, message } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    if (!targetUser || !message) return res.status(400).json({ error: 'Username and message required' });
+    if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
+    const { data, error } = await supabase.from('messages').insert({
+      from_user: targetUser, message: '📩 Message from Admin', reply: message, read: true
+    }).select().single();
+    if (error) throw error;
+    io.emit('message_reply', data);
     io.emit('new_message', data);
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }

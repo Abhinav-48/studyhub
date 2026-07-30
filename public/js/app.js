@@ -1506,6 +1506,7 @@ async function loadAdminPanel() {
   await loadAdminMessages();
   await loadAnnouncements();
   loadLinksAdmin();
+  loadBlockedSenders();
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
@@ -1648,6 +1649,47 @@ async function loadMyReplies() {
     }).join('');
 }
 
+async function sendDirectMessage() {
+  const targetUser = document.getElementById('directMsgUser').value.trim();
+  const message = document.getElementById('directMsgText').value.trim();
+  if (!targetUser || !message) { toast('Enter username and message', 'error'); return; }
+  const res = await fetch('/api/messages/admin-initiated', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, targetUser, message })
+  });
+  if (res.ok) { toast('Message sent! 📨', 'success'); document.getElementById('directMsgUser').value = ''; document.getElementById('directMsgText').value = ''; loadAdminMessages(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function blockSenderManual() {
+  const name = document.getElementById('msgBlockInput').value.trim();
+  if (!name) { toast('Enter a username', 'error'); return; }
+  const res = await fetch('/api/messages/block-sender', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, targetUser: name }) });
+  if (res.ok) { toast(`${name} can no longer message you 🚫`, 'success'); document.getElementById('msgBlockInput').value = ''; loadBlockedSenders(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function unblockSender(name) {
+  const res = await fetch('/api/messages/unblock-sender', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser, targetUser: name }) });
+  if (res.ok) { toast(`${name} can message you again ✅`, 'success'); loadBlockedSenders(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function loadBlockedSenders() {
+  const container = document.getElementById('blockedSendersList');
+  if (!container) return;
+  const res = await fetch('/api/messages/blocked-senders');
+  const senders = await res.json();
+  container.innerHTML = senders.length ? senders.map(u => `<div class="admin-user-item"><span>🔇 ${escHtml(u)}</span><button class="btn-secondary" onclick="unblockSender('${escHtml(u)}')">Allow</button></div>`).join('') : '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No one is message-blocked</div>';
+}
+
+async function clearLoginHistory() {
+  if (!confirm('Clear all login history? This cannot be undone.')) return;
+  const res = await fetch('/api/login-history', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) { toast('Login history cleared 🗑', 'success'); loadLoginHistory(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function loadAdminMessages() {
   const container = document.getElementById('messagesList');
   if (!container) return;
@@ -1744,6 +1786,9 @@ socket.on('timetable-sections_unlocked', () => loadTimetables());
 socket.on('tt_section_added', () => loadTimetables());
 socket.on('tt_section_renamed', () => loadTimetables());
 socket.on('tt_section_deleted', () => loadTimetables());
+socket.on('sender_blocked', () => loadBlockedSenders());
+socket.on('sender_unblocked', () => loadBlockedSenders());
+socket.on('login_history_cleared', () => loadLoginHistory());
 socket.on('new_link', () => { loadLinksAdmin(); loadHomeWidgets(); });
 socket.on('link_deleted', () => { loadLinksAdmin(); loadHomeWidgets(); });
 socket.on('course_renamed', async () => { await loadCoursesForUpload(); loadNotes(); });

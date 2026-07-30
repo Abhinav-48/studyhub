@@ -391,6 +391,14 @@
           <button class="btn-warn" onclick="unblockUser()">Unblock</button>
         </div>
       </div>
+
+      <div class="admin-card">
+        <h3>✉️ Message a Student</h3>
+        <p style="font-size:0.82rem;color:var(--text2);margin-bottom:10px;">Send a private message directly to any user</p>
+        <input type="text" id="directMsgUser" placeholder="Student name..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;margin-bottom:8px;" />
+        <textarea id="directMsgText" placeholder="Type your message..." rows="2" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;resize:vertical;margin-bottom:8px;"></textarea>
+        <button class="btn-primary" onclick="sendDirectMessage()">📨 Send</button>
+      </div>
       <div class="admin-card wide superadmin-only hidden">
         <h3>🛡️ Super Admin Controls</h3>
         <div style="display:flex;flex-direction:column;gap:14px;">
@@ -447,6 +455,11 @@
 
       <div class="admin-card wide">
         <h3>📬 User Messages</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <input type="text" id="msgBlockInput" placeholder="Username to stop from messaging you..." style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
+          <button class="btn-warn" onclick="blockSenderManual()">🚫 Stop Messaging</button>
+        </div>
+        <div id="blockedSendersList" class="admin-user-list" style="margin-bottom:14px;"></div>
         <div id="messagesList" class="admin-user-list"></div>
       </div>
         <div class="admin-card wide">
@@ -464,7 +477,10 @@
         </div>
       </div>
       <div class="admin-card wide">
-        <h3>🕐 Login History</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin-bottom:0;">🕐 Login History</h3>
+          <button class="btn-danger superadmin-only hidden" onclick="clearLoginHistory()">🗑 Clear History</button>
+        </div>
         <div id="loginHistoryList" class="admin-user-list" style="max-height:300px;overflow-y:auto;"></div>
       </div>
     </div>
