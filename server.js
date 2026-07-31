@@ -451,12 +451,21 @@ app.post('/api/messages/admin-initiated', async (req, res) => {
     if (!targetUser || !message) return res.status(400).json({ error: 'Username and message required' });
     if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
     const { data, error } = await supabase.from('messages').insert({
-      from_user: targetUser, message: '📩 Message from Admin', reply: message, read: true
+      from_user: targetUser, message: '📩 Message from Admin', reply: message, read: true,
+      admin_initiated: true, user_seen: false
     }).select().single();
     if (error) throw error;
     io.emit('message_reply', data);
-    io.emit('new_message', data);
     res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/messages/mark-seen', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    await supabase.from('messages').update({ user_seen: true }).eq('from_user', username);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -470,7 +479,7 @@ app.get('/api/messages', async (req, res) => {
 
 app.get('/api/messages/:username', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('messages').select('*').eq('from_user', req.params.username).order('sent_at', { ascending: false });
+    const { data, error } = await supabase.from('messages').select('*').eq('from_user', req.params.username).order('sent_at', { ascending: true });
     if (error) throw error;
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -480,7 +489,8 @@ app.post('/api/messages/:id/reply', async (req, res) => {
   try {
     const { requester, reply } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
-    const { data, error } = await supabase.from('messages').update({ reply, read: true }).eq('id', req.params.id).select();
+    if (containsBadWord(reply)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
+    const { data, error } = await supabase.from('messages').update({ reply, read: true, user_seen: false }).eq('id', req.params.id).select();
     if (error) throw error;
     io.emit('message_reply', data[0]);
     res.json(data[0]);

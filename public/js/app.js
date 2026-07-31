@@ -84,6 +84,9 @@ async function loginUser() {
 
   if (name.toLowerCase() === ADMIN_NAME || name.toLowerCase() === SUPERADMIN_NAME) {
     document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    document.getElementById('messageBtn').style.display = 'none';
+  } else {
+    checkUnreadMessages();
   }
   if (isSuperAdmin) {
     document.querySelectorAll('.superadmin-only').forEach(el => el.classList.remove('hidden'));
@@ -1512,6 +1515,15 @@ async function loadAdminPanel() {
   document.getElementById('statBlocked').textContent = blocked.length;
 }
 
+async function checkUnreadMessages() {
+  try {
+    const res = await fetch(`/api/messages/${encodeURIComponent(currentUser)}`);
+    const messages = await res.json();
+    const hasUnread = messages.some(m => m.reply && m.user_seen === false);
+    document.getElementById('messageBtn')?.classList.toggle('has-unread', hasUnread);
+  } catch {}
+}
+
 async function loadPendingNotes() {
   const res = await fetch('/api/notes/pending');
   const pending = await res.json();
@@ -1641,12 +1653,23 @@ async function loadMyReplies() {
   if (!container) return;
   const res = await fetch(`/api/messages/${encodeURIComponent(currentUser)}`);
   const messages = await res.json();
-  if (!messages.length) { container.innerHTML = ''; return; }
-  container.innerHTML = `<h4 style="font-size:0.9rem;margin-bottom:10px;color:var(--text2);">Your Previous Messages:</h4>` +
-    messages.map(m => {
-      const date = new Date(m.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      return `<div class="message-item ${m.reply ? 'has-reply' : ''}"><div class="message-text">${escHtml(m.message)}</div><div class="message-time">${date}</div>${m.reply ? `<div class="message-reply-box">👑 Admin: ${escHtml(m.reply)}</div>` : '<div style="font-size:0.78rem;color:var(--text3);margin-top:6px;">⏳ Waiting for reply...</div>'}</div>`;
-    }).join('');
+  if (!messages.length) { container.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:0.85rem;padding:20px;">No messages yet — say hi! 👋</div>'; return; }
+  container.innerHTML = messages.map(m => {
+    const time = new Date(m.sent_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    let html = '';
+    if (!m.admin_initiated) {
+      html += `<div class="chat-bubble chat-bubble-me"><div class="chat-bubble-text">${escHtml(m.message)}</div><div class="chat-bubble-time">${time}</div></div>`;
+    }
+    if (m.reply) {
+      html += `<div class="chat-bubble chat-bubble-admin"><div class="chat-bubble-text">${escHtml(m.reply)}</div><div class="chat-bubble-time">👑 Admin</div></div>`;
+    } else if (!m.admin_initiated) {
+      html += `<div class="chat-bubble-pending">⏳ Waiting for reply...</div>`;
+    }
+    return html;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+  await fetch('/api/messages/mark-seen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser }) });
+  document.getElementById('messageBtn')?.classList.remove('has-unread');
 }
 
 async function sendDirectMessage() {
@@ -1694,11 +1717,19 @@ async function loadAdminMessages() {
   const container = document.getElementById('messagesList');
   if (!container) return;
   const res = await fetch('/api/messages');
-  const messages = await res.json();
+  const allMsgs = await res.json();
+  const messages = allMsgs.filter(m => !m.admin_initiated);
   if (!messages.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No messages yet</div>'; return; }
   container.innerHTML = messages.map(m => {
     const date = new Date(m.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    return `<div class="message-item ${m.reply ? 'has-reply' : ''}"><div style="display:flex;justify-content:space-between;align-items:center;"><div class="message-from">👤 ${escHtml(m.from_user)}</div><div style="display:flex;gap:6px;"><button class="btn-reply" onclick="openAdminReply('${m.id}','${escHtml(m.message).replace(/'/g,'&#39;')}')" style="padding:5px 12px;font-size:0.78rem;">↩️ Reply</button><button class="btn-danger" onclick="deleteMessage('${m.id}')" style="padding:5px 10px;font-size:0.78rem;">🗑</button></div></div><div class="message-text">${escHtml(m.message)}</div><div class="message-time">${date}</div>${m.reply ? `<div class="message-reply-box">Your reply: ${escHtml(m.reply)}</div>` : ''}</div>`;
+    return `<div class="message-item-compact">
+      <span class="msg-compact-from">👤 ${escHtml(m.from_user)}</span>
+      <span class="msg-compact-text" title="${escHtml(m.message)}">${escHtml(m.message)}</span>
+      <span class="msg-compact-time">${date}</span>
+      ${m.reply ? `<span class="msg-compact-badge">✅ Replied</span>` : ''}
+      <button class="btn-reply" onclick="openAdminReply('${m.id}','${escHtml(m.message).replace(/'/g,'&#39;')}')" style="padding:4px 10px;font-size:0.75rem;">↩️</button>
+      <button class="btn-danger" onclick="deleteMessage('${m.id}')" style="padding:4px 8px;font-size:0.75rem;">🗑</button>
+    </div>`;
   }).join('');
 }
 
@@ -1772,7 +1803,14 @@ socket.on('new_announcement', () => {
 });
 socket.on('announcement_deleted', () => { loadAnnouncements(); });
 socket.on('new_message', () => { if (currentUser?.toLowerCase() === ADMIN_NAME) { toast('📬 New message from a user!', ''); loadAdminMessages(); } });
-socket.on('message_reply', (msg) => { if (msg.from_user === currentUser) { toast('📬 Admin replied to your message!', 'success'); loadMyReplies(); loadAdminMessages(); } });
+socket.on('message_reply', (msg) => {
+  if (msg.from_user === currentUser && !isAdminUser()) {
+    toast('📬 Admin replied to your message!', 'success');
+    document.getElementById('messageBtn')?.classList.add('has-unread');
+    if (!document.getElementById('messageModal')?.classList.contains('hidden')) loadMyReplies();
+  }
+  if (isAdminUser()) loadAdminMessages();
+});
 socket.on('new_event', () => { if (document.getElementById('tab-planner')?.classList.contains('active') === false) {} loadPlanner(); });
 socket.on('event_deleted', () => { loadPlanner(); });
 socket.on('new_quiz', () => { if (document.querySelector('[data-tab="quiz"]')?.classList.contains('active')) loadQuizList(); toast('🎯 New quiz added!', 'success'); });
