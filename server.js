@@ -264,6 +264,16 @@ app.delete('/api/login-history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.delete('/api/login-history/:id', async (req, res) => {
+  try {
+    const { requester } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('login_history').delete().eq('id', req.params.id);
+    io.emit('login_entry_deleted', req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
 app.get('/api/announcements', async (req, res) => {
   try {
@@ -401,11 +411,30 @@ app.post('/api/send-notification', async (req, res) => {
 });
 
 // ─── MESSAGES ─────────────────────────────────────────────────────────────────
+app.get('/api/messages/settings', async (req, res) => {
+  try {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'messaging_disabled').single();
+    res.json({ messaging_disabled: data?.value === 'true' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/messages/toggle-all', async (req, res) => {
+  try {
+    const { requester, disabled } = req.body;
+    if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    await supabase.from('app_settings').upsert({ key: 'messaging_disabled', value: disabled ? 'true' : 'false' });
+    io.emit('messaging_toggle_changed');
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/messages', async (req, res) => {
   try {
     const { from_user, message } = req.body;
     if (!from_user || !message) return res.status(400).json({ error: 'Missing fields' });
     if (containsBadWord(message)) return res.status(400).json({ error: 'Inappropriate language is not allowed.' });
+    const { data: globalOff } = await supabase.from('app_settings').select('value').eq('key', 'messaging_disabled').single();
+    if (globalOff?.value === 'true') return res.status(403).json({ error: 'Messaging has been disabled by the admin.' });
     const { data: blockedRows } = await supabase.from('blocked_users').select('username').eq('username', from_user.toLowerCase());
     if (blockedRows && blockedRows.length > 0) return res.status(403).json({ error: 'You have been blocked.' });
     const { data: msgBlocked } = await supabase.from('message_blocked_users').select('username').eq('username', from_user.toLowerCase()).single();

@@ -1510,6 +1510,7 @@ async function loadAdminPanel() {
   await loadAnnouncements();
   loadLinksAdmin();
   loadBlockedSenders();
+  loadMsgGlobalStatus();
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
@@ -1562,10 +1563,17 @@ async function loadLoginHistory() {
   const container = document.getElementById('loginHistoryList');
   if (!container) return;
   if (!history.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No login history yet</div>'; return; }
+  const isSuper = isSuperAdmin;
   container.innerHTML = history.map(h => {
     const date = new Date(h.logged_in_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    return `<div class="admin-user-item"><div><strong style="font-size:0.88rem;">${escHtml(h.username)}</strong><span style="font-size:0.75rem;color:var(--text3);margin-left:8px;">${h.device === 'Mobile' ? '📱' : '💻'} ${h.device}</span></div><span style="font-size:0.78rem;color:var(--text3);">${date}</span></div>`;
+    return `<div class="admin-user-item"><div><strong style="font-size:0.88rem;">${escHtml(h.username)}</strong><span style="font-size:0.75rem;color:var(--text3);margin-left:8px;">${h.device === 'Mobile' ? '📱' : '💻'} ${h.device}</span></div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:0.78rem;color:var(--text3);">${date}</span>${isSuper ? `<button class="btn-danger" onclick="deleteLoginEntry('${h.id}')" style="padding:3px 8px;font-size:0.72rem;">🗑</button>` : ''}</div></div>`;
   }).join('');
+}
+
+async function deleteLoginEntry(id) {
+  const res = await fetch(`/api/login-history/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) { toast('Entry removed 🗑', 'success'); loadLoginHistory(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
 async function quickUnblock(name) {
@@ -1672,6 +1680,73 @@ async function loadMyReplies() {
   document.getElementById('messageBtn')?.classList.remove('has-unread');
 }
 
+async function loadMsgGlobalStatus() {
+  try {
+    const res = await fetch('/api/messages/settings');
+    const data = await res.json();
+    const statusText = document.getElementById('msgGlobalStatusText');
+    const btn = document.getElementById('toggleMsgGlobalBtn');
+    if (!statusText || !btn) return;
+    if (data.messaging_disabled) {
+      statusText.textContent = '🚫 Disabled'; statusText.style.color = 'var(--accent)';
+      btn.textContent = '✅ Enable Messaging';
+    } else {
+      statusText.textContent = '✅ Active'; statusText.style.color = 'var(--green)';
+      btn.textContent = '🚫 Stop All Messaging';
+    }
+  } catch {}
+}
+
+async function toggleMessagingGlobal() {
+  const statusText = document.getElementById('msgGlobalStatusText');
+  const currentlyDisabled = statusText?.textContent.includes('Disabled');
+  const res = await fetch('/api/messages/toggle-all', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, disabled: !currentlyDisabled })
+  });
+  if (res.ok) { toast(currentlyDisabled ? 'Messaging enabled ✅' : 'All messaging stopped 🚫', 'success'); loadMsgGlobalStatus(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+let adminChatTargetUser = null;
+
+async function openAdminChat(username) {
+  adminChatTargetUser = username;
+  document.getElementById('adminChatTitle').textContent = `✉️ ${username}`;
+  await renderAdminChatThread();
+  openModal('adminChatModal');
+}
+
+async function renderAdminChatThread() {
+  const res = await fetch(`/api/messages/${encodeURIComponent(adminChatTargetUser)}`);
+  const messages = await res.json();
+  const container = document.getElementById('adminChatThread');
+  container.innerHTML = messages.map(m => {
+    const time = new Date(m.sent_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    let html = '';
+    if (!m.admin_initiated) {
+      html += `<div class="chat-bubble chat-bubble-admin"><div class="chat-bubble-text">${escHtml(m.message)}</div><div class="chat-bubble-time">${time}</div></div>`;
+    }
+    if (m.reply) {
+      html += `<div class="chat-bubble chat-bubble-me"><div class="chat-bubble-text">${escHtml(m.reply)}</div><div class="chat-bubble-time">${time}</div></div>`;
+    }
+    return html;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendAdminChatMessage() {
+  const input = document.getElementById('adminChatInput');
+  const message = input.value.trim();
+  if (!message || !adminChatTargetUser) return;
+  const res = await fetch('/api/messages/admin-initiated', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, targetUser: adminChatTargetUser, message })
+  });
+  if (res.ok) { input.value = ''; await renderAdminChatThread(); loadAdminMessages(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function sendDirectMessage() {
   const targetUser = document.getElementById('directMsgUser').value.trim();
   const message = document.getElementById('directMsgText').value.trim();
@@ -1718,17 +1793,29 @@ async function loadAdminMessages() {
   if (!container) return;
   const res = await fetch('/api/messages');
   const allMsgs = await res.json();
-  const messages = allMsgs.filter(m => !m.admin_initiated);
-  if (!messages.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No messages yet</div>'; return; }
-  container.innerHTML = messages.map(m => {
-    const date = new Date(m.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    return `<div class="message-item-compact">
-      <span class="msg-compact-from">👤 ${escHtml(m.from_user)}</span>
-      <span class="msg-compact-text" title="${escHtml(m.message)}">${escHtml(m.message)}</span>
+  if (!allMsgs.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No messages yet</div>'; return; }
+
+  const byUser = {};
+  allMsgs.forEach(m => {
+    if (!byUser[m.from_user]) byUser[m.from_user] = [];
+    byUser[m.from_user].push(m);
+  });
+
+  const contacts = Object.keys(byUser).map(u => {
+    const msgs = byUser[u].sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+    const latest = msgs[0];
+    const hasUnreplied = byUser[u].some(m => !m.admin_initiated && !m.reply);
+    return { user: u, latest, hasUnreplied };
+  }).sort((a, b) => new Date(b.latest.sent_at) - new Date(a.latest.sent_at));
+
+  container.innerHTML = contacts.map(c => {
+    const date = new Date(c.latest.sent_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const preview = c.latest.admin_initiated ? c.latest.reply : c.latest.message;
+    return `<div class="message-item-compact" style="cursor:pointer;" onclick="openAdminChat('${escHtml(c.user).replace(/'/g, "\\'")}')">
+      <span class="msg-compact-from">👤 ${escHtml(c.user)}</span>
+      <span class="msg-compact-text" title="${escHtml(preview)}">${escHtml(preview)}</span>
       <span class="msg-compact-time">${date}</span>
-      ${m.reply ? `<span class="msg-compact-badge">✅ Replied</span>` : ''}
-      <button class="btn-reply" onclick="openAdminReply('${m.id}','${escHtml(m.message).replace(/'/g,'&#39;')}')" style="padding:4px 10px;font-size:0.75rem;">↩️</button>
-      <button class="btn-danger" onclick="deleteMessage('${m.id}')" style="padding:4px 8px;font-size:0.75rem;">🗑</button>
+      ${c.hasUnreplied ? `<span class="msg-compact-badge" style="color:var(--accent);">🔴 Unreplied</span>` : ''}
     </div>`;
   }).join('');
 }
