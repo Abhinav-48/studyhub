@@ -2305,3 +2305,33 @@ h1, h2, h3 {
   align-self: flex-start; font-size: 0.78rem; color: var(--text3);
   padding: 4px 12px;
 }
+.global-search-wrap { position: relative; }
+#globalNoteSearch {
+  padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 99px;
+  background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+  color: var(--text); outline: none; width: 220px; transition: border-color 0.2s, width 0.2s;
+}
+#globalNoteSearch:focus { border-color: var(--accent); width: 260px; }
+.global-search-results {
+  position: absolute; top: calc(100% + 6px); right: 0; width: 320px; max-height: 360px;
+  overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 400;
+}
+.global-search-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.global-search-item:last-child { border-bottom: none; }
+.global-search-item:hover { background: var(--bg2); }
+.gs-title { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.gs-path { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
+.global-search-empty { padding: 16px; text-align: center; color: var(--text3); font-size: 0.85rem; }
+
+.note-card-highlight { animation: noteHighlightPulse 2s ease; }
+@keyframes noteHighlightPulse {
+  0%, 100% { box-shadow: var(--shadow); }
+  30% { box-shadow: 0 0 0 3px var(--accent); }
+}
+
+@media (max-width: 768px) {
+  #globalNoteSearch { width: 150px; }
+  #globalNoteSearch:focus { width: 170px; }
+  .global-search-results { width: 260px; right: -20px; }
+}

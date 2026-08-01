@@ -1914,6 +1914,8 @@ socket.on('tt_section_deleted', () => loadTimetables());
 socket.on('sender_blocked', () => loadBlockedSenders());
 socket.on('sender_unblocked', () => loadBlockedSenders());
 socket.on('login_history_cleared', () => loadLoginHistory());
+socket.on('login_entry_deleted', () => loadLoginHistory());
+socket.on('messaging_toggle_changed', () => loadMsgGlobalStatus());
 socket.on('new_link', () => { loadLinksAdmin(); loadHomeWidgets(); });
 socket.on('link_deleted', () => { loadLinksAdmin(); loadHomeWidgets(); });
 socket.on('course_renamed', async () => { await loadCoursesForUpload(); loadNotes(); });
@@ -3329,3 +3331,87 @@ async function kwGameOver() {
   } catch {}
   kwLoadLeaderboard();
 }
+// ══════════════════════════════════════════════════
+// GLOBAL NOTE SEARCH (fuzzy, cross-folder)
+// ══════════════════════════════════════════════════
+function normalizeSearchText(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9\u0900-\u097F\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const dp = [];
+  for (let i = 0; i <= m; i++) dp.push(new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function fuzzyWordMatch(query, word) {
+  if (!query || !word) return false;
+  if (word.includes(query)) return true;
+  const maxDist = query.length <= 4 ? 1 : query.length <= 7 ? 2 : 3;
+  if (word.length <= query.length + maxDist + 2) {
+    return levenshtein(query, word) <= maxDist;
+  }
+  for (let i = 0; i <= word.length - query.length; i++) {
+    if (levenshtein(query, word.substr(i, query.length)) <= maxDist) return true;
+  }
+  return false;
+}
+
+function noteMatchesGlobalSearch(note, queryNorm) {
+  const combined = [note.title, note.subject, note.course, note.description, note.author]
+    .map(f => normalizeSearchText(f)).join(' ');
+  if (combined.includes(queryNorm)) return true;
+  const combinedWords = combined.split(' ').filter(Boolean);
+  const queryWords = queryNorm.split(' ').filter(Boolean);
+  return queryWords.every(qw => combinedWords.some(cw => fuzzyWordMatch(qw, cw)));
+}
+
+function handleGlobalSearch() {
+  const raw = document.getElementById('globalNoteSearch').value;
+  const resultsBox = document.getElementById('globalSearchResults');
+  if (!raw.trim()) { resultsBox.classList.add('hidden'); resultsBox.innerHTML = ''; return; }
+  const queryNorm = normalizeSearchText(raw);
+  const matches = allNotes.filter(n => noteMatchesGlobalSearch(n, queryNorm)).slice(0, 15);
+  resultsBox.innerHTML = matches.length ? matches.map(n => {
+    const typeInfo = getFileTypeInfo(n.fileType);
+    const safeCourse = escHtml(n.course).replace(/'/g, "\\'");
+    const safeSubject = escHtml(n.subject).replace(/'/g, "\\'");
+    return `
+      <div class="global-search-item" onclick="goToSearchResult('${n.id}','${safeCourse}','${safeSubject}')">
+        <div class="gs-title">${typeInfo.emoji} ${escHtml(n.title)}</div>
+        <div class="gs-path">🎓 ${escHtml(n.course)} → 📚 ${escHtml(n.subject)}</div>
+      </div>`;
+  }).join('') : `<div class="global-search-empty">No matching notes found</div>`;
+  resultsBox.classList.remove('hidden');
+}
+
+async function goToSearchResult(noteId, course, subject) {
+  document.getElementById('globalSearchResults').classList.add('hidden');
+  document.getElementById('globalNoteSearch').value = '';
+  await openNoteCourse(course);
+  await openNoteSubject(subject);
+  setTimeout(() => {
+    const el = document.getElementById(`note-${noteId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('note-card-highlight');
+      setTimeout(() => el.classList.remove('note-card-highlight'), 2000);
+    }
+  }, 350);
+}
+
+document.addEventListener('click', (e) => {
+  const input = document.getElementById('globalNoteSearch');
+  const box = document.getElementById('globalSearchResults');
+  if (input && box && !input.contains(e.target) && !box.contains(e.target)) box.classList.add('hidden');
+});

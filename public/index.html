@@ -225,7 +225,13 @@
         <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
         <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
       </div>
-      <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="global-search-wrap">
+          <input type="text" id="globalNoteSearch" placeholder="🔍 Search all notes..." oninput="handleGlobalSearch()" autocomplete="off" />
+          <div id="globalSearchResults" class="global-search-results hidden"></div>
+        </div>
+        <button class="btn-primary" onclick="openUploadModal()">+ Upload Notes</button>
+      </div>
     </div>
 
     <!-- LEVEL 1: Courses -->
