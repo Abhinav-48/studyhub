@@ -95,7 +95,7 @@ async function loginUser() {
 
   socket.emit('user_join', name);
   await loadCoursesForUpload();
-  setupPushNotifications();
+  checkAndShowNotifPrompt();
   loadNotes();
   loadQuestions();
   loadAnnouncements();
@@ -3415,3 +3415,28 @@ document.addEventListener('click', (e) => {
   const box = document.getElementById('globalSearchResults');
   if (input && box && !input.contains(e.target) && !box.contains(e.target)) box.classList.add('hidden');
 });
+// ══════════════════════════════════════════════════
+// NOTIFICATION PERMISSION PROMPT (repeats until Yes)
+// ══════════════════════════════════════════════════
+function checkAndShowNotifPrompt() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission === 'denied') return;
+  if (Notification.permission === 'granted') { setupPushNotifications(); return; }
+  if (localStorage.getItem('studyhub_notif_granted') === 'yes') { setupPushNotifications(); return; }
+  document.getElementById('notifPromptAsk')?.classList.remove('hidden');
+  document.getElementById('notifPromptFeedback')?.classList.add('hidden');
+  setTimeout(() => openModal('notifPromptModal'), 800);
+}
+
+async function respondNotifPrompt(yes) {
+  document.getElementById('notifPromptAsk').classList.add('hidden');
+  const fb = document.getElementById('notifPromptFeedback');
+  fb.classList.remove('hidden');
+  document.getElementById('notifFeedbackEmoji').textContent = yes ? '😊' : '😢';
+  document.getElementById('notifFeedbackText').textContent = yes ? 'Awesome, thank you!' : 'Okay, maybe next time';
+  if (yes) {
+    localStorage.setItem('studyhub_notif_granted', 'yes');
+    await setupPushNotifications();
+  }
+  setTimeout(() => closeModal('notifPromptModal'), 1100);
+}

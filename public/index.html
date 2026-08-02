@@ -894,6 +894,25 @@
 
 <button id="mobileJumpBtn" class="mobile-jump-btn hidden">⬆ JUMP</button>
 
+<!-- ═══════════════════ NOTIFICATION PROMPT MODAL ═══════════════════ -->
+<div id="notifPromptModal" class="modal-overlay hidden" onclick="closeModalOnBg(event,'notifPromptModal')">
+  <div class="modal-box" style="text-align:center;max-width:380px;">
+    <div id="notifPromptAsk">
+      <div style="font-size:3rem;margin-bottom:10px;">🔔</div>
+      <h3>Turn on Notifications?</h3>
+      <p class="modal-sub">Get notified when admin posts announcements or replies to you</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:10px;">
+        <button class="btn-secondary" onclick="respondNotifPrompt(false)" style="font-size:1.3rem;padding:14px 24px;">😢 No</button>
+        <button class="btn-primary" onclick="respondNotifPrompt(true)" style="font-size:1.3rem;padding:14px 24px;">😊 Yes</button>
+      </div>
+    </div>
+    <div id="notifPromptFeedback" class="hidden">
+      <div id="notifFeedbackEmoji" style="font-size:3.5rem;margin-bottom:10px;"></div>
+      <h3 id="notifFeedbackText"></h3>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ ADMIN CHAT MODAL ═══════════════════ -->
 <div id="adminChatModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'adminChatModal')">
   <div class="modal-box">
