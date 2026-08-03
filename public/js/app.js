@@ -2015,7 +2015,7 @@ function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   }
 });
 
@@ -3659,5 +3659,216 @@ async function restoreLastView() {
   if (saved.tab === 'timetable') {
     await loadTimetables();
     if (saved.ttSection) openTimetableSection(saved.ttSection);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// IMAGE RESIZER / EDITOR TOOL
+// ══════════════════════════════════════════════════
+let imgToolOriginalImage = null;
+let imgToolTargetW = 0, imgToolTargetH = 0;
+let imgToolBgColor = '#ffffff';
+let imgToolPendingBlob = null;
+
+function openImgToolsModal() {
+  imgToolOriginalImage = null;
+  imgToolPendingBlob = null;
+  document.getElementById('imgToolFileInput').value = '';
+  document.getElementById('imgToolWorkspace').classList.add('hidden');
+  document.getElementById('imgToolDropZone').classList.remove('hidden');
+  document.getElementById('imgToolSizeInfo').textContent = 'Current size: —';
+  openModal('imgToolsModal');
+}
+
+function handleImgToolFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      imgToolOriginalImage = img;
+      imgToolTargetW = img.naturalWidth;
+      imgToolTargetH = img.naturalHeight;
+      document.getElementById('imgToolWidth').value = imgToolTargetW;
+      document.getElementById('imgToolHeight').value = imgToolTargetH;
+      document.getElementById('imgToolDropZone').classList.add('hidden');
+      document.getElementById('imgToolWorkspace').classList.remove('hidden');
+      imgToolRedraw();
+    };
+    img.onerror = () => toast('Could not load this image', 'error');
+    img.src = ev.target.result;
+  };
+  reader.onerror = () => toast('Could not read file', 'error');
+  reader.readAsDataURL(file);
+}
+
+const imgToolDropZone = document.getElementById('imgToolDropZone');
+if (imgToolDropZone) {
+  imgToolDropZone.addEventListener('dragover', e => { e.preventDefault(); imgToolDropZone.classList.add('drag-over'); });
+  imgToolDropZone.addEventListener('dragleave', () => imgToolDropZone.classList.remove('drag-over'));
+  imgToolDropZone.addEventListener('drop', e => {
+    e.preventDefault(); imgToolDropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleImgToolFileSelect({ target: { files: [file] } });
+  });
+}
+
+document.getElementById('imgToolWidth')?.addEventListener('input', () => {
+  if (!imgToolOriginalImage) return;
+  if (document.getElementById('imgToolLockAspect').checked) {
+    const ratio = imgToolOriginalImage.naturalHeight / imgToolOriginalImage.naturalWidth;
+    const w = parseInt(document.getElementById('imgToolWidth').value) || 0;
+    document.getElementById('imgToolHeight').value = Math.round(w * ratio);
+  }
+});
+document.getElementById('imgToolHeight')?.addEventListener('input', () => {
+  if (!imgToolOriginalImage) return;
+  if (document.getElementById('imgToolLockAspect').checked) {
+    const ratio = imgToolOriginalImage.naturalWidth / imgToolOriginalImage.naturalHeight;
+    const h = parseInt(document.getElementById('imgToolHeight').value) || 0;
+    document.getElementById('imgToolWidth').value = Math.round(h * ratio);
+  }
+});
+
+function imgToolApplyDimensions() {
+  const w = parseInt(document.getElementById('imgToolWidth').value);
+  const h = parseInt(document.getElementById('imgToolHeight').value);
+  if (!w || !h || w < 1 || h < 1) { toast('Enter valid width and height', 'error'); return; }
+  imgToolTargetW = w; imgToolTargetH = h;
+  imgToolRedraw();
+}
+
+function imgToolPassportSize() {
+  imgToolTargetW = 413; imgToolTargetH = 531; // 35mm x 45mm @ ~300 DPI
+  document.getElementById('imgToolWidth').value = imgToolTargetW;
+  document.getElementById('imgToolHeight').value = imgToolTargetH;
+  document.getElementById('imgToolLockAspect').checked = false;
+  document.querySelector('input[name="imgToolFitMode"][value="cover"]').checked = true;
+  imgToolRedraw();
+  toast('🪪 Set to passport size (35×45mm)', 'success');
+}
+
+function imgToolPreset(w, h) {
+  imgToolTargetW = w; imgToolTargetH = h;
+  document.getElementById('imgToolWidth').value = w;
+  document.getElementById('imgToolHeight').value = h;
+  document.getElementById('imgToolLockAspect').checked = false;
+  imgToolRedraw();
+}
+
+function imgToolPickColor(color, el) {
+  imgToolBgColor = color;
+  document.querySelectorAll('.imgtool-swatch').forEach(s => s.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelector('input[name="imgToolFitMode"][value="contain"]').checked = true;
+  imgToolRedraw();
+}
+
+function imgToolRedraw() {
+  if (!imgToolOriginalImage) return;
+  imgToolPendingBlob = null;
+  const canvas = document.getElementById('imgToolCanvas');
+  canvas.width = imgToolTargetW;
+  canvas.height = imgToolTargetH;
+  const ctx = canvas.getContext('2d');
+  const fitMode = document.querySelector('input[name="imgToolFitMode"]:checked')?.value || 'cover';
+  const img = imgToolOriginalImage;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+
+  ctx.clearRect(0, 0, imgToolTargetW, imgToolTargetH);
+
+  if (fitMode === 'cover') {
+    const scale = Math.max(imgToolTargetW / iw, imgToolTargetH / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (imgToolTargetW - dw) / 2, dy = (imgToolTargetH - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  } else {
+    ctx.fillStyle = imgToolBgColor;
+    ctx.fillRect(0, 0, imgToolTargetW, imgToolTargetH);
+    const scale = Math.min(imgToolTargetW / iw, imgToolTargetH / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (imgToolTargetW - dw) / 2, dy = (imgToolTargetH - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  imgToolUpdateSizeInfo();
+}
+
+function imgToolUpdateSizeInfo() {
+  const canvas = document.getElementById('imgToolCanvas');
+  const format = document.getElementById('imgToolFormat').value;
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const kb = (blob.size / 1024).toFixed(1);
+    document.getElementById('imgToolSizeInfo').textContent = `Current size: ${kb} KB (${imgToolTargetW}×${imgToolTargetH}px)`;
+  }, format, 0.92);
+}
+
+document.getElementById('imgToolFormat')?.addEventListener('change', () => {
+  imgToolPendingBlob = null;
+  imgToolUpdateSizeInfo();
+});
+
+async function imgToolApplyTargetSize() {
+  if (!imgToolOriginalImage) return;
+  const val = parseFloat(document.getElementById('imgToolTargetSize').value);
+  const unit = document.getElementById('imgToolSizeUnit').value;
+  if (!val || val <= 0) { toast('Enter a valid target size', 'error'); return; }
+  const targetBytes = unit === 'MB' ? val * 1024 * 1024 : val * 1024;
+  const format = document.getElementById('imgToolFormat').value;
+
+  if (format === 'image/png') {
+    toast('⚠️ PNG size can\'t be precisely controlled — switch to JPG or WEBP for exact size', 'error');
+    return;
+  }
+
+  const canvas = document.getElementById('imgToolCanvas');
+  let lowQ = 0.05, highQ = 1.0, bestBlob = null;
+
+  for (let i = 0; i < 8; i++) {
+    const midQ = (lowQ + highQ) / 2;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, format, midQ));
+    if (!blob) break;
+    if (blob.size > targetBytes) {
+      highQ = midQ;
+    } else {
+      bestBlob = blob;
+      lowQ = midQ;
+    }
+  }
+
+  if (!bestBlob) {
+    toast('⚠️ Target too small for current dimensions — try reducing width/height too', 'error');
+    return;
+  }
+
+  const kb = (bestBlob.size / 1024).toFixed(1);
+  document.getElementById('imgToolSizeInfo').textContent = `Current size: ${kb} KB (closest match to your target)`;
+  imgToolPendingBlob = bestBlob;
+  toast(`✅ Compressed to ~${kb} KB`, 'success');
+}
+
+function imgToolDownload() {
+  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
+  const format = document.getElementById('imgToolFormat').value;
+  const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg';
+
+  const doDownload = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `studyhub-image.${ext}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded! 📥', 'success');
+    imgToolPendingBlob = null;
+  };
+
+  if (imgToolPendingBlob) {
+    doDownload(imgToolPendingBlob);
+  } else {
+    const canvas = document.getElementById('imgToolCanvas');
+    canvas.toBlob((blob) => { if (blob) doDownload(blob); }, format, 0.92);
   }
 }

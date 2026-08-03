@@ -237,6 +237,7 @@
         <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
         <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
         <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
+        <button class="game-btn imgtool-btn" onclick="openImgToolsModal()" title="Image Resizer & Editor">🖼️</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="global-search-wrap">
@@ -900,6 +901,93 @@
       <div class="kw-gameover-actions">
         <button class="btn-secondary" onclick="kwGoToMenu()">Main Menu</button>
         <button class="btn-primary" onclick="kwStartGame()">Play Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ IMAGE RESIZER / EDITOR MODAL ═══════════════════ -->
+<div id="imgToolsModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'imgToolsModal')">
+  <div class="modal-box imgtool-modal-box">
+    <button class="modal-close" onclick="closeModal('imgToolsModal')">✕</button>
+    <h3>🖼️ Image Resizer & Editor</h3>
+    <p class="modal-sub">Resize by pixels or exact file size, change background, and download in any format</p>
+
+    <div id="imgToolDropZone" class="file-drop-zone" onclick="document.getElementById('imgToolFileInput').click()">
+      <div class="drop-inner" id="imgToolDropInner">
+        <span class="drop-icon">📷</span>
+        <p>Click or drag & drop a photo here</p>
+        <span class="file-types">JPG · PNG · JPEG · WEBP</span>
+      </div>
+    </div>
+    <input type="file" id="imgToolFileInput" hidden accept=".jpg,.jpeg,.png,.webp" onchange="handleImgToolFileSelect(event)" />
+
+    <div id="imgToolWorkspace" class="imgtool-workspace hidden">
+      <div class="imgtool-preview-wrap">
+        <canvas id="imgToolCanvas"></canvas>
+      </div>
+
+      <div class="imgtool-controls">
+        <div class="imgtool-section">
+          <label class="imgtool-label">📐 Resize by Pixels</label>
+          <div class="imgtool-row">
+            <input type="number" id="imgToolWidth" placeholder="Width" min="1" />
+            <span>×</span>
+            <input type="number" id="imgToolHeight" placeholder="Height" min="1" />
+            <label class="imgtool-checkbox"><input type="checkbox" id="imgToolLockAspect" checked /> Lock ratio</label>
+          </div>
+          <button class="btn-secondary" style="margin-top:8px;" onclick="imgToolApplyDimensions()">Apply Size</button>
+        </div>
+
+        <div class="imgtool-section">
+          <label class="imgtool-label">🪪 Quick Presets</label>
+          <div class="imgtool-row">
+            <button class="btn-secondary" onclick="imgToolPassportSize()">Passport Size (35×45mm)</button>
+            <button class="btn-secondary" onclick="imgToolPreset(600,600)">Square (600×600)</button>
+          </div>
+        </div>
+
+        <div class="imgtool-section">
+          <label class="imgtool-label">🎨 Background (for "Fit" mode)</label>
+          <div class="imgtool-row">
+            <label class="imgtool-radio"><input type="radio" name="imgToolFitMode" value="cover" checked onchange="imgToolRedraw()" /> Crop to Fill</label>
+            <label class="imgtool-radio"><input type="radio" name="imgToolFitMode" value="contain" onchange="imgToolRedraw()" /> Fit with Background</label>
+          </div>
+          <div class="imgtool-swatches" id="imgToolSwatches">
+            <span class="imgtool-swatch active" style="background:#ffffff;" data-color="#ffffff" onclick="imgToolPickColor('#ffffff', this)"></span>
+            <span class="imgtool-swatch" style="background:#f0f0f0;" data-color="#f0f0f0" onclick="imgToolPickColor('#f0f0f0', this)"></span>
+            <span class="imgtool-swatch" style="background:#1a1a1a;" data-color="#1a1a1a" onclick="imgToolPickColor('#1a1a1a', this)"></span>
+            <span class="imgtool-swatch" style="background:#c84b31;" data-color="#c84b31" onclick="imgToolPickColor('#c84b31', this)"></span>
+            <span class="imgtool-swatch" style="background:#2b5c8a;" data-color="#2b5c8a" onclick="imgToolPickColor('#2b5c8a', this)"></span>
+            <span class="imgtool-swatch" style="background:#2d7a5b;" data-color="#2d7a5b" onclick="imgToolPickColor('#2d7a5b', this)"></span>
+            <input type="color" id="imgToolCustomColor" value="#ffffff" onchange="imgToolPickColor(this.value, null)" title="Custom color" />
+          </div>
+        </div>
+
+        <div class="imgtool-section">
+          <label class="imgtool-label">⚖️ Exact File Size</label>
+          <div class="imgtool-row">
+            <input type="number" id="imgToolTargetSize" placeholder="e.g. 200" min="1" />
+            <select id="imgToolSizeUnit">
+              <option value="KB">KB</option>
+              <option value="MB">MB</option>
+            </select>
+            <button class="btn-secondary" onclick="imgToolApplyTargetSize()">Apply</button>
+          </div>
+          <p class="imgtool-hint" id="imgToolSizeInfo">Current size: —</p>
+        </div>
+
+        <div class="imgtool-section">
+          <label class="imgtool-label">💾 Download Format</label>
+          <div class="imgtool-row">
+            <select id="imgToolFormat">
+              <option value="image/jpeg">JPG</option>
+              <option value="image/png">PNG</option>
+              <option value="image/webp">WEBP</option>
+            </select>
+            <button class="btn-primary" onclick="imgToolDownload()">⬇ Download</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
