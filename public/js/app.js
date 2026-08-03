@@ -661,7 +661,10 @@ async function loadPdfIntoPreviewFrame(url) {
   const loading = document.getElementById('pdfPreviewLoading');
   const frame = document.getElementById('pdfPreviewFrame');
   try {
-    const response = await fetch(url);
+    // Fetch via our own server (same-origin) instead of the file's original URL
+    // directly — some older B2 signed URLs don't send CORS headers, which makes
+    // a direct browser fetch() fail even though the URL itself works fine.
+    const response = await fetch(`/api/proxy-file?url=${encodeURIComponent(url)}`);
     if (!response.ok) throw new Error('Fetch failed');
     const blob = await response.blob();
     pdfPreviewBlobUrl = URL.createObjectURL(blob);

@@ -139,6 +139,28 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+
+// Proxies a file through our own server so the browser's JS fetch (used for PDF blob
+// previews) never hits third-party CORS restrictions — only same-origin requests to
+// our server, which fetches the actual file server-side with no CORS limitation.
+app.get('/api/proxy-file', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'Missing url' });
+    let parsed;
+    try { parsed = new URL(url); } catch { return res.status(400).json({ error: 'Invalid url' }); }
+    const allowedHosts = [process.env.B2_ENDPOINT, 'res.cloudinary.com', 'supabase.co'].filter(Boolean);
+    const hostOk = allowedHosts.some(h => parsed.hostname.includes(h));
+    if (!hostOk) return res.status(403).json({ error: 'Host not allowed' });
+
+    const upstream = await fetch(url);
+    if (!upstream.ok) return res.status(502).json({ error: 'Upstream fetch failed' });
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(buffer);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 app.post('/api/admin-login', async (req, res) => {
   try {
