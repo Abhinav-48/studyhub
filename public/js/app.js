@@ -648,7 +648,9 @@ function buildNoteCard(note) {
 }
 
 function pdfViewerUrl(url) {
-  return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  // Native browser PDF rendering — no file-size cap like Google Docs Viewer (~25MB limit).
+  // Chrome, Edge, Firefox and most mobile browsers render PDFs natively inside an <iframe>.
+  return url;
 }
 
 function getFileTypeInfo(mime) {
@@ -3754,8 +3756,9 @@ function imgToolFloodFillReplace(startX, startY) {
 
   const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
+  const original = new Uint8ClampedArray(data); // untouched snapshot for comparisons
   const startIdx = (startY * w + startX) * 4;
-  const startR = data[startIdx], startG = data[startIdx + 1], startB = data[startIdx + 2];
+  const startR = original[startIdx], startG = original[startIdx + 1], startB = original[startIdx + 2];
   imgToolDetectedColor = { r: startR, g: startG, b: startB };
   const detectedSwatch = document.getElementById('imgToolDetectedSwatch');
   if (detectedSwatch) detectedSwatch.style.background = `rgb(${startR},${startG},${startB})`;
@@ -3763,21 +3766,32 @@ function imgToolFloodFillReplace(startX, startY) {
   const maxDist = Math.sqrt(3 * 255 * 255);
   const toleranceDist = (tolerance / 100) * maxDist;
   const visited = new Uint8Array(w * h);
-  const stack = [startX, startY];
+  // Each stack entry carries the ORIGINAL color of the pixel that let it in,
+  // so tolerance is checked against the neighbor (local), not the far-away seed color.
+  // This stops the fill from "leaking" across edges into the subject on real photos.
+  const stack = [[startX, startY, startR, startG, startB]];
 
   while (stack.length) {
-    const y = stack.pop();
-    const x = stack.pop();
+    const [x, y, refR, refG, refB] = stack.pop();
     if (x < 0 || x >= w || y < 0 || y >= h) continue;
     const vIdx = y * w + x;
     if (visited[vIdx]) continue;
-    visited[vIdx] = 1;
+
     const idx = vIdx * 4;
-    const dr = data[idx] - startR, dg = data[idx + 1] - startG, db = data[idx + 2] - startB;
+    const origR = original[idx], origG = original[idx + 1], origB = original[idx + 2];
+    const dr = origR - refR, dg = origG - refG, db = origB - refB;
     const dist = Math.sqrt(dr * dr + dg * dg + db * db);
     if (dist > toleranceDist) continue;
+
+    visited[vIdx] = 1;
     data[idx] = newColor.r; data[idx + 1] = newColor.g; data[idx + 2] = newColor.b;
-    stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+
+    stack.push(
+      [x + 1, y, origR, origG, origB],
+      [x - 1, y, origR, origG, origB],
+      [x, y + 1, origR, origG, origB],
+      [x, y - 1, origR, origG, origB]
+    );
   }
 
   ctx.putImageData(imageData, 0, 0);
