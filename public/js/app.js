@@ -647,15 +647,23 @@ function buildNoteCard(note) {
   return div;
 }
 
+function isInstalledPWA() {
+  const standaloneDisplay = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  const iosStandalone = window.navigator.standalone === true; // iOS "Add to Home Screen"
+  return standaloneDisplay || iosStandalone;
+}
+
 function pdfViewerUrl(url) {
-  // PDF.js (Mozilla) renders the PDF entirely in JS/canvas instead of relying on the
-  // browser's native PDF plugin. Installed PWAs on Android/iOS run inside a WebView
-  // that has no such plugin, so a direct <iframe src="file.pdf"> shows a blank/black
-  // screen there — even though it works fine in a normal Chrome tab. PDF.js works
-  // identically everywhere (desktop, mobile browser, installed PWA), has no practical
-  // file-size cap, and streams pages as needed so it opens fast even for large files.
-  // #locale=en-US keeps the viewer's own UI in English regardless of device language.
-  return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}#locale=en-US`;
+  // Normal browser tabs (desktop or mobile Chrome/Safari) have a fast, native PDF
+  // renderer — a direct iframe to the file is the quickest and most reliable option,
+  // works for any file size, and avoids cross-origin fetch issues that the hosted
+  // Mozilla PDF.js viewer can hit on some older B2 signed URLs.
+  // Installed PWAs (added to home screen) run inside a WebView with no PDF plugin,
+  // where a direct iframe shows blank/black — only THOSE get routed through PDF.js.
+  if (isInstalledPWA()) {
+    return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}#locale=en-US`;
+  }
+  return url;
 }
 
 function getFileTypeInfo(mime) {
