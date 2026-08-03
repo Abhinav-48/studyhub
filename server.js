@@ -904,6 +904,40 @@ lockRoutes('courses', 'courses');
 lockRoutes('subjects', 'subjects');
 lockRoutes('timetable_sections', 'timetable-sections');
 
+function wallpaperRoutes(tableName, prefix) {
+  app.put(`/api/${prefix}/:id/wallpaper`, upload.single('file'), async (req, res) => {
+    try {
+      const { requester } = req.body;
+      if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+      if (req.file.size > 2 * 1024 * 1024) return res.status(400).json({ error: 'Image must be under 2MB' });
+      if (!req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'Only images allowed' });
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'image', folder: 'studyhub/wallpapers', public_id: uuidv4(), timeout: 600000 },
+          (error, result) => { if (error) reject(error); else resolve(result); }
+        );
+        stream.end(req.file.buffer);
+      });
+      await supabase.from(tableName).update({ wallpaper_url: uploadResult.secure_url }).eq('id', req.params.id);
+      io.emit(`${prefix}_wallpaper_updated`, { id: req.params.id });
+      res.json({ success: true, url: uploadResult.secure_url });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+  app.delete(`/api/${prefix}/:id/wallpaper`, async (req, res) => {
+    try {
+      const { requester } = req.body;
+      if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+      await supabase.from(tableName).update({ wallpaper_url: null }).eq('id', req.params.id);
+      io.emit(`${prefix}_wallpaper_updated`, { id: req.params.id });
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+}
+wallpaperRoutes('courses', 'courses');
+wallpaperRoutes('subjects', 'subjects');
+wallpaperRoutes('timetable_sections', 'timetable-sections');
+
 app.post('/api/courses', async (req, res) => {
   try {
     const { requester, name } = req.body;

@@ -93,15 +93,25 @@ async function loginUser() {
     loadAdminSettings();
   }
 
+  showTopLoader();
+  let savedView = null;
+  try { savedView = JSON.parse(localStorage.getItem('studyhub_last_view') || 'null'); } catch {}
+  if (savedView) {
+    currentNoteCourse = savedView.noteCourse || null;
+    currentNoteSubject = savedView.noteSubject || null;
+  }
+
   socket.emit('user_join', name);
   await loadCoursesForUpload();
   checkAndShowNotifPrompt();
-  loadNotes();
+  await loadNotes();
   loadQuestions();
   loadAnnouncements();
   loadHomeWidgets();
   toast(`Welcome, ${name}! 👋`, 'success');
   updateStudyStreak();
+  await restoreLastView();
+  hideTopLoader();
 }
 
 function logout() { stopStudyTimer(); localStorage.removeItem('studyhub_user'); location.reload(); }
@@ -148,6 +158,7 @@ function pushNavState() {
     ttSection: typeof currentTimetableSection !== 'undefined' ? currentTimetableSection : null
   };
   history.pushState(state, '');
+  localStorage.setItem('studyhub_last_view', JSON.stringify(state));
 }
 
 window.addEventListener('popstate', (e) => {
@@ -168,6 +179,8 @@ window.addEventListener('popstate', (e) => {
 });
 
 function switchTab(tab) {
+  showTopLoader();
+  setTimeout(hideTopLoader, 350);
   document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
   document.querySelectorAll('.nav-tab, .mnav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.remove('hidden');
@@ -318,9 +331,14 @@ function showFolderContextMenu(e, id, name) {
   const lockBtn = dbC?.locked
     ? `<button onclick="unlockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
     : `<button onclick="lockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  const wpBtnC = dbC?.wallpaper_url
+    ? `<button onclick="removeWallpaper('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
+    : '';
   menu.innerHTML = `
     <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
     ${lockBtn}
+    <button onclick="triggerWallpaperUpload('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
+    ${wpBtnC}
     <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
@@ -377,9 +395,10 @@ function renderNoteCourses() {
     const dbCourse = allCourses.find(x => x.name === c);
     const count = allNotes.filter(n => (n.course || 'BCA 6th Sem') === c).length;
     const safeC = escHtml(c).replace(/'/g, "\\'");
+    const wp = dbCourse?.wallpaper_url;
     return `
-      <div class="note-card course-card" style="position:relative;">
-        ${isAdmin && dbCourse ? `<button onclick="showFolderContextMenu(event,'${dbCourse.id}','${safeC}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
+      <div class="note-card course-card ${wp ? 'has-wallpaper' : ''}" style="position:relative;${wp ? `background-image:url('${wp}')` : ''}">
+        ${isAdmin && dbCourse ? `<button onclick="showFolderContextMenu(event,'${dbCourse.id}','${safeC}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;z-index:2;">⋮</button>` : ''}
         <div style="cursor:pointer;" onclick="openNoteCourse('${safeC}')">
           <div class="note-title">🎓 ${escHtml(c)}</div>
           <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
@@ -429,9 +448,10 @@ async function openNoteCourse(course) {
     const dbSub = currentCourseSubjects.find(s => s.name === sub);
     const count = allNotes.filter(n => (n.course || '6th Sem') === course && (n.subject || 'General') === sub).length;
     const safeSub = escHtml(sub).replace(/'/g, "\\'");
+    const wpSub = dbSub?.wallpaper_url;
     return `
-      <div class="note-card course-card" style="position:relative;">
-        ${isAdmin && dbSub ? `<button onclick="showSubjectContextMenu(event,'${dbSub.id}','${safeSub}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
+      <div class="note-card course-card ${wpSub ? 'has-wallpaper' : ''}" style="position:relative;${wpSub ? `background-image:url('${wpSub}')` : ''}">
+        ${isAdmin && dbSub ? `<button onclick="showSubjectContextMenu(event,'${dbSub.id}','${safeSub}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;z-index:2;">⋮</button>` : ''}
         <div style="cursor:pointer;" onclick="openNoteSubject('${safeSub}')">
           <div class="note-title">📚 ${escHtml(sub)}</div>
           <div class="note-meta"><span class="meta-tag">${count} note${count === 1 ? '' : 's'}</span></div>
@@ -508,9 +528,14 @@ function showSubjectContextMenu(e, id, name) {
   const lockBtnS = dbS?.locked
     ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
     : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  const wpBtnS = dbS?.wallpaper_url
+    ? `<button onclick="removeWallpaper('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
+    : '';
   menu.innerHTML = `
     <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
     ${lockBtnS}
+    <button onclick="triggerWallpaperUpload('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
+    ${wpBtnS}
     <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
@@ -804,9 +829,10 @@ function renderTimetableSections() {
   let html = allTTSections.map(sec => {
     const count = allTimetables.filter(t => t.section === sec.name).length;
     const safeName = escHtml(sec.name).replace(/'/g, "\\'");
+    const wpT = sec.wallpaper_url;
     return `
-      <div class="note-card course-card" style="position:relative;">
-        ${isAdmin ? `<button onclick="showTTContextMenu(event,'${sec.id}','${safeName}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;">⋮</button>` : ''}
+      <div class="note-card course-card ${wpT ? 'has-wallpaper' : ''}" style="position:relative;${wpT ? `background-image:url('${wpT}')` : ''}">
+        ${isAdmin ? `<button onclick="showTTContextMenu(event,'${sec.id}','${safeName}')" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);padding:2px 8px;z-index:2;">⋮</button>` : ''}
         <div style="cursor:pointer;" onclick="openTimetableSection('${safeName}')">
           <div class="note-title">📘 ${escHtml(sec.name)}</div>
           <div class="note-meta"><span class="meta-tag">${count} file${count === 1 ? '' : 's'}</span></div>
@@ -870,9 +896,14 @@ function showTTContextMenu(e, id, name) {
   const lockBtnT = dbT?.locked
     ? `<button onclick="unlockFolder('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
     : `<button onclick="lockFolder('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  const wpBtnT = dbT?.wallpaper_url
+    ? `<button onclick="removeWallpaper('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
+    : '';
   menu.innerHTML = `
     <button onclick="renameTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
     ${lockBtnT}
+    <button onclick="triggerWallpaperUpload('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
+    ${wpBtnT}
     <button onclick="deleteTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>`;
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function c() { document.getElementById('folderCtxMenu')?.remove(); document.removeEventListener('click', c); }), 0);
@@ -3439,4 +3470,90 @@ async function respondNotifPrompt(yes) {
     await setupPushNotifications();
   }
   setTimeout(() => closeModal('notifPromptModal'), 1100);
+}
+// ══════════════════════════════════════════════════
+// TOP LOADING BAR (modern nav feel)
+// ══════════════════════════════════════════════════
+let topLoaderTimeout = null;
+function showTopLoader() {
+  const bar = document.getElementById('topLoaderBar');
+  if (!bar) return;
+  clearTimeout(topLoaderTimeout);
+  bar.classList.remove('loading-done');
+  bar.classList.add('loading-active');
+}
+function hideTopLoader() {
+  const bar = document.getElementById('topLoaderBar');
+  if (!bar) return;
+  bar.classList.add('loading-done');
+  topLoaderTimeout = setTimeout(() => bar.classList.remove('loading-active', 'loading-done'), 300);
+}
+
+// ══════════════════════════════════════════════════
+// FOLDER WALLPAPER
+// ══════════════════════════════════════════════════
+let wallpaperTargetPrefix = null, wallpaperTargetId = null;
+
+function triggerWallpaperUpload(prefix, id) {
+  wallpaperTargetPrefix = prefix;
+  wallpaperTargetId = id;
+  document.getElementById('wallpaperFileInput').click();
+}
+
+async function handleWallpaperFileSelect(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !wallpaperTargetPrefix || !wallpaperTargetId) return;
+  if (file.size > 2 * 1024 * 1024) { toast('Image must be under 2MB', 'error'); return; }
+  showTopLoader();
+  const formData = new FormData();
+  formData.append('requester', currentUser);
+  formData.append('file', file);
+  const res = await fetch(`/api/${wallpaperTargetPrefix}/${wallpaperTargetId}/wallpaper`, { method: 'PUT', body: formData });
+  hideTopLoader();
+  if (res.ok) { toast('Wallpaper updated 🖼️', 'success'); await refreshFolderView(wallpaperTargetPrefix); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function removeWallpaper(prefix, id) {
+  if (!confirm('Remove this wallpaper?')) return;
+  const res = await fetch(`/api/${prefix}/${id}/wallpaper`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requester: currentUser }) });
+  if (res.ok) { toast('Wallpaper removed', 'success'); await refreshFolderView(prefix); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+socket.on('courses_wallpaper_updated', () => refreshFolderView('courses'));
+socket.on('subjects_wallpaper_updated', () => refreshFolderView('subjects'));
+socket.on('timetable-sections_wallpaper_updated', () => refreshFolderView('timetable-sections'));
+
+// ══════════════════════════════════════════════════
+// REFRESH-PROOF NAVIGATION STATE
+// ══════════════════════════════════════════════════
+function saveLastView() {
+  const state = {
+    tab: document.querySelector('.nav-tab.active')?.dataset.tab || 'notes',
+    noteCourse: typeof currentNoteCourse !== 'undefined' ? currentNoteCourse : null,
+    noteSubject: typeof currentNoteSubject !== 'undefined' ? currentNoteSubject : null,
+    ttSection: typeof currentTimetableSection !== 'undefined' ? currentTimetableSection : null
+  };
+  localStorage.setItem('studyhub_last_view', JSON.stringify(state));
+}
+
+async function restoreLastView() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('studyhub_last_view') || 'null'); } catch { saved = null; }
+  if (!saved || !saved.tab || saved.tab === 'notes') return;
+  const section = document.getElementById(`tab-${saved.tab}`);
+  if (!section) return;
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.nav-tab, .mnav-item').forEach(b => b.classList.remove('active'));
+  section.classList.remove('hidden');
+  document.querySelectorAll(`[data-tab="${saved.tab}"]`).forEach(el => el.classList.add('active'));
+  if (saved.tab === 'admin') loadAdminPanel();
+  if (saved.tab === 'planner') loadPlanner();
+  if (saved.tab === 'quiz') loadQuizList();
+  if (saved.tab === 'timetable') {
+    await loadTimetables();
+    if (saved.ttSection) openTimetableSection(saved.ttSection);
+  }
 }
