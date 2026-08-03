@@ -904,6 +904,15 @@ lockRoutes('courses', 'courses');
 lockRoutes('subjects', 'subjects');
 lockRoutes('timetable_sections', 'timetable-sections');
 
+async function logWallpaperHistory(prefix, tableName, folderId, wallpaperUrl, changedBy) {
+  try {
+    const { data: folderRow } = await supabase.from(tableName).select('name').eq('id', folderId).single();
+    await supabase.from('wallpaper_history').insert({
+      prefix, folder_id: folderId, folder_name: folderRow?.name || '', wallpaper_url: wallpaperUrl, changed_by: changedBy
+    });
+  } catch (histErr) { console.error('wallpaper_history log failed (non-fatal):', histErr.message); }
+}
+
 function wallpaperRoutes(tableName, prefix) {
   app.put(`/api/${prefix}/:id/wallpaper`, upload.single('file'), async (req, res) => {
     try {
@@ -922,6 +931,7 @@ function wallpaperRoutes(tableName, prefix) {
       await supabase.from(tableName).update({ wallpaper_url: uploadResult.secure_url }).eq('id', req.params.id);
       io.emit(`${prefix}_wallpaper_updated`, { id: req.params.id });
       res.json({ success: true, url: uploadResult.secure_url });
+      logWallpaperHistory(prefix, tableName, req.params.id, uploadResult.secure_url, requester);
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
   app.delete(`/api/${prefix}/:id/wallpaper`, async (req, res) => {
@@ -931,6 +941,7 @@ function wallpaperRoutes(tableName, prefix) {
       await supabase.from(tableName).update({ wallpaper_url: null }).eq('id', req.params.id);
       io.emit(`${prefix}_wallpaper_updated`, { id: req.params.id });
       res.json({ success: true });
+      logWallpaperHistory(prefix, tableName, req.params.id, null, requester);
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 }
@@ -1409,6 +1420,17 @@ app.get('/api/blocked', async (req, res) => {
   try {
     const { data } = await supabase.from('blocked_users').select('username');
     res.json((data || []).map(u => u.username));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── WALLPAPER CHANGE HISTORY (Super Admin only) ───────────────────────────────
+app.get('/api/wallpaper-history', async (req, res) => {
+  try {
+    const { requester } = req.query;
+    if ((requester || '').toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can view this.' });
+    const { data, error } = await supabase.from('wallpaper_history').select('*').order('changed_at', { ascending: false }).limit(30);
+    if (error) throw error;
+    res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

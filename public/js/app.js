@@ -720,10 +720,10 @@ async function previewNote(id) {
   if (note.fileType === 'application/pdf') {
     content += `
       <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
-        <a href="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(fileUrl)}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
+        <a href="${fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
-      <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>`;
+      <iframe src="${fileUrl}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -995,6 +995,7 @@ function buildTimetableCard(t) {
       <button class="btn-secondary" onclick="previewTimetable('${t.id}')">👁 Preview</button>
       <button class="btn-primary" onclick="downloadTimetableFile('${t.id}', '${t.fileUrl}', '${escHtml(t.fileName)}')">⬇ Download</button>
     </div>`;
+
   return div;
 }
 
@@ -1588,9 +1589,35 @@ async function loadAdminPanel() {
   loadLinksAdmin();
   loadBlockedSenders();
   loadMsgGlobalStatus();
+  if (isSuperAdmin) loadWallpaperHistory();
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
+}
+
+async function loadWallpaperHistory() {
+  const container = document.getElementById('wallpaperHistoryList');
+  if (!container) return;
+  try {
+    const res = await fetch(`/api/wallpaper-history?requester=${encodeURIComponent(currentUser)}`);
+    if (!res.ok) { container.innerHTML = ''; return; }
+    const history = await res.json();
+    if (!history.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No wallpaper changes yet</div>'; return; }
+    container.innerHTML = history.map(h => {
+      const date = new Date(h.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const prefixLabel = h.prefix === 'courses' ? 'Course' : h.prefix === 'subjects' ? 'Subject' : 'Timetable';
+      const thumb = h.wallpaper_url
+        ? `<img class="wallpaper-history-thumb" src="${h.wallpaper_url}" alt="${escHtml(h.folder_name || '')}" />`
+        : `<div class="wallpaper-history-removed">🗑️ Removed</div>`;
+      return `<div class="wallpaper-history-item">
+        ${thumb}
+        <div class="wallpaper-history-meta">
+          <div class="wallpaper-history-name">${prefixLabel}: ${escHtml(h.folder_name || 'Unknown')}</div>
+          <div class="wallpaper-history-sub">${escHtml(h.changed_by || 'Unknown')} • ${date}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch {}
 }
 
 async function checkUnreadMessages() {
@@ -3663,6 +3690,86 @@ async function restoreLastView() {
 }
 
 // ══════════════════════════════════════════════════
+// IMAGE TOOL — BACKGROUND REPLACE (chroma-key style)
+// ══════════════════════════════════════════════════
+let imgToolEyedropperActive = false;
+let imgToolDetectedColor = { r: 255, g: 255, b: 255 };
+let imgToolReplaceColor = '#2b5c8a';
+
+function imgToolArmEyedropper() {
+  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
+  imgToolEyedropperActive = true;
+  document.getElementById('imgToolCanvas').classList.add('imgtool-eyedrop-active');
+  toast('👆 Photo ke background wali jagah pe click karo', '');
+}
+
+document.getElementById('imgToolCanvas')?.addEventListener('click', (e) => {
+  if (!imgToolEyedropperActive) return;
+  const canvas = document.getElementById('imgToolCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = Math.floor((e.clientX - rect.left) * scaleX);
+  const y = Math.floor((e.clientY - rect.top) * scaleY);
+  const ctx = canvas.getContext('2d');
+  const pixel = ctx.getImageData(x, y, 1, 1).data;
+  imgToolDetectedColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+  document.getElementById('imgToolDetectedSwatch').style.background = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+  imgToolEyedropperActive = false;
+  canvas.classList.remove('imgtool-eyedrop-active');
+  toast('✅ Background color detect ho gaya', 'success');
+});
+
+function imgToolPickReplaceColor(color, el) {
+  imgToolReplaceColor = color;
+  if (el) {
+    document.querySelectorAll('#imgToolBgReplaceSwatches .imgtool-swatch').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function imgToolHexToRgb(hex) {
+  const clean = hex.replace('#', '');
+  const bigint = parseInt(clean, 16);
+  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+}
+
+function imgToolReplaceBackground() {
+  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
+  imgToolPendingBlob = null;
+  const canvas = document.getElementById('imgToolCanvas');
+  const ctx = canvas.getContext('2d');
+  const tolerance = parseInt(document.getElementById('imgToolTolerance').value) || 35;
+  const newColor = imgToolHexToRgb(imgToolReplaceColor);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const { r: tr, g: tg, b: tb } = imgToolDetectedColor;
+  const maxDist = Math.sqrt(3 * 255 * 255);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const dr = data[i] - tr, dg = data[i + 1] - tg, db = data[i + 2] - tb;
+    const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+    const pct = (dist / maxDist) * 100;
+    if (pct <= tolerance) {
+      const blend = 1 - Math.min(1, pct / tolerance);
+      data[i]   = data[i]   * (1 - blend) + newColor.r * blend;
+      data[i+1] = data[i+1] * (1 - blend) + newColor.g * blend;
+      data[i+2] = data[i+2] * (1 - blend) + newColor.b * blend;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  imgToolUpdateSizeInfo();
+  toast('🎨 Background badal diya', 'success');
+}
+
+function imgToolResetToOriginal() {
+  if (!imgToolOriginalImage) return;
+  imgToolRedraw();
+  toast('↺ Original photo wapas aa gayi', 'success');
+}
+
+// ══════════════════════════════════════════════════
 // IMAGE RESIZER / EDITOR TOOL
 // ══════════════════════════════════════════════════
 let imgToolOriginalImage = null;
@@ -3750,6 +3857,16 @@ function imgToolPassportSize() {
   toast('🪪 Set to passport size (35×45mm)', 'success');
 }
 
+function imgToolUSPassportSize() {
+  imgToolTargetW = 600; imgToolTargetH = 600; // 2in x 2in @ 300 DPI (US passport standard)
+  document.getElementById('imgToolWidth').value = imgToolTargetW;
+  document.getElementById('imgToolHeight').value = imgToolTargetH;
+  document.getElementById('imgToolLockAspect').checked = false;
+  document.querySelector('input[name="imgToolFitMode"][value="cover"]').checked = true;
+  imgToolRedraw();
+  toast('🇺🇸 Set to US Passport size (2×2 in)', 'success');
+}
+
 function imgToolPreset(w, h) {
   imgToolTargetW = w; imgToolTargetH = h;
   document.getElementById('imgToolWidth').value = w;
@@ -3792,6 +3909,11 @@ function imgToolRedraw() {
     const dx = (imgToolTargetW - dw) / 2, dy = (imgToolTargetH - dh) / 2;
     ctx.drawImage(img, dx, dy, dw, dh);
   }
+
+  const cornerPixel = ctx.getImageData(0, 0, 1, 1).data;
+  imgToolDetectedColor = { r: cornerPixel[0], g: cornerPixel[1], b: cornerPixel[2] };
+  const detectedSwatch = document.getElementById('imgToolDetectedSwatch');
+  if (detectedSwatch) detectedSwatch.style.background = `rgb(${cornerPixel[0]},${cornerPixel[1]},${cornerPixel[2]})`;
 
   imgToolUpdateSizeInfo();
 }
