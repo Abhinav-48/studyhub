@@ -76,6 +76,7 @@ async function loginUser() {
   currentUser = name;
   localStorage.setItem('studyhub_user', name);
 
+  document.documentElement.classList.remove('sh-restoring');
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').classList.remove('hidden');
   document.getElementById('userInitial').textContent = name[0].toUpperCase();
@@ -135,10 +136,22 @@ window.addEventListener('DOMContentLoaded', () => {
       hasRepeatedWords;
     if (isInvalid) {
       localStorage.removeItem('studyhub_user');
+      document.documentElement.classList.remove('sh-restoring');
     } else {
       document.getElementById('nameInput').value = saved;
-      loginUser();
+      const restoreFailSafe = setTimeout(() => {
+        document.documentElement.classList.remove('sh-restoring');
+        toast('⚠️ Session restore is taking longer than usual...', 'error');
+      }, 8000);
+      loginUser().catch(() => {
+        toast('⚠️ Could not restore session. Please login again.', 'error');
+      }).finally(() => {
+        clearTimeout(restoreFailSafe);
+        document.documentElement.classList.remove('sh-restoring');
+      });
     }
+  } else {
+    document.documentElement.classList.remove('sh-restoring');
   }
   const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
   setTheme(savedTheme);
@@ -343,6 +356,13 @@ function showFolderContextMenu(e, id, name) {
     <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
+  const menuRect = menu.getBoundingClientRect();
+  if (menuRect.bottom > window.innerHeight - 10) {
+    menu.style.top = Math.max(10, window.innerHeight - menuRect.height - 10) + 'px';
+  }
+  if (menuRect.right > window.innerWidth - 10) {
+    menu.style.left = Math.max(10, window.innerWidth - menuRect.width - 10) + 'px';
+  }
   setTimeout(() => {
     document.addEventListener('click', function closeMenu() {
       document.getElementById('folderCtxMenu')?.remove();
@@ -540,6 +560,13 @@ function showSubjectContextMenu(e, id, name) {
     <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
+  const menuRect = menu.getBoundingClientRect();
+  if (menuRect.bottom > window.innerHeight - 10) {
+    menu.style.top = Math.max(10, window.innerHeight - menuRect.height - 10) + 'px';
+  }
+  if (menuRect.right > window.innerWidth - 10) {
+    menu.style.left = Math.max(10, window.innerWidth - menuRect.width - 10) + 'px';
+  }
   setTimeout(() => {
     document.addEventListener('click', function closeMenu() {
       document.getElementById('folderCtxMenu')?.remove();
@@ -908,6 +935,13 @@ function showTTContextMenu(e, id, name) {
     ${wpBtnT}
     <button onclick="deleteTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>`;
   document.body.appendChild(menu);
+  const menuRect = menu.getBoundingClientRect();
+  if (menuRect.bottom > window.innerHeight - 10) {
+    menu.style.top = Math.max(10, window.innerHeight - menuRect.height - 10) + 'px';
+  }
+  if (menuRect.right > window.innerWidth - 10) {
+    menu.style.left = Math.max(10, window.innerWidth - menuRect.width - 10) + 'px';
+  }
   setTimeout(() => document.addEventListener('click', function c() { document.getElementById('folderCtxMenu')?.remove(); document.removeEventListener('click', c); }), 0);
 }
 

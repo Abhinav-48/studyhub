@@ -69,11 +69,15 @@
   (function() {
     try {
       if (localStorage.getItem('studyhub_user')) {
-        document.write('<style>#loginScreen{display:none !important;}</style>');
+        document.documentElement.classList.add('sh-restoring');
       }
     } catch (e) {}
   })();
 </script>
+<div id="sessionLoader" class="session-loader">
+  <div class="session-loader-spinner"></div>
+  <p>Welcome back! Loading your session...</p>
+</div>
 <div id="loginScreen" class="login-screen">
   <div class="login-bg">
     <div class="blob blob1"></div>

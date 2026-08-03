@@ -153,6 +153,26 @@ h1, h2, h3 {
 /* ══════════════════════════════════════════════════
    LOGIN SCREEN
    ══════════════════════════════════════════════════ */
+html.sh-restoring #loginScreen { display: none !important; }
+html.sh-restoring #sessionLoader { display: flex !important; }
+
+.session-loader {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px;
+  background: var(--bg);
+}
+.session-loader-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: sessionSpin 0.8s linear infinite;
+}
+.session-loader p { color: var(--text2); font-size: 0.9rem; }
+@keyframes sessionSpin { to { transform: rotate(360deg); } }
+
 .login-screen {
   position: fixed; inset: 0; z-index: 9999;
   display: flex; align-items: center; justify-content: center;
