@@ -654,22 +654,67 @@ function buildNoteCard(note) {
 // local blob: URL sidesteps both problems: no cross-origin fetch, no plugin
 // dependency — the browser's own PDF renderer just opens the local blob data.
 // Works identically on laptop and inside the installed app, no size cap.
-let pdfPreviewBlobUrl = null;
+// Android WebView (installed PWA) treats <iframe src="blob:...pdf"> as a download
+// intent instead of rendering it — that's the stray "Open" link with a random ID
+// you see inside the mobile app. Rendering the PDF ourselves onto <canvas> elements
+// (via PDF.js as a library, not its iframe-based hosted viewer) avoids iframes
+// entirely, so this WebView quirk never triggers. Works identically on laptop and
+// inside the installed app. Page 1 renders first so the user sees something
+// immediately; remaining pages render progressively in the background.
+let pdfJsLoadPromise = null;
+function ensurePdfJsLoaded() {
+  if (window.pdfjsLib) return Promise.resolve();
+  if (pdfJsLoadPromise) return pdfJsLoadPromise;
+  pdfJsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Failed to load PDF renderer'));
+    document.head.appendChild(script);
+  });
+  return pdfJsLoadPromise;
+}
+
+async function renderPdfPage(pdf, pageNum, container) {
+  const page = await pdf.getPage(pageNum);
+  const containerWidth = container.clientWidth || 600;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = containerWidth / baseViewport.width;
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pdf-preview-page';
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+}
 
 async function loadPdfIntoPreviewFrame(url) {
-  if (pdfPreviewBlobUrl) { URL.revokeObjectURL(pdfPreviewBlobUrl); pdfPreviewBlobUrl = null; }
   const loading = document.getElementById('pdfPreviewLoading');
-  const frame = document.getElementById('pdfPreviewFrame');
+  const container = document.getElementById('pdfPreviewPages');
+  if (!container) return;
+  container.innerHTML = '';
   try {
-    // Fetch via our own server (same-origin) instead of the file's original URL
-    // directly — some older B2 signed URLs don't send CORS headers, which makes
-    // a direct browser fetch() fail even though the URL itself works fine.
+    await ensurePdfJsLoaded();
+    // Fetch via our own server (same-origin) — some older B2 signed URLs don't
+    // send CORS headers, which makes a direct browser fetch() fail even though
+    // the URL itself works fine in a new tab.
     const response = await fetch(`/api/proxy-file?url=${encodeURIComponent(url)}`);
     if (!response.ok) throw new Error('Fetch failed');
-    const blob = await response.blob();
-    pdfPreviewBlobUrl = URL.createObjectURL(blob);
-    if (frame) { frame.src = pdfPreviewBlobUrl; frame.style.display = 'block'; }
+    const arrayBuffer = await response.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    await renderPdfPage(pdf, 1, container);
     if (loading) loading.remove();
+    container.style.display = 'block';
+
+    for (let pageNum = 2; pageNum <= pdf.numPages; pageNum++) {
+      renderPdfPage(pdf, pageNum, container).catch(() => {});
+    }
   } catch {
     if (loading) loading.innerHTML = '⚠️ Could not load preview here. Try "Open in New Tab" instead.';
   }
@@ -754,7 +799,7 @@ async function previewNote(id) {
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
       <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
-      <iframe id="pdfPreviewFrame" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;display:none;" allowfullscreen></iframe>`;
+      <div id="pdfPreviewPages" style="width:100%;max-height:72vh;overflow-y:auto;border-radius:10px;background:#525659;display:none;padding:10px 0;"></div>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -1044,7 +1089,7 @@ function previewTimetable(id) {
         <a href="${t.fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
       </div>
       <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
-      <iframe id="pdfPreviewFrame" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;display:none;" allowfullscreen></iframe>`;
+      <div id="pdfPreviewPages" style="width:100%;max-height:72vh;overflow-y:auto;border-radius:10px;background:#525659;display:none;padding:10px 0;"></div>`;
   } else {
     content += `<img src="${t.fileUrl}" alt="${escHtml(t.section)}" />`;
   }
@@ -2076,13 +2121,7 @@ socket.on('subject_deleted', () => { if (currentNoteCourse && !currentNoteSubjec
 // ══════════════════════════════════════════════════
 
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) {
-  document.getElementById(id).classList.add('hidden');
-  if (id === 'previewModal' && typeof pdfPreviewBlobUrl !== 'undefined' && pdfPreviewBlobUrl) {
-    URL.revokeObjectURL(pdfPreviewBlobUrl);
-    pdfPreviewBlobUrl = null;
-  }
-}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id); }
 
 document.addEventListener('keydown', e => {
