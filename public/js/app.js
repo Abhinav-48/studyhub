@@ -3546,18 +3546,73 @@ let wallpaperTargetPrefix = null, wallpaperTargetId = null;
 function triggerWallpaperUpload(prefix, id) {
   wallpaperTargetPrefix = prefix;
   wallpaperTargetId = id;
+  toast('📸 Choose any photo — it will auto-resize to fit (max 2MB after compression)', '');
   document.getElementById('wallpaperFileInput').click();
+}
+
+function compressImageToLimit(file, maxBytes = 2 * 1024 * 1024, maxDimension = 1600) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          const scale = maxDimension / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let quality = 0.9;
+        const tryCompress = () => {
+          canvas.toBlob((blob) => {
+            if (!blob) { reject(new Error('Compression failed')); return; }
+            if (blob.size <= maxBytes || quality <= 0.4) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+              resolve(compressedFile);
+            } else {
+              quality -= 0.1;
+              tryCompress();
+            }
+          }, 'image/jpeg', quality);
+        };
+        tryCompress();
+      };
+      img.onerror = () => reject(new Error('Could not read image'));
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function handleWallpaperFileSelect(e) {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file || !wallpaperTargetPrefix || !wallpaperTargetId) return;
-  if (file.size > 2 * 1024 * 1024) { toast('Image must be under 2MB', 'error'); return; }
+  if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return; }
+
   showTopLoader();
+  let uploadFile = file;
+  if (file.size > 2 * 1024 * 1024) {
+    toast('📐 Auto-resizing your photo to fit the folder...', '');
+    try {
+      uploadFile = await compressImageToLimit(file, 2 * 1024 * 1024);
+    } catch {
+      hideTopLoader();
+      toast('Could not process this image. Try a different photo.', 'error');
+      return;
+    }
+  }
+
   const formData = new FormData();
   formData.append('requester', currentUser);
-  formData.append('file', file);
+  formData.append('file', uploadFile);
   const res = await fetch(`/api/${wallpaperTargetPrefix}/${wallpaperTargetId}/wallpaper`, { method: 'PUT', body: formData });
   hideTopLoader();
   if (res.ok) { toast('Wallpaper updated 🖼️', 'success'); await refreshFolderView(wallpaperTargetPrefix); }
