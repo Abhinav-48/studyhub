@@ -321,8 +321,9 @@ function showFolderContextMenu(e, id, name) {
   let top = rect ? rect.bottom : e.clientY;
   let left = rect ? rect.left : e.clientX;
   // keep menu inside viewport
-  const menuHeight = 90, menuWidth = 150;
+  const menuHeight = 230, menuWidth = 160;
   if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight;
+  if (top < 10) top = 10;
   if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
@@ -888,7 +889,8 @@ function showTTContextMenu(e, id, name) {
   menu.className = 'folder-ctx-menu';
   const rect = e.currentTarget.getBoundingClientRect();
   let top = rect.bottom, left = rect.left;
-  if (top + 90 > window.innerHeight) top = rect.top - 90;
+  if (top + 230 > window.innerHeight) top = rect.top - 230;
+  if (top < 10) top = 10;
   if (left + 150 > window.innerWidth) left = window.innerWidth - 160;
   menu.style.left = left + 'px'; menu.style.top = top + 'px';
   const safeName = name.replace(/'/g, "\\'");
@@ -1089,9 +1091,12 @@ function openQuestionModal() { document.getElementById('questionText').value = '
 async function submitQuestion() {
   const text = document.getElementById('questionText').value.trim();
   if (!text) { toast('Please type your question', 'error'); return; }
+  const btn = document.getElementById('submitQuestionBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting...'; }
   const res = await fetch('/api/questions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ author: currentUser, text }) });
   if (res.ok) { toast('Question posted! 📮', 'success'); closeModal('questionModal'); }
   else { const d = await res.json(); toast(d.error, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Post Question 📮'; }
 }
 
 function openReplyModal(questionId, questionText) {
@@ -1105,9 +1110,12 @@ async function submitReply() {
   const text = document.getElementById('replyText').value.trim();
   const questionId = document.getElementById('replyQuestionId').value;
   if (!text) { toast('Please type your reply', 'error'); return; }
+  const btn = document.getElementById('submitReplyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting...'; }
   const res = await fetch(`/api/questions/${questionId}/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ author: currentUser, text }) });
   if (res.ok) { toast('Reply posted! ✅', 'success'); closeModal('replyModal'); }
   else { const d = await res.json(); toast(d.error, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Post Reply ✅'; }
 }
 
 async function deleteQuestion(id) {
@@ -1183,6 +1191,9 @@ async function addEvent() {
 
   if (!title || !subject || !date) { toast('Please fill all fields', 'error'); return; }
 
+  const btn = document.getElementById('addEventBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
   const formData = new FormData();
   formData.append('title', title); formData.append('subject', subject);
   formData.append('event_date', date); formData.append('event_type', type);
@@ -1199,6 +1210,7 @@ async function addEvent() {
     if (fileInput) fileInput.value = '';
     loadPlanner();
   } else { const d = await res.json(); toast(d.error, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '📅 Add Event'; }
 }
 
 async function deleteEvent(id) {
@@ -1682,9 +1694,12 @@ function openMessageModal() { document.getElementById('messageText').value = '';
 async function sendMessage() {
   const text = document.getElementById('messageText').value.trim();
   if (!text) { toast('Please type a message', 'error'); return; }
+  const btn = document.getElementById('sendMessageBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
   const res = await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_user: currentUser, message: text }) });
   if (res.ok) { toast('Message sent to admin! 📨', 'success'); document.getElementById('messageText').value = ''; loadMyReplies(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Send Message 📨'; }
 }
 
 async function loadMyReplies() {

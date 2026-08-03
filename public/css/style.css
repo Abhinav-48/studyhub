@@ -418,9 +418,9 @@ h1, h2, h3 {
    ══════════════════════════════════════════════════ */
 .app { min-height: 100vh; }
 
-.tab-content { padding: 32px 36px; max-width: 1200px; margin: 0 auto; animation: tabFadeIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.tab-content { padding: 32px 36px; max-width: 1200px; margin: 0 auto; animation: tabFadeIn 0.3s cubic-bezier(0.16,1,0.3,1) both; will-change: opacity, transform; }
 @keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
   to { opacity: 1; transform: none; }
 }
 
@@ -446,6 +446,7 @@ h1, h2, h3 {
 }
 .btn-primary:hover { background: var(--accent2); box-shadow: 0 4px 16px rgba(200,75,49,0.35); }
 .btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.65; cursor: not-allowed; transform: none !important; }
 .btn-primary.full-width { width: 100%; padding: 14px; font-size: 1rem; margin-top: 6px; }
 
 .btn-secondary {
@@ -954,9 +955,14 @@ h1, h2, h3 {
    ══════════════════════════════════════════════════ */
 .empty-state {
   text-align: center; padding: 60px 20px; color: var(--text2);
+  animation: fadeInUp 0.4s ease both;
 }
-.empty-state span { font-size: 3.5rem; display: block; margin-bottom: 12px; }
+.empty-state span { font-size: 3.5rem; display: block; margin-bottom: 12px; animation: emptyFloat 2.6s ease-in-out infinite; }
 .empty-state p { font-size: 1rem; }
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
 
 /* ══════════════════════════════════════════════════
    TOAST
@@ -1379,7 +1385,12 @@ h1, h2, h3 {
   .quiz-option { min-height: 44px; }
   .theme-btn { min-height: 14px !important; }
   input { font-size: 16px !important; }
-  
+
+  button:active, .nav-tab:active, .mnav-item:active, .game-btn:active, .theme-btn:active {
+    transform: scale(0.94);
+    transition: transform 0.1s ease;
+  }
+
   .modal-outer { -webkit-user-select: none; user-select: none; }
 }
 
@@ -1795,7 +1806,9 @@ h1, h2, h3 {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
   min-width: 140px;
-  overflow: hidden;
+  max-height: min(280px, calc(100vh - 20px));
+  overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeIn 0.15s ease;
 }
 .folder-ctx-menu button {

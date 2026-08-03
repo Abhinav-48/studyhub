@@ -65,6 +65,15 @@
 </div>
 
 <!-- ═══════════════════ LOGIN SCREEN ═══════════════════ -->
+<script>
+  (function() {
+    try {
+      if (localStorage.getItem('studyhub_user')) {
+        document.write('<style>#loginScreen{display:none !important;}</style>');
+      }
+    } catch (e) {}
+  })();
+</script>
 <div id="loginScreen" class="login-screen">
   <div class="login-bg">
     <div class="blob blob1"></div>
@@ -328,7 +337,7 @@
         <label>Attach PDF/Photo (optional)</label>
         <input type="file" id="eventFile" accept=".pdf,.jpg,.jpeg,.png,.webp" />
       </div>
-      <button class="btn-primary" onclick="addEvent()">📅 Add Event</button>
+      <button class="btn-primary" onclick="addEvent()" id="addEventBtn">📅 Add Event</button>
     </div>
 
     <div id="plannerList"></div>
@@ -583,7 +592,7 @@
       <label>Your Question *</label>
       <textarea id="questionText" placeholder="Type your question in detail..." rows="5"></textarea>
     </div>
-    <button class="btn-primary full-width" onclick="submitQuestion()">Post Question 📮</button>
+    <button class="btn-primary full-width" onclick="submitQuestion()" id="submitQuestionBtn">Post Question 📮</button>
   </div>
 </div>
 
@@ -597,7 +606,7 @@
       <label>Your Answer *</label>
       <textarea id="replyText" placeholder="Write your helpful answer..." rows="4"></textarea>
     </div>
-    <button class="btn-primary full-width" onclick="submitReply()">Post Reply ✅</button>
+    <button class="btn-primary full-width" onclick="submitReply()" id="submitReplyBtn">Post Reply ✅</button>
     <input type="hidden" id="replyQuestionId" />
   </div>
 </div>
@@ -620,7 +629,7 @@
     <div class="form-group" style="margin-top:14px;">
       <textarea id="messageText" placeholder="Type your message here..." rows="2"></textarea>
     </div>
-    <button class="btn-primary full-width" onclick="sendMessage()">Send Message 📨</button>
+    <button class="btn-primary full-width" onclick="sendMessage()" id="sendMessageBtn">Send Message 📨</button>
   </div>
 </div>
 
