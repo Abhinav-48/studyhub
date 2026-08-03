@@ -949,6 +949,38 @@ wallpaperRoutes('courses', 'courses');
 wallpaperRoutes('subjects', 'subjects');
 wallpaperRoutes('timetable_sections', 'timetable-sections');
 
+// ─── IMAGE EDIT HISTORY (Image Resizer/Editor tool) ────────────────────────────
+app.post('/api/image-edit-history', upload.single('file'), async (req, res) => {
+  try {
+    const { username, changes } = req.body;
+    if (!username || !req.file) return res.status(400).json({ error: 'Missing fields' });
+    if (!req.file.mimetype.startsWith('image/')) return res.status(400).json({ error: 'Only images allowed' });
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'image', folder: 'studyhub/image-edits', public_id: uuidv4(), timeout: 600000 },
+        (error, result) => { if (error) reject(error); else resolve(result); }
+      );
+      stream.end(req.file.buffer);
+    });
+    const { data, error } = await supabase.from('image_edit_history').insert({
+      username, changes: changes || '', image_url: uploadResult.secure_url
+    }).select().single();
+    if (error) throw error;
+    io.emit('new_image_edit', data);
+    res.json({ success: true, url: uploadResult.secure_url });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/image-edit-history', async (req, res) => {
+  try {
+    const { requester } = req.query;
+    if ((requester || '').toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can view this.' });
+    const { data, error } = await supabase.from('image_edit_history').select('*').order('created_at', { ascending: false }).limit(30);
+    if (error) throw error;
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/courses', async (req, res) => {
   try {
     const { requester, name } = req.body;

@@ -647,6 +647,10 @@ function buildNoteCard(note) {
   return div;
 }
 
+function pdfViewerUrl(url) {
+  return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+}
+
 function getFileTypeInfo(mime) {
   if (!mime) return { cls: 'type-other', emoji: '📄', label: 'FILE' };
   if (mime === 'application/pdf') return { cls: 'type-pdf', emoji: '📕', label: 'PDF' };
@@ -723,7 +727,7 @@ async function previewNote(id) {
         <a href="${fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
-      <iframe src="${fileUrl}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
+      <iframe src="${pdfViewerUrl(fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -1005,7 +1009,11 @@ function previewTimetable(id) {
   const typeInfo = getFileTypeInfo(t.fileType);
   let content = `<div class="preview-header"><h3>${escHtml(t.section)} Timetable</h3><p>${typeInfo.emoji} ${escHtml(t.fileName)}</p></div>`;
   if (t.fileType === 'application/pdf') {
-    content += `<iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(t.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;" allowfullscreen></iframe>`;
+    content += `
+      <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
+        <a href="${t.fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
+      </div>
+      <iframe src="${pdfViewerUrl(t.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
   } else {
     content += `<img src="${t.fileUrl}" alt="${escHtml(t.section)}" />`;
   }
@@ -1589,31 +1597,30 @@ async function loadAdminPanel() {
   loadLinksAdmin();
   loadBlockedSenders();
   loadMsgGlobalStatus();
-  if (isSuperAdmin) loadWallpaperHistory();
+  if (isSuperAdmin) loadImageEditHistory();
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
 }
 
-async function loadWallpaperHistory() {
-  const container = document.getElementById('wallpaperHistoryList');
+async function loadImageEditHistory() {
+  const container = document.getElementById('imageEditHistoryList');
   if (!container) return;
   try {
-    const res = await fetch(`/api/wallpaper-history?requester=${encodeURIComponent(currentUser)}`);
+    const res = await fetch(`/api/image-edit-history?requester=${encodeURIComponent(currentUser)}`);
     if (!res.ok) { container.innerHTML = ''; return; }
     const history = await res.json();
-    if (!history.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No wallpaper changes yet</div>'; return; }
+    if (!history.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;padding:8px">No photo edits yet</div>'; return; }
     container.innerHTML = history.map(h => {
-      const date = new Date(h.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      const prefixLabel = h.prefix === 'courses' ? 'Course' : h.prefix === 'subjects' ? 'Subject' : 'Timetable';
-      const thumb = h.wallpaper_url
-        ? `<img class="wallpaper-history-thumb" src="${h.wallpaper_url}" alt="${escHtml(h.folder_name || '')}" />`
+      const date = new Date(h.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const thumb = h.image_url
+        ? `<img class="wallpaper-history-thumb" src="${h.image_url}" alt="${escHtml(h.username || '')}" />`
         : `<div class="wallpaper-history-removed">🗑️ Removed</div>`;
       return `<div class="wallpaper-history-item">
         ${thumb}
         <div class="wallpaper-history-meta">
-          <div class="wallpaper-history-name">${prefixLabel}: ${escHtml(h.folder_name || 'Unknown')}</div>
-          <div class="wallpaper-history-sub">${escHtml(h.changed_by || 'Unknown')} • ${date}</div>
+          <div class="wallpaper-history-name">${escHtml(h.username || 'Unknown')}</div>
+          <div class="wallpaper-history-sub">${escHtml(h.changes || 'Edited photo')} • ${date}</div>
         </div>
       </div>`;
     }).join('');
@@ -3656,6 +3663,7 @@ async function removeWallpaper(prefix, id) {
 socket.on('courses_wallpaper_updated', () => refreshFolderView('courses'));
 socket.on('subjects_wallpaper_updated', () => refreshFolderView('subjects'));
 socket.on('timetable-sections_wallpaper_updated', () => refreshFolderView('timetable-sections'));
+socket.on('new_image_edit', () => { if (isSuperAdmin && document.querySelector('[data-tab="admin"]')?.classList.contains('active')) loadImageEditHistory(); });
 
 // ══════════════════════════════════════════════════
 // REFRESH-PROOF NAVIGATION STATE
@@ -3711,13 +3719,12 @@ document.getElementById('imgToolCanvas')?.addEventListener('click', (e) => {
   const scaleY = canvas.height / rect.height;
   const x = Math.floor((e.clientX - rect.left) * scaleX);
   const y = Math.floor((e.clientY - rect.top) * scaleY);
-  const ctx = canvas.getContext('2d');
-  const pixel = ctx.getImageData(x, y, 1, 1).data;
-  imgToolDetectedColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
-  document.getElementById('imgToolDetectedSwatch').style.background = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+  imgToolLastClickX = x;
+  imgToolLastClickY = y;
   imgToolEyedropperActive = false;
   canvas.classList.remove('imgtool-eyedrop-active');
-  toast('✅ Background color detect ho gaya', 'success');
+  imgToolFloodFillReplace(x, y);
+  toast('✅ Background replace ho gaya', 'success');
 });
 
 function imgToolPickReplaceColor(color, el) {
@@ -3734,37 +3741,65 @@ function imgToolHexToRgb(hex) {
   return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
 }
 
-function imgToolReplaceBackground() {
+function imgToolFloodFillReplace(startX, startY) {
   if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
   imgToolPendingBlob = null;
   const canvas = document.getElementById('imgToolCanvas');
   const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  startX = Math.max(0, Math.min(w - 1, startX));
+  startY = Math.max(0, Math.min(h - 1, startY));
   const tolerance = parseInt(document.getElementById('imgToolTolerance').value) || 35;
   const newColor = imgToolHexToRgb(imgToolReplaceColor);
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
-  const { r: tr, g: tg, b: tb } = imgToolDetectedColor;
-  const maxDist = Math.sqrt(3 * 255 * 255);
+  const startIdx = (startY * w + startX) * 4;
+  const startR = data[startIdx], startG = data[startIdx + 1], startB = data[startIdx + 2];
+  imgToolDetectedColor = { r: startR, g: startG, b: startB };
+  const detectedSwatch = document.getElementById('imgToolDetectedSwatch');
+  if (detectedSwatch) detectedSwatch.style.background = `rgb(${startR},${startG},${startB})`;
 
-  for (let i = 0; i < data.length; i += 4) {
-    const dr = data[i] - tr, dg = data[i + 1] - tg, db = data[i + 2] - tb;
+  const maxDist = Math.sqrt(3 * 255 * 255);
+  const toleranceDist = (tolerance / 100) * maxDist;
+  const visited = new Uint8Array(w * h);
+  const stack = [startX, startY];
+
+  while (stack.length) {
+    const y = stack.pop();
+    const x = stack.pop();
+    if (x < 0 || x >= w || y < 0 || y >= h) continue;
+    const vIdx = y * w + x;
+    if (visited[vIdx]) continue;
+    visited[vIdx] = 1;
+    const idx = vIdx * 4;
+    const dr = data[idx] - startR, dg = data[idx + 1] - startG, db = data[idx + 2] - startB;
     const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-    const pct = (dist / maxDist) * 100;
-    if (pct <= tolerance) {
-      const blend = 1 - Math.min(1, pct / tolerance);
-      data[i]   = data[i]   * (1 - blend) + newColor.r * blend;
-      data[i+1] = data[i+1] * (1 - blend) + newColor.g * blend;
-      data[i+2] = data[i+2] * (1 - blend) + newColor.b * blend;
-    }
+    if (dist > toleranceDist) continue;
+    data[idx] = newColor.r; data[idx + 1] = newColor.g; data[idx + 2] = newColor.b;
+    stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
   }
+
   ctx.putImageData(imageData, 0, 0);
   imgToolUpdateSizeInfo();
+  imgToolChangesLog.push(`Background replaced with ${imgToolReplaceColor}`);
+}
+
+function imgToolReplaceBackground() {
+  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
+  if (imgToolLastClickX === null || imgToolLastClickY === null) {
+    toast('Pehle 🎯 button se photo ke background par click karo', 'error');
+    return;
+  }
+  imgToolFloodFillReplace(imgToolLastClickX, imgToolLastClickY);
   toast('🎨 Background badal diya', 'success');
 }
 
 function imgToolResetToOriginal() {
   if (!imgToolOriginalImage) return;
+  imgToolLastClickX = null;
+  imgToolLastClickY = null;
+  imgToolChangesLog.push('Reset to original photo');
   imgToolRedraw();
   toast('↺ Original photo wapas aa gayi', 'success');
 }
@@ -3776,10 +3811,15 @@ let imgToolOriginalImage = null;
 let imgToolTargetW = 0, imgToolTargetH = 0;
 let imgToolBgColor = '#ffffff';
 let imgToolPendingBlob = null;
+let imgToolLastClickX = null, imgToolLastClickY = null;
+let imgToolChangesLog = [];
 
 function openImgToolsModal() {
   imgToolOriginalImage = null;
   imgToolPendingBlob = null;
+  imgToolLastClickX = null;
+  imgToolLastClickY = null;
+  imgToolChangesLog = [];
   document.getElementById('imgToolFileInput').value = '';
   document.getElementById('imgToolWorkspace').classList.add('hidden');
   document.getElementById('imgToolDropZone').classList.remove('hidden');
@@ -3844,6 +3884,7 @@ function imgToolApplyDimensions() {
   const h = parseInt(document.getElementById('imgToolHeight').value);
   if (!w || !h || w < 1 || h < 1) { toast('Enter valid width and height', 'error'); return; }
   imgToolTargetW = w; imgToolTargetH = h;
+  imgToolChangesLog.push(`Resized to ${w}x${h}`);
   imgToolRedraw();
 }
 
@@ -3853,6 +3894,7 @@ function imgToolPassportSize() {
   document.getElementById('imgToolHeight').value = imgToolTargetH;
   document.getElementById('imgToolLockAspect').checked = false;
   document.querySelector('input[name="imgToolFitMode"][value="cover"]').checked = true;
+  imgToolChangesLog.push('Applied passport size (35x45mm)');
   imgToolRedraw();
   toast('🪪 Set to passport size (35×45mm)', 'success');
 }
@@ -3863,6 +3905,7 @@ function imgToolUSPassportSize() {
   document.getElementById('imgToolHeight').value = imgToolTargetH;
   document.getElementById('imgToolLockAspect').checked = false;
   document.querySelector('input[name="imgToolFitMode"][value="cover"]').checked = true;
+  imgToolChangesLog.push('Applied US passport size (2x2in)');
   imgToolRedraw();
   toast('🇺🇸 Set to US Passport size (2×2 in)', 'success');
 }
@@ -3872,6 +3915,7 @@ function imgToolPreset(w, h) {
   document.getElementById('imgToolWidth').value = w;
   document.getElementById('imgToolHeight').value = h;
   document.getElementById('imgToolLockAspect').checked = false;
+  imgToolChangesLog.push(`Applied preset size ${w}x${h}`);
   imgToolRedraw();
 }
 
@@ -3880,6 +3924,7 @@ function imgToolPickColor(color, el) {
   document.querySelectorAll('.imgtool-swatch').forEach(s => s.classList.remove('active'));
   if (el) el.classList.add('active');
   document.querySelector('input[name="imgToolFitMode"][value="contain"]').checked = true;
+  imgToolChangesLog.push(`Set fit background color ${color}`);
   imgToolRedraw();
 }
 
@@ -3984,6 +4029,7 @@ function imgToolDownload() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast('Downloaded! 📥', 'success');
+    logImageEdit(blob, ext);
     imgToolPendingBlob = null;
   };
 
@@ -3993,4 +4039,14 @@ function imgToolDownload() {
     const canvas = document.getElementById('imgToolCanvas');
     canvas.toBlob((blob) => { if (blob) doDownload(blob); }, format, 0.92);
   }
+}
+
+async function logImageEdit(blob, ext) {
+  try {
+    const formData = new FormData();
+    formData.append('username', currentUser || 'Unknown');
+    formData.append('changes', imgToolChangesLog.length ? imgToolChangesLog.join(', ') : 'Downloaded edited photo');
+    formData.append('file', new File([blob], `edit.${ext}`, { type: blob.type }));
+    await fetch('/api/image-edit-history', { method: 'POST', body: formData });
+  } catch {}
 }
