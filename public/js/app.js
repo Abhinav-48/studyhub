@@ -647,23 +647,29 @@ function buildNoteCard(note) {
   return div;
 }
 
-function isInstalledPWA() {
-  const standaloneDisplay = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-  const iosStandalone = window.navigator.standalone === true; // iOS "Add to Home Screen"
-  return standaloneDisplay || iosStandalone;
-}
+// Installed PWAs (Android/iOS "Add to Home Screen") run inside a WebView that has
+// no native PDF plugin, so a direct <iframe src="file.pdf"> — and even the hosted
+// PDF.js viewer, which itself needs to fetch the file cross-origin — can show a
+// blank/dark screen there. Fetching the PDF ourselves and handing the iframe a
+// local blob: URL sidesteps both problems: no cross-origin fetch, no plugin
+// dependency — the browser's own PDF renderer just opens the local blob data.
+// Works identically on laptop and inside the installed app, no size cap.
+let pdfPreviewBlobUrl = null;
 
-function pdfViewerUrl(url) {
-  // Normal browser tabs (desktop or mobile Chrome/Safari) have a fast, native PDF
-  // renderer — a direct iframe to the file is the quickest and most reliable option,
-  // works for any file size, and avoids cross-origin fetch issues that the hosted
-  // Mozilla PDF.js viewer can hit on some older B2 signed URLs.
-  // Installed PWAs (added to home screen) run inside a WebView with no PDF plugin,
-  // where a direct iframe shows blank/black — only THOSE get routed through PDF.js.
-  if (isInstalledPWA()) {
-    return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}#locale=en-US`;
+async function loadPdfIntoPreviewFrame(url) {
+  if (pdfPreviewBlobUrl) { URL.revokeObjectURL(pdfPreviewBlobUrl); pdfPreviewBlobUrl = null; }
+  const loading = document.getElementById('pdfPreviewLoading');
+  const frame = document.getElementById('pdfPreviewFrame');
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Fetch failed');
+    const blob = await response.blob();
+    pdfPreviewBlobUrl = URL.createObjectURL(blob);
+    if (frame) { frame.src = pdfPreviewBlobUrl; frame.style.display = 'block'; }
+    if (loading) loading.remove();
+  } catch {
+    if (loading) loading.innerHTML = '⚠️ Could not load preview here. Try "Open in New Tab" instead.';
   }
-  return url;
 }
 
 function getFileTypeInfo(mime) {
@@ -736,13 +742,16 @@ async function previewNote(id) {
   }
   const typeInfo = getFileTypeInfo(note.fileType);
   let content = `<div class="preview-header"><h3>${escHtml(note.title)}</h3><p>${typeInfo.emoji} ${escHtml(note.fileName)} &bull; ${escHtml(note.subject)} &bull; By ${escHtml(note.author)}</p></div>`;
+  let isPdfPreview = false;
   if (note.fileType === 'application/pdf') {
+    isPdfPreview = true;
     content += `
       <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
         <a href="${fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
-      <iframe src="${pdfViewerUrl(fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
+      <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
+      <iframe id="pdfPreviewFrame" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;display:none;" allowfullscreen></iframe>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
   } else if (note.fileType.startsWith('video/')) {
@@ -752,6 +761,7 @@ async function previewNote(id) {
   }
   document.getElementById('previewContent').innerHTML = content;
   openModal('previewModal');
+  if (isPdfPreview) loadPdfIntoPreviewFrame(fileUrl);
 }
 
 // ══════════════════════════════════════════════════
@@ -1023,17 +1033,21 @@ function previewTimetable(id) {
   if (!t) return;
   const typeInfo = getFileTypeInfo(t.fileType);
   let content = `<div class="preview-header"><h3>${escHtml(t.section)} Timetable</h3><p>${typeInfo.emoji} ${escHtml(t.fileName)}</p></div>`;
+  let isPdfPreview = false;
   if (t.fileType === 'application/pdf') {
+    isPdfPreview = true;
     content += `
       <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
         <a href="${t.fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
       </div>
-      <iframe src="${pdfViewerUrl(t.fileUrl)}" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;" allowfullscreen></iframe>`;
+      <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
+      <iframe id="pdfPreviewFrame" style="width:100%;height:72vh;border:none;border-radius:10px;background:#fff;display:none;" allowfullscreen></iframe>`;
   } else {
     content += `<img src="${t.fileUrl}" alt="${escHtml(t.section)}" />`;
   }
   document.getElementById('previewContent').innerHTML = content;
   openModal('previewModal');
+  if (isPdfPreview) loadPdfIntoPreviewFrame(t.fileUrl);
 }
 
 async function downloadTimetableFile(id, url, fileName) {
@@ -2059,7 +2073,13 @@ socket.on('subject_deleted', () => { if (currentNoteCourse && !currentNoteSubjec
 // ══════════════════════════════════════════════════
 
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  if (id === 'previewModal' && typeof pdfPreviewBlobUrl !== 'undefined' && pdfPreviewBlobUrl) {
+    URL.revokeObjectURL(pdfPreviewBlobUrl);
+    pdfPreviewBlobUrl = null;
+  }
+}
 function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id); }
 
 document.addEventListener('keydown', e => {
