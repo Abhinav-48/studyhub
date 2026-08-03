@@ -445,9 +445,9 @@
       </div>
 
       <div class="admin-card wide superadmin-only hidden">
-        <h3>🖼️ Recent Photo Edits (Last 30)</h3>
-        <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px;">Only visible to Super Admin — shows who edited which photo</p>
-        <div id="imageEditHistoryList" class="wallpaper-history-grid"></div>
+        <h3>🖼️ Recent Wallpaper Changes (Last 30)</h3>
+        <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px;">Only visible to Super Admin</p>
+        <div id="wallpaperHistoryList" class="wallpaper-history-grid"></div>
       </div>
 
       <div class="admin-card wide">
@@ -969,35 +969,6 @@
             <span class="imgtool-swatch" style="background:#2d7a5b;" data-color="#2d7a5b" onclick="imgToolPickColor('#2d7a5b', this)"></span>
             <input type="color" id="imgToolCustomColor" value="#ffffff" onchange="imgToolPickColor(this.value, null)" title="Custom color" />
           </div>
-        </div>
-
-        <div class="imgtool-section">
-          <label class="imgtool-label">🪄 Replace Photo Background (e.g. white → blue)</label>
-          <div class="imgtool-row">
-            <button class="btn-secondary" id="imgToolEyedropBtn" onclick="imgToolArmEyedropper()">🎯 Pick Background Color from Photo</button>
-            <span class="imgtool-detected-swatch" id="imgToolDetectedSwatch" style="background:#ffffff;" title="Detected color"></span>
-          </div>
-          <div class="imgtool-row" style="margin-top:10px;">
-            <label style="font-size:0.8rem;color:var(--text2);">Tolerance</label>
-            <input type="range" id="imgToolTolerance" min="5" max="100" value="35" style="flex:1;min-width:120px;" />
-          </div>
-          <div class="imgtool-row" style="margin-top:10px;">
-            <span style="font-size:0.8rem;color:var(--text2);">New Background:</span>
-          </div>
-          <div class="imgtool-swatches" id="imgToolBgReplaceSwatches">
-            <span class="imgtool-swatch active" style="background:#2b5c8a;" data-color="#2b5c8a" onclick="imgToolPickReplaceColor('#2b5c8a', this)"></span>
-            <span class="imgtool-swatch" style="background:#ffffff;" data-color="#ffffff" onclick="imgToolPickReplaceColor('#ffffff', this)"></span>
-            <span class="imgtool-swatch" style="background:#c84b31;" data-color="#c84b31" onclick="imgToolPickReplaceColor('#c84b31', this)"></span>
-            <span class="imgtool-swatch" style="background:#2d7a5b;" data-color="#2d7a5b" onclick="imgToolPickReplaceColor('#2d7a5b', this)"></span>
-            <span class="imgtool-swatch" style="background:#1a1a1a;" data-color="#1a1a1a" onclick="imgToolPickReplaceColor('#1a1a1a', this)"></span>
-            <span class="imgtool-swatch" style="background:#f0f0f0;" data-color="#f0f0f0" onclick="imgToolPickReplaceColor('#f0f0f0', this)"></span>
-            <input type="color" id="imgToolReplaceCustomColor" value="#2b5c8a" onchange="imgToolPickReplaceColor(this.value, null)" title="Custom color" />
-          </div>
-          <div class="imgtool-row" style="margin-top:10px;">
-            <button class="btn-primary" onclick="imgToolReplaceBackground()">✅ Apply Background Change</button>
-            <button class="btn-secondary" onclick="imgToolResetToOriginal()">↺ Reset Photo</button>
-          </div>
-          <p class="imgtool-hint">Works best on photos with a plain, solid-color background (like passport photos).</p>
         </div>
 
         <div class="imgtool-section">

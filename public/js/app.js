@@ -648,9 +648,14 @@ function buildNoteCard(note) {
 }
 
 function pdfViewerUrl(url) {
-  // Native browser PDF rendering — no file-size cap like Google Docs Viewer (~25MB limit).
-  // Chrome, Edge, Firefox and most mobile browsers render PDFs natively inside an <iframe>.
-  return url;
+  // PDF.js (Mozilla) renders the PDF entirely in JS/canvas instead of relying on the
+  // browser's native PDF plugin. Installed PWAs on Android/iOS run inside a WebView
+  // that has no such plugin, so a direct <iframe src="file.pdf"> shows a blank/black
+  // screen there — even though it works fine in a normal Chrome tab. PDF.js works
+  // identically everywhere (desktop, mobile browser, installed PWA), has no practical
+  // file-size cap, and streams pages as needed so it opens fast even for large files.
+  // #locale=en-US keeps the viewer's own UI in English regardless of device language.
+  return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}#locale=en-US`;
 }
 
 function getFileTypeInfo(mime) {
@@ -3700,139 +3705,17 @@ async function restoreLastView() {
 }
 
 // ══════════════════════════════════════════════════
-// IMAGE TOOL — BACKGROUND REPLACE (chroma-key style)
-// ══════════════════════════════════════════════════
-let imgToolEyedropperActive = false;
-let imgToolDetectedColor = { r: 255, g: 255, b: 255 };
-let imgToolReplaceColor = '#2b5c8a';
-
-function imgToolArmEyedropper() {
-  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
-  imgToolEyedropperActive = true;
-  document.getElementById('imgToolCanvas').classList.add('imgtool-eyedrop-active');
-  toast('👆 Photo ke background wali jagah pe click karo', '');
-}
-
-document.getElementById('imgToolCanvas')?.addEventListener('click', (e) => {
-  if (!imgToolEyedropperActive) return;
-  const canvas = document.getElementById('imgToolCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const x = Math.floor((e.clientX - rect.left) * scaleX);
-  const y = Math.floor((e.clientY - rect.top) * scaleY);
-  imgToolLastClickX = x;
-  imgToolLastClickY = y;
-  imgToolEyedropperActive = false;
-  canvas.classList.remove('imgtool-eyedrop-active');
-  imgToolFloodFillReplace(x, y);
-  toast('✅ Background replace ho gaya', 'success');
-});
-
-function imgToolPickReplaceColor(color, el) {
-  imgToolReplaceColor = color;
-  if (el) {
-    document.querySelectorAll('#imgToolBgReplaceSwatches .imgtool-swatch').forEach(s => s.classList.remove('active'));
-    el.classList.add('active');
-  }
-}
-
-function imgToolHexToRgb(hex) {
-  const clean = hex.replace('#', '');
-  const bigint = parseInt(clean, 16);
-  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
-}
-
-function imgToolFloodFillReplace(startX, startY) {
-  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
-  imgToolPendingBlob = null;
-  const canvas = document.getElementById('imgToolCanvas');
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-  startX = Math.max(0, Math.min(w - 1, startX));
-  startY = Math.max(0, Math.min(h - 1, startY));
-  const tolerance = parseInt(document.getElementById('imgToolTolerance').value) || 35;
-  const newColor = imgToolHexToRgb(imgToolReplaceColor);
-
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-  const original = new Uint8ClampedArray(data); // untouched snapshot for comparisons
-  const startIdx = (startY * w + startX) * 4;
-  const startR = original[startIdx], startG = original[startIdx + 1], startB = original[startIdx + 2];
-  imgToolDetectedColor = { r: startR, g: startG, b: startB };
-  const detectedSwatch = document.getElementById('imgToolDetectedSwatch');
-  if (detectedSwatch) detectedSwatch.style.background = `rgb(${startR},${startG},${startB})`;
-
-  const maxDist = Math.sqrt(3 * 255 * 255);
-  const toleranceDist = (tolerance / 100) * maxDist;
-  const visited = new Uint8Array(w * h);
-  // Each stack entry carries the ORIGINAL color of the pixel that let it in,
-  // so tolerance is checked against the neighbor (local), not the far-away seed color.
-  // This stops the fill from "leaking" across edges into the subject on real photos.
-  const stack = [[startX, startY, startR, startG, startB]];
-
-  while (stack.length) {
-    const [x, y, refR, refG, refB] = stack.pop();
-    if (x < 0 || x >= w || y < 0 || y >= h) continue;
-    const vIdx = y * w + x;
-    if (visited[vIdx]) continue;
-
-    const idx = vIdx * 4;
-    const origR = original[idx], origG = original[idx + 1], origB = original[idx + 2];
-    const dr = origR - refR, dg = origG - refG, db = origB - refB;
-    const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-    if (dist > toleranceDist) continue;
-
-    visited[vIdx] = 1;
-    data[idx] = newColor.r; data[idx + 1] = newColor.g; data[idx + 2] = newColor.b;
-
-    stack.push(
-      [x + 1, y, origR, origG, origB],
-      [x - 1, y, origR, origG, origB],
-      [x, y + 1, origR, origG, origB],
-      [x, y - 1, origR, origG, origB]
-    );
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-  imgToolUpdateSizeInfo();
-  imgToolChangesLog.push(`Background replaced with ${imgToolReplaceColor}`);
-}
-
-function imgToolReplaceBackground() {
-  if (!imgToolOriginalImage) { toast('Upload an image first', 'error'); return; }
-  if (imgToolLastClickX === null || imgToolLastClickY === null) {
-    toast('Pehle 🎯 button se photo ke background par click karo', 'error');
-    return;
-  }
-  imgToolFloodFillReplace(imgToolLastClickX, imgToolLastClickY);
-  toast('🎨 Background badal diya', 'success');
-}
-
-function imgToolResetToOriginal() {
-  if (!imgToolOriginalImage) return;
-  imgToolLastClickX = null;
-  imgToolLastClickY = null;
-  imgToolChangesLog.push('Reset to original photo');
-  imgToolRedraw();
-  toast('↺ Original photo wapas aa gayi', 'success');
-}
-
-// ══════════════════════════════════════════════════
 // IMAGE RESIZER / EDITOR TOOL
 // ══════════════════════════════════════════════════
 let imgToolOriginalImage = null;
 let imgToolTargetW = 0, imgToolTargetH = 0;
 let imgToolBgColor = '#ffffff';
 let imgToolPendingBlob = null;
-let imgToolLastClickX = null, imgToolLastClickY = null;
 let imgToolChangesLog = [];
 
 function openImgToolsModal() {
   imgToolOriginalImage = null;
   imgToolPendingBlob = null;
-  imgToolLastClickX = null;
-  imgToolLastClickY = null;
   imgToolChangesLog = [];
   document.getElementById('imgToolFileInput').value = '';
   document.getElementById('imgToolWorkspace').classList.add('hidden');
@@ -3968,11 +3851,6 @@ function imgToolRedraw() {
     const dx = (imgToolTargetW - dw) / 2, dy = (imgToolTargetH - dh) / 2;
     ctx.drawImage(img, dx, dy, dw, dh);
   }
-
-  const cornerPixel = ctx.getImageData(0, 0, 1, 1).data;
-  imgToolDetectedColor = { r: cornerPixel[0], g: cornerPixel[1], b: cornerPixel[2] };
-  const detectedSwatch = document.getElementById('imgToolDetectedSwatch');
-  if (detectedSwatch) detectedSwatch.style.background = `rgb(${cornerPixel[0]},${cornerPixel[1]},${cornerPixel[2]})`;
 
   imgToolUpdateSizeInfo();
 }
