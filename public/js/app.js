@@ -648,7 +648,7 @@ function buildNoteCard(note) {
 }
 
 function pdfViewerUrl(url) {
-  // Native browser PDF rendering — no file-size cap like Google Docs Viewer (~25MB limit).
+  // Native browser PDF rendering — no file-size cap like Google Docs Viewer (~100MB limit).
   // Chrome, Edge, Firefox and most mobile browsers render PDFs natively inside an <iframe>.
   return url;
 }
