@@ -700,13 +700,12 @@ async function loadPdfIntoPreviewFrame(url) {
   container.innerHTML = '';
   try {
     await ensurePdfJsLoaded();
-    // Fetch via our own server (same-origin) — some older B2 signed URLs don't
-    // send CORS headers, which makes a direct browser fetch() fail even though
-    // the URL itself works fine in a new tab.
-    const response = await fetch(`/api/proxy-file?url=${encodeURIComponent(url)}`);
-    if (!response.ok) throw new Error('Fetch failed');
-    const arrayBuffer = await response.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // Hand PDF.js the proxy URL directly instead of pre-fetching the whole file
+    // ourselves — PDF.js then streams the file in range-requested chunks and can
+    // start rendering page 1 as soon as its data arrives, instead of waiting for
+    // the entire (possibly large) file to finish downloading first.
+    const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(url)}`;
+    const pdf = await window.pdfjsLib.getDocument({ url: proxyUrl }).promise;
 
     await renderPdfPage(pdf, 1, container);
     if (loading) loading.remove();
@@ -3741,6 +3740,13 @@ socket.on('courses_wallpaper_updated', () => refreshFolderView('courses'));
 socket.on('subjects_wallpaper_updated', () => refreshFolderView('subjects'));
 socket.on('timetable-sections_wallpaper_updated', () => refreshFolderView('timetable-sections'));
 socket.on('new_image_edit', () => { if (isSuperAdmin && document.querySelector('[data-tab="admin"]')?.classList.contains('active')) loadImageEditHistory(); });
+
+// Preload the PDF renderer in the background right after the app becomes usable,
+// so by the time someone actually opens a PDF preview, the library is already
+// cached and ready — no waiting on the script tag at click time.
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => { ensurePdfJsLoaded().catch(() => {}); }, 1500);
+});
 
 // ══════════════════════════════════════════════════
 // REFRESH-PROOF NAVIGATION STATE

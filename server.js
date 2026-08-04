@@ -153,11 +153,23 @@ app.get('/api/proxy-file', async (req, res) => {
     const hostOk = allowedHosts.some(h => parsed.hostname.includes(h));
     if (!hostOk) return res.status(403).json({ error: 'Host not allowed' });
 
-    const upstream = await fetch(url);
-    if (!upstream.ok) return res.status(502).json({ error: 'Upstream fetch failed' });
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+    // Forward Range headers so PDF.js can stream the file in chunks (fetching only
+    // the bytes it needs for the pages currently being rendered) instead of waiting
+    // for the entire file to download before showing anything — much faster for
+    // large PDFs, and lets page 1 appear as soon as its portion arrives.
+    const upstreamHeaders = {};
+    if (req.headers.range) upstreamHeaders['Range'] = req.headers.range;
+    const upstream = await fetch(url, { headers: upstreamHeaders });
+    if (!upstream.ok && upstream.status !== 206) return res.status(502).json({ error: 'Upstream fetch failed' });
+
+    res.status(upstream.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    });
+    if (!upstream.headers.get('accept-ranges')) res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'private, max-age=300');
+    const buffer = Buffer.from(await upstream.arrayBuffer());
     res.send(buffer);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
