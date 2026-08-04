@@ -7,6 +7,7 @@ process.on('uncaughtException', (err) => {
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const { Readable } = require('stream');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -167,7 +168,35 @@ app.get('/api/proxy-file', async (req, res) => {
       const v = upstream.headers.get(h);
       if (v) res.setHeader(h, v);
     });
+    if (!upstream.headers.get('accept-ranges')) res.setHeader('Accept-Ranges', 'bytes');// Forward Range headers so PDF.js can stream the file in chunks (fetching only
+    // the bytes it needs for the pages currently being rendered) instead of waiting
+    // for the entire file to download before showing anything — much faster for
+    // large PDFs, and lets page 1 appear as soon as its portion arrives.
+    const upstreamHeaders = {};
+    if (req.headers.range) upstreamHeaders['Range'] = req.headers.range;
+    const upstream = await fetch(url, { headers: upstreamHeaders });
+    if (!upstream.ok && upstream.status !== 206) return res.status(502).json({ error: 'Upstream fetch failed' });
+
+    res.status(upstream.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    });
     if (!upstream.headers.get('accept-ranges')) res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+
+    // Pipe the upstream body straight through instead of buffering it into memory
+    // first (Buffer.from(await arrayBuffer())) — piping forwards bytes to the
+    // browser the moment they arrive from B2/Cloudinary, so PDF.js gets the data
+    // it needs for page 1 with the lowest possible delay.
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body).pipe(res);
+    } else {
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
     res.setHeader('Cache-Control', 'private, max-age=300');
     const buffer = Buffer.from(await upstream.arrayBuffer());
     res.send(buffer);
