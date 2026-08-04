@@ -678,23 +678,27 @@ function ensurePdfJsLoaded() {
   return pdfJsLoadPromise;
 }
 
-async function renderPdfPage(pdf, pageNum, container) {
+async function renderPdfPage(pdf, pageNum, container, scaleMultiplier = 1, replaceFirstCanvas = false) {
   const page = await pdf.getPage(pageNum);
   const containerWidth = container.clientWidth || 600;
   const baseViewport = page.getViewport({ scale: 1 });
-  const scale = containerWidth / baseViewport.width;
+  const scale = (containerWidth / baseViewport.width) * scaleMultiplier;
   const viewport = page.getViewport({ scale });
-  const canvas = document.createElement('canvas');
-  canvas.className = 'pdf-preview-page';
+
+  let canvas = replaceFirstCanvas ? container.querySelector('.pdf-preview-page') : null;
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'pdf-preview-page';
+    container.appendChild(canvas);
+  }
   canvas.width = viewport.width;
   canvas.height = viewport.height;
-  container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   await page.render({ canvasContext: ctx, viewport }).promise;
 }
 
 async function loadPdfIntoPreviewFrame(url) {
-  const loading = document.getElementById('pdfPreviewLoading');
+  const skeleton = document.getElementById('pdfPreviewLoading');
   const container = document.getElementById('pdfPreviewPages');
   if (!container) return;
   container.innerHTML = '';
@@ -707,15 +711,20 @@ async function loadPdfIntoPreviewFrame(url) {
     const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(url)}`;
     const pdf = await window.pdfjsLib.getDocument({ url: proxyUrl }).promise;
 
-    await renderPdfPage(pdf, 1, container);
-    if (loading) loading.remove();
+    // Fast, low-res first pass — renders far fewer pixels so it appears almost
+    // instantly, replacing the skeleton right away instead of a "Loading..." wait.
+    await renderPdfPage(pdf, 1, container, 0.45);
+    if (skeleton) skeleton.remove();
     container.style.display = 'block';
 
+    // Immediately swap the same canvas for a full-quality render, then continue
+    // with the remaining pages in the background.
+    renderPdfPage(pdf, 1, container, 1, true).catch(() => {});
     for (let pageNum = 2; pageNum <= pdf.numPages; pageNum++) {
       renderPdfPage(pdf, pageNum, container).catch(() => {});
     }
   } catch {
-    if (loading) loading.innerHTML = '⚠️ Could not load preview here. Try "Open in New Tab" instead.';
+    if (skeleton) skeleton.innerHTML = '⚠️ Could not load preview here. Try "Open in New Tab" instead.';
   }
 }
 
@@ -797,7 +806,7 @@ async function previewNote(id) {
         <a href="${fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
         <button class="btn-primary" style="padding:7px 16px;font-size:0.85rem;" onclick="downloadNote('${note.id}','${note.fileUrl}','${escHtml(note.fileName)}')">⬇ Download</button>
       </div>
-      <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
+      <div id="pdfPreviewLoading" class="pdf-skeleton"></div>
       <div id="pdfPreviewPages" style="width:100%;max-height:72vh;overflow-y:auto;border-radius:10px;background:#525659;display:none;padding:10px 0;"></div>`;
   } else if (note.fileType.startsWith('image/')) {
     content += `<img src="${fileUrl}" alt="${escHtml(note.title)}" />`;
@@ -1087,7 +1096,7 @@ function previewTimetable(id) {
       <div style="margin-bottom:10px;display:flex;gap:8px;justify-content:flex-end;">
         <a href="${t.fileUrl}" target="_blank" class="btn-secondary" style="padding:7px 16px;text-decoration:none;font-size:0.85rem;">🔗 Open in New Tab</a>
       </div>
-      <div id="pdfPreviewLoading" style="text-align:center;padding:40px;color:var(--text2);">⏳ Loading PDF preview...</div>
+      <div id="pdfPreviewLoading" class="pdf-skeleton"></div>
       <div id="pdfPreviewPages" style="width:100%;max-height:72vh;overflow-y:auto;border-radius:10px;background:#525659;display:none;padding:10px 0;"></div>`;
   } else {
     content += `<img src="${t.fileUrl}" alt="${escHtml(t.section)}" />`;
