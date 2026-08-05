@@ -4045,6 +4045,9 @@ function ensurePdfLibLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.
 function ensureJsPdfLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf); }
 function ensureMammothLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => window.mammoth); }
 function ensureDocxLibLoaded() { return loadScriptOnce('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js', () => window.docx); }
+function ensureJsZipLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => window.JSZip); }
+function ensurePptxGenLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js', () => window.PptxGenJS); }
+function ensureXlsxLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); }
 
 function pdfToolSwitch(tool) {
   document.querySelectorAll('.pdftool-tab').forEach(b => b.classList.toggle('active', b.dataset.pt === tool));
@@ -4331,4 +4334,524 @@ async function ptEditDownload() {
     URL.revokeObjectURL(url);
     toast('Saved & downloaded! 📥', 'success');
   } catch (err) { toast('Save failed: ' + err.message, 'error'); }
+}
+
+// ── Merge PDF ──
+let ptMergeFiles = [];
+function ptMergeAddFiles(e) {
+  ptMergeFiles.push(...Array.from(e.target.files || []));
+  ptMergeRenderList();
+  e.target.value = '';
+}
+function ptMergeRenderList() {
+  document.getElementById('ptMergeList').innerHTML = ptMergeFiles.map((f, i) => `<div class="pt-file-item"><span>${i+1}. ${escHtml(f.name)} (${formatBytes(f.size)})</span><button onclick="ptMergeRemove(${i})">✕</button></div>`).join('');
+  document.getElementById('ptMergeBtn').disabled = ptMergeFiles.length < 2;
+}
+function ptMergeRemove(i) { ptMergeFiles.splice(i, 1); ptMergeRenderList(); }
+async function ptMergeDownload() {
+  if (ptMergeFiles.length < 2) return;
+  const btn = document.getElementById('ptMergeBtn');
+  btn.disabled = true; btn.textContent = 'Merging...';
+  try {
+    await ensurePdfLibLoaded();
+    const outDoc = await window.PDFLib.PDFDocument.create();
+    for (const file of ptMergeFiles) {
+      const bytes = await file.arrayBuffer();
+      const srcDoc = await window.PDFLib.PDFDocument.load(bytes);
+      const pages = await outDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+      pages.forEach(p => outDoc.addPage(p));
+    }
+    const bytes = await outDoc.save();
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'merged.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('PDFs merged! 📥', 'success');
+  } catch (err) { toast('Merge failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🔗 Merge & Download';
+}
+
+// ── Split PDF ──
+let ptSplitFile = null;
+function ptSplitSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptSplitFile = file;
+  document.getElementById('ptSplitDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptSplitBtn').disabled = false;
+}
+function ptParseRange(rangeStr, maxPages) {
+  const pages = new Set();
+  rangeStr.split(',').map(s => s.trim()).filter(Boolean).forEach(part => {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(n => parseInt(n));
+      for (let i = a; i <= b; i++) if (i >= 1 && i <= maxPages) pages.add(i - 1);
+    } else {
+      const n = parseInt(part);
+      if (n >= 1 && n <= maxPages) pages.add(n - 1);
+    }
+  });
+  return [...pages].sort((a, b) => a - b);
+}
+async function ptSplitDownload() {
+  if (!ptSplitFile) return;
+  const btn = document.getElementById('ptSplitBtn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  try {
+    await ensurePdfLibLoaded();
+    const bytes = await ptSplitFile.arrayBuffer();
+    const srcDoc = await window.PDFLib.PDFDocument.load(bytes);
+    const total = srcDoc.getPageCount();
+    const rangeStr = document.getElementById('ptSplitRange').value.trim();
+
+    if (rangeStr) {
+      const indices = ptParseRange(rangeStr, total);
+      if (!indices.length) { toast('Invalid page range', 'error'); btn.disabled = false; btn.textContent = '✂️ Split & Download'; return; }
+      const outDoc = await window.PDFLib.PDFDocument.create();
+      const pages = await outDoc.copyPages(srcDoc, indices);
+      pages.forEach(p => outDoc.addPage(p));
+      const outBytes = await outDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = ptSplitFile.name.replace(/\.pdf$/i, '') + '-extract.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      await ensureJsZipLoaded();
+      const zip = new window.JSZip();
+      for (let i = 0; i < total; i++) {
+        const outDoc = await window.PDFLib.PDFDocument.create();
+        const [page] = await outDoc.copyPages(srcDoc, [i]);
+        outDoc.addPage(page);
+        const outBytes = await outDoc.save();
+        zip.file(`page-${i + 1}.pdf`, outBytes);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a'); a.href = url; a.download = ptSplitFile.name.replace(/\.pdf$/i, '') + '-pages.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    toast('Split complete! 📥', 'success');
+  } catch (err) { toast('Split failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '✂️ Split & Download';
+}
+
+// ── PDF to JPG ──
+let ptPdf2jpgFile = null;
+function ptPdf2JpgSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptPdf2jpgFile = file;
+  document.getElementById('ptPdf2jpgDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptPdf2jpgBtn').disabled = false;
+}
+async function ptPdf2JpgDownload() {
+  if (!ptPdf2jpgFile) return;
+  const btn = document.getElementById('ptPdf2jpgBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensurePdfJsLoaded();
+    await ensureJsZipLoaded();
+    const bytes = await ptPdf2jpgFile.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+    const zip = new window.JSZip();
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      zip.file(`page-${i}.jpg`, blob);
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a'); a.href = url; a.download = ptPdf2jpgFile.name.replace(/\.pdf$/i, '') + '-images.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Converted to JPGs! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🖼️ Convert & Download ZIP';
+}
+
+// ── JPG to PDF ──
+let ptJpg2pdfFiles = [];
+function ptJpg2PdfAddFiles(e) {
+  ptJpg2pdfFiles.push(...Array.from(e.target.files || []));
+  ptJpg2PdfRenderList();
+  e.target.value = '';
+}
+function ptJpg2PdfRenderList() {
+  document.getElementById('ptJpg2pdfList').innerHTML = ptJpg2pdfFiles.map((f, i) => `<div class="pt-file-item"><span>${i+1}. ${escHtml(f.name)} (${formatBytes(f.size)})</span><button onclick="ptJpg2PdfRemove(${i})">✕</button></div>`).join('');
+  document.getElementById('ptJpg2pdfBtn').disabled = !ptJpg2pdfFiles.length;
+}
+function ptJpg2PdfRemove(i) { ptJpg2pdfFiles.splice(i, 1); ptJpg2PdfRenderList(); }
+async function ptJpg2PdfDownload() {
+  if (!ptJpg2pdfFiles.length) return;
+  const btn = document.getElementById('ptJpg2pdfBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensureJsPdfLoaded();
+    const { jsPDF } = window.jspdf;
+    let pdf = null;
+    for (const file of ptJpg2pdfFiles) {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = dataUrl;
+      });
+      const orientation = img.width > img.height ? 'l' : 'p';
+      if (!pdf) pdf = new jsPDF(orientation, 'pt', [img.width, img.height]);
+      else pdf.addPage([img.width, img.height], orientation);
+      pdf.addImage(dataUrl, 'JPEG', 0, 0, img.width, img.height);
+    }
+    pdf.save('images.pdf');
+    toast('Converted to PDF! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🖼️ Convert to PDF ⬇';
+}
+
+// ── Rotate PDF ──
+let ptRotateFile = null;
+let ptRotateDeg = 90;
+function ptRotateSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptRotateFile = file;
+  document.getElementById('ptRotateDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptRotateBtn').disabled = false;
+}
+function ptSetRotateDeg(deg, el) {
+  ptRotateDeg = deg;
+  document.querySelectorAll('.pt-rotate-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+async function ptRotateDownload() {
+  if (!ptRotateFile) return;
+  const btn = document.getElementById('ptRotateBtn');
+  btn.disabled = true; btn.textContent = 'Rotating...';
+  try {
+    await ensurePdfLibLoaded();
+    const bytes = await ptRotateFile.arrayBuffer();
+    const doc = await window.PDFLib.PDFDocument.load(bytes);
+    doc.getPages().forEach(page => {
+      const current = page.getRotation().angle;
+      page.setRotation(window.PDFLib.degrees((current + ptRotateDeg) % 360));
+    });
+    const outBytes = await doc.save();
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = ptRotateFile.name.replace(/\.pdf$/i, '') + '-rotated.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Rotated! 📥', 'success');
+  } catch (err) { toast('Rotate failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '🔄 Rotate & Download';
+}
+
+// ── Watermark ──
+let ptWatermarkFile = null;
+function ptWatermarkSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptWatermarkFile = file;
+  document.getElementById('ptWatermarkDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptWatermarkBtn').disabled = false;
+}
+async function ptWatermarkDownload() {
+  if (!ptWatermarkFile) return;
+  const text = document.getElementById('ptWatermarkText').value.trim();
+  if (!text) { toast('Watermark text likho', 'error'); return; }
+  const btn = document.getElementById('ptWatermarkBtn');
+  btn.disabled = true; btn.textContent = 'Adding...';
+  try {
+    await ensurePdfLibLoaded();
+    const bytes = await ptWatermarkFile.arrayBuffer();
+    const doc = await window.PDFLib.PDFDocument.load(bytes);
+    const font = await doc.embedFont(window.PDFLib.StandardFonts.HelveticaBold);
+    doc.getPages().forEach(page => {
+      const { width, height } = page.getSize();
+      page.drawText(text, {
+        x: width / 2 - (text.length * 12), y: height / 2,
+        size: 48, font, color: window.PDFLib.rgb(0.6, 0.6, 0.6),
+        opacity: 0.35, rotate: window.PDFLib.degrees(45)
+      });
+    });
+    const outBytes = await doc.save();
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = ptWatermarkFile.name.replace(/\.pdf$/i, '') + '-watermarked.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Watermark added! 📥', 'success');
+  } catch (err) { toast('Failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '💧 Add Watermark & Download';
+}
+
+// ── Sign PDF ──
+let ptSignPdfDoc = null;
+let ptSignFile = null;
+let ptSignClickPos = null;
+let ptSignPlacedItems = [];
+let ptSignPadDrawing = false;
+
+function ptSignSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptSignFile = file;
+  ptSignPlacedItems = [];
+  document.getElementById('ptSignDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  ptSignLoad();
+}
+async function ptSignLoad() {
+  await ensurePdfJsLoaded();
+  const bytes = await ptSignFile.arrayBuffer();
+  ptSignPdfDoc = await window.pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+  document.getElementById('ptSignPageCount').textContent = `of ${ptSignPdfDoc.numPages} pages`;
+  document.getElementById('ptSignPageNum').max = ptSignPdfDoc.numPages;
+  document.getElementById('ptSignPageNum').value = 1;
+  document.getElementById('ptSignWorkspace').classList.remove('hidden');
+  ptSignPadSetup();
+  ptSignRenderPage();
+}
+async function ptSignRenderPage() {
+  if (!ptSignPdfDoc) return;
+  let pageNum = parseInt(document.getElementById('ptSignPageNum').value) || 1;
+  pageNum = Math.max(1, Math.min(ptSignPdfDoc.numPages, pageNum));
+  const page = await ptSignPdfDoc.getPage(pageNum);
+  const canvas = document.getElementById('ptSignCanvas');
+  const containerWidth = canvas.parentElement.clientWidth || 500;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = containerWidth / baseViewport.width;
+  const viewport = page.getViewport({ scale });
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  ptSignClickPos = null;
+}
+document.getElementById('ptSignCanvas')?.addEventListener('click', (e) => {
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+  ptSignClickPos = { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  toast('📍 Position set — draw & place your signature', '');
+});
+function ptSignPadSetup() {
+  const pad = document.getElementById('ptSignPad');
+  if (!pad || pad.dataset.bound) return;
+  pad.dataset.bound = '1';
+  const ctx = pad.getContext('2d');
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1a1612';
+  const getPos = (e) => {
+    const rect = pad.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+  const start = (e) => { e.preventDefault(); ptSignPadDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+  const move = (e) => { if (!ptSignPadDrawing) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+  const end = () => { ptSignPadDrawing = false; };
+  pad.addEventListener('mousedown', start); pad.addEventListener('mousemove', move); pad.addEventListener('mouseup', end); pad.addEventListener('mouseleave', end);
+  pad.addEventListener('touchstart', start, { passive: false }); pad.addEventListener('touchmove', move, { passive: false }); pad.addEventListener('touchend', end);
+}
+function ptSignPadClear() {
+  const pad = document.getElementById('ptSignPad');
+  pad.getContext('2d').clearRect(0, 0, pad.width, pad.height);
+}
+function ptSignPlace() {
+  if (!ptSignClickPos) { toast('Pehle page pe click karke position choose karo', 'error'); return; }
+  const pad = document.getElementById('ptSignPad');
+  const dataUrl = pad.toDataURL('image/png');
+  const pageNum = parseInt(document.getElementById('ptSignPageNum').value) || 1;
+  const canvas = document.getElementById('ptSignCanvas');
+  ptSignPlacedItems.push({ pageNum, dataUrl, x: ptSignClickPos.x, y: ptSignClickPos.y, canvasW: canvas.width, canvasH: canvas.height });
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => { ctx.drawImage(img, ptSignClickPos.x, ptSignClickPos.y - 40, 120, 40); };
+  img.src = dataUrl;
+  ptSignClickPos = null;
+  toast('Signature placed ✅ (add more or Save & Download)', 'success');
+}
+async function ptSignDownload() {
+  if (!ptSignFile) return;
+  if (!ptSignPlacedItems.length) { toast('Pehle signature place karo', 'error'); return; }
+  try {
+    await ensurePdfLibLoaded();
+    const bytes = await ptSignFile.arrayBuffer();
+    const pdfDoc = await window.PDFLib.PDFDocument.load(bytes);
+    const pages = pdfDoc.getPages();
+    for (const item of ptSignPlacedItems) {
+      const page = pages[item.pageNum - 1];
+      if (!page) continue;
+      const { width, height } = page.getSize();
+      const scaleX = width / item.canvasW, scaleY = height / item.canvasH;
+      const pngImage = await pdfDoc.embedPng(item.dataUrl);
+      const sigW = 120 * scaleX, sigH = 40 * scaleY;
+      page.drawImage(pngImage, {
+        x: item.x * scaleX, y: height - (item.y * scaleY) - sigH,
+        width: sigW, height: sigH
+      });
+    }
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = ptSignFile.name.replace(/\.pdf$/i, '') + '-signed.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Signed & downloaded! 📥', 'success');
+  } catch (err) { toast('Failed: ' + err.message, 'error'); }
+}
+
+// ── PDF to PPT ──
+let ptPdf2pptFile = null;
+function ptPdf2PptSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptPdf2pptFile = file;
+  document.getElementById('ptPdf2pptDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptPdf2pptBtn').disabled = false;
+}
+async function ptPdf2PptDownload() {
+  if (!ptPdf2pptFile) return;
+  const btn = document.getElementById('ptPdf2pptBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensurePdfJsLoaded();
+    await ensurePptxGenLoaded();
+    const bytes = await ptPdf2pptFile.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+    const pptx = new window.PptxGenJS();
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const slide = pptx.addSlide();
+      slide.addImage({ data: dataUrl, x: 0, y: 0, w: '100%', h: '100%' });
+    }
+    await pptx.writeFile({ fileName: ptPdf2pptFile.name.replace(/\.pdf$/i, '') + '.pptx' });
+    toast('Converted to PPTX! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '📊 Convert to PPTX ⬇';
+}
+
+// ── PPT to PDF ──
+let ptPpt2pdfFile = null;
+function ptPpt2PdfSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptPpt2pdfFile = file;
+  document.getElementById('ptPpt2pdfDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📊</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptPpt2pdfBtn').disabled = false;
+}
+async function ptPpt2PdfDownload() {
+  if (!ptPpt2pdfFile) return;
+  const btn = document.getElementById('ptPpt2pdfBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensureJsZipLoaded();
+    await ensureJsPdfLoaded();
+    const bytes = await ptPpt2pdfFile.arrayBuffer();
+    const zip = await window.JSZip.loadAsync(bytes);
+    const slideFiles = Object.keys(zip.files)
+      .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+      .sort((a, b) => parseInt(a.match(/slide(\d+)\.xml/)[1]) - parseInt(b.match(/slide(\d+)\.xml/)[1]));
+    if (!slideFiles.length) throw new Error('No slides found in this file');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('l', 'pt', 'a4');
+    for (let i = 0; i < slideFiles.length; i++) {
+      const xml = await zip.files[slideFiles[i]].async('text');
+      const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1]);
+      if (i > 0) pdf.addPage();
+      pdf.setFontSize(20);
+      pdf.text(`Slide ${i + 1}`, 40, 40);
+      pdf.setFontSize(14);
+      let y = 80;
+      texts.forEach(t => {
+        const lines = pdf.splitTextToSize(t, 750);
+        pdf.text(lines, 40, y);
+        y += lines.length * 18 + 10;
+      });
+    }
+    pdf.save(ptPpt2pdfFile.name.replace(/\.pptx$/i, '') + '.pdf');
+    toast('Converted to PDF! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '📊 Convert to PDF ⬇';
+}
+
+// ── PDF to Excel ──
+let ptPdf2excelFile = null;
+function ptPdf2ExcelSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptPdf2excelFile = file;
+  document.getElementById('ptPdf2excelDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptPdf2excelBtn').disabled = false;
+}
+async function ptPdf2ExcelDownload() {
+  if (!ptPdf2excelFile) return;
+  const btn = document.getElementById('ptPdf2excelBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensurePdfJsLoaded();
+    await ensureXlsxLoaded();
+    const bytes = await ptPdf2excelFile.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+    const rows = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const lines = {};
+      textContent.items.forEach(item => {
+        const y = Math.round(item.transform[5]);
+        if (!lines[y]) lines[y] = [];
+        lines[y].push(item.str);
+      });
+      const sortedY = Object.keys(lines).map(Number).sort((a, b) => b - a);
+      sortedY.forEach(y => rows.push([lines[y].join(' ')]));
+    }
+    const ws = window.XLSX.utils.aoa_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    window.XLSX.writeFile(wb, ptPdf2excelFile.name.replace(/\.pdf$/i, '') + '.xlsx');
+    toast('Converted to Excel! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '📊 Convert to Excel ⬇';
+}
+
+// ── Excel to PDF ──
+let ptExcel2pdfFile = null;
+function ptExcel2PdfSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  ptExcel2pdfFile = file;
+  document.getElementById('ptExcel2pdfDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📊</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptExcel2pdfBtn').disabled = false;
+}
+async function ptExcel2PdfDownload() {
+  if (!ptExcel2pdfFile) return;
+  const btn = document.getElementById('ptExcel2pdfBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensureXlsxLoaded();
+    await ensureJsPdfLoaded();
+    const bytes = await ptExcel2pdfFile.arrayBuffer();
+    const wb = window.XLSX.read(bytes, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('l', 'pt', 'a4');
+    pdf.setFontSize(11);
+    let y = 40;
+    rows.forEach(row => {
+      const line = row.map(c => (c === undefined ? '' : String(c))).join('   |   ');
+      const lines = pdf.splitTextToSize(line, 780);
+      if (y + lines.length * 16 > 560) { pdf.addPage(); y = 40; }
+      pdf.text(lines, 30, y);
+      y += lines.length * 16 + 6;
+    });
+    pdf.save(ptExcel2pdfFile.name.replace(/\.xlsx?$/i, '') + '.pdf');
+    toast('Converted to PDF! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '📊 Convert to PDF ⬇';
 }

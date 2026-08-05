@@ -1015,6 +1015,17 @@
       <button class="pdftool-tab" data-pt="compress" onclick="pdfToolSwitch('compress')">🗜️ Compress / Quality</button>
       <button class="pdftool-tab" data-pt="lock" onclick="pdfToolSwitch('lock')">🔒 Lock / Unlock</button>
       <button class="pdftool-tab" data-pt="edit" onclick="pdfToolSwitch('edit')">✏️ Edit PDF</button>
+      <button class="pdftool-tab" data-pt="merge" onclick="pdfToolSwitch('merge')">🔗 Merge PDF</button>
+      <button class="pdftool-tab" data-pt="split" onclick="pdfToolSwitch('split')">✂️ Split PDF</button>
+      <button class="pdftool-tab" data-pt="pdf2jpg" onclick="pdfToolSwitch('pdf2jpg')">🖼️ PDF to JPG</button>
+      <button class="pdftool-tab" data-pt="jpg2pdf" onclick="pdfToolSwitch('jpg2pdf')">🖼️ JPG to PDF</button>
+      <button class="pdftool-tab" data-pt="rotate" onclick="pdfToolSwitch('rotate')">🔄 Rotate PDF</button>
+      <button class="pdftool-tab" data-pt="watermark" onclick="pdfToolSwitch('watermark')">💧 Watermark</button>
+      <button class="pdftool-tab" data-pt="sign" onclick="pdfToolSwitch('sign')">✍️ Sign PDF</button>
+      <button class="pdftool-tab" data-pt="pdf2ppt" onclick="pdfToolSwitch('pdf2ppt')">📊 PDF to PPT</button>
+      <button class="pdftool-tab" data-pt="ppt2pdf" onclick="pdfToolSwitch('ppt2pdf')">📊 PPT to PDF</button>
+      <button class="pdftool-tab" data-pt="pdf2excel" onclick="pdfToolSwitch('pdf2excel')">📊 PDF to Excel</button>
+      <button class="pdftool-tab" data-pt="excel2pdf" onclick="pdfToolSwitch('excel2pdf')">📊 Excel to PDF</button>
     </div>
 
     <!-- WORD -> PDF -->
@@ -1116,6 +1127,145 @@
         </div>
         <button class="btn-primary full-width" style="margin-top:10px;" onclick="ptEditDownload()">💾 Save & Download</button>
       </div>
+    </div>
+
+    <!-- MERGE PDF -->
+    <div id="pt-merge" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptMergeInput').click()">
+        <div class="drop-inner"><span class="drop-icon">🔗</span><p>Click to add PDFs (select multiple at once, or add one by one)</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptMergeInput" hidden accept=".pdf" multiple onchange="ptMergeAddFiles(event)" />
+      <div id="ptMergeList" class="pt-file-list"></div>
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptMergeDownload()" id="ptMergeBtn" disabled>🔗 Merge & Download</button>
+    </div>
+
+    <!-- SPLIT PDF -->
+    <div id="pt-split" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptSplitInput').click()">
+        <div class="drop-inner" id="ptSplitDropInner"><span class="drop-icon">✂️</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptSplitInput" hidden accept=".pdf" onchange="ptSplitSelect(event)" />
+      <div class="form-group" style="margin-top:14px;">
+        <label>Page range to extract (optional — e.g. 1-3,5)</label>
+        <input type="text" id="ptSplitRange" placeholder="Leave blank to split every page separately" />
+      </div>
+      <button class="btn-primary full-width" onclick="ptSplitDownload()" id="ptSplitBtn" disabled>✂️ Split & Download</button>
+      <p class="imgtool-hint">With a range: downloads one PDF with those pages. Blank: downloads a ZIP with every page as its own PDF.</p>
+    </div>
+
+    <!-- PDF TO JPG -->
+    <div id="pt-pdf2jpg" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptPdf2jpgInput').click()">
+        <div class="drop-inner" id="ptPdf2jpgDropInner"><span class="drop-icon">🖼️</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptPdf2jpgInput" hidden accept=".pdf" onchange="ptPdf2JpgSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptPdf2JpgDownload()" id="ptPdf2jpgBtn" disabled>🖼️ Convert & Download ZIP</button>
+    </div>
+
+    <!-- JPG TO PDF -->
+    <div id="pt-jpg2pdf" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptJpg2pdfInput').click()">
+        <div class="drop-inner"><span class="drop-icon">🖼️</span><p>Click to add images (select multiple, or add more)</p><span class="file-types">JPG · PNG · WEBP</span></div>
+      </div>
+      <input type="file" id="ptJpg2pdfInput" hidden accept="image/*" multiple onchange="ptJpg2PdfAddFiles(event)" />
+      <div id="ptJpg2pdfList" class="pt-file-list"></div>
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptJpg2PdfDownload()" id="ptJpg2pdfBtn" disabled>🖼️ Convert to PDF ⬇</button>
+    </div>
+
+    <!-- ROTATE PDF -->
+    <div id="pt-rotate" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptRotateInput').click()">
+        <div class="drop-inner" id="ptRotateDropInner"><span class="drop-icon">🔄</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptRotateInput" hidden accept=".pdf" onchange="ptRotateSelect(event)" />
+      <div class="imgtool-section" style="margin-top:14px;">
+        <label class="imgtool-label">Rotate all pages by</label>
+        <div class="imgtool-row">
+          <button class="btn-secondary pt-rotate-btn active" data-deg="90" onclick="ptSetRotateDeg(90, this)">90°</button>
+          <button class="btn-secondary pt-rotate-btn" data-deg="180" onclick="ptSetRotateDeg(180, this)">180°</button>
+          <button class="btn-secondary pt-rotate-btn" data-deg="270" onclick="ptSetRotateDeg(270, this)">270°</button>
+        </div>
+      </div>
+      <button class="btn-primary full-width" style="margin-top:10px;" onclick="ptRotateDownload()" id="ptRotateBtn" disabled>🔄 Rotate & Download</button>
+    </div>
+
+    <!-- WATERMARK -->
+    <div id="pt-watermark" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptWatermarkInput').click()">
+        <div class="drop-inner" id="ptWatermarkDropInner"><span class="drop-icon">💧</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptWatermarkInput" hidden accept=".pdf" onchange="ptWatermarkSelect(event)" />
+      <div class="form-group" style="margin-top:14px;">
+        <label>Watermark Text</label>
+        <input type="text" id="ptWatermarkText" placeholder="e.g. CONFIDENTIAL, StudyHub, Draft..." />
+      </div>
+      <button class="btn-primary full-width" onclick="ptWatermarkDownload()" id="ptWatermarkBtn" disabled>💧 Add Watermark & Download</button>
+    </div>
+
+    <!-- SIGN PDF -->
+    <div id="pt-sign" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptSignInput').click()">
+        <div class="drop-inner" id="ptSignDropInner"><span class="drop-icon">✍️</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptSignInput" hidden accept=".pdf" onchange="ptSignSelect(event)" />
+      <div id="ptSignWorkspace" class="hidden" style="margin-top:14px;">
+        <div class="imgtool-row" style="margin-bottom:10px;">
+          <label style="font-size:0.82rem;color:var(--text2);">Page</label>
+          <input type="number" id="ptSignPageNum" min="1" value="1" style="width:70px;" onchange="ptSignRenderPage()" />
+          <span id="ptSignPageCount" style="font-size:0.82rem;color:var(--text2);"></span>
+        </div>
+        <div class="pdftool-edit-canvas-wrap">
+          <canvas id="ptSignCanvas"></canvas>
+        </div>
+        <p class="imgtool-hint">Click on the page to set where your signature goes.</p>
+        <label class="imgtool-label" style="margin-top:10px;display:block;">Draw your signature</label>
+        <canvas id="ptSignPad" width="400" height="120" style="border:1.5px solid var(--border);border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;"></canvas>
+        <div class="imgtool-row" style="margin-top:8px;">
+          <button class="btn-secondary" onclick="ptSignPadClear()">🗑 Clear Signature</button>
+          <button class="btn-secondary" onclick="ptSignPlace()">➕ Place Signature</button>
+        </div>
+        <button class="btn-primary full-width" style="margin-top:10px;" onclick="ptSignDownload()">💾 Save & Download</button>
+      </div>
+    </div>
+
+    <!-- PDF TO PPT -->
+    <div id="pt-pdf2ppt" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptPdf2pptInput').click()">
+        <div class="drop-inner" id="ptPdf2pptDropInner"><span class="drop-icon">📊</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptPdf2pptInput" hidden accept=".pdf" onchange="ptPdf2PptSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptPdf2PptDownload()" id="ptPdf2pptBtn" disabled>📊 Convert to PPTX ⬇</button>
+      <p class="imgtool-hint">Each PDF page becomes an image on its own slide.</p>
+    </div>
+
+    <!-- PPT TO PDF -->
+    <div id="pt-ppt2pdf" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptPpt2pdfInput').click()">
+        <div class="drop-inner" id="ptPpt2pdfDropInner"><span class="drop-icon">📊</span><p>Click or drop a .pptx file here</p><span class="file-types">PPTX only</span></div>
+      </div>
+      <input type="file" id="ptPpt2pdfInput" hidden accept=".pptx" onchange="ptPpt2PdfSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptPpt2PdfDownload()" id="ptPpt2pdfBtn" disabled>📊 Convert to PDF ⬇</button>
+      <p class="imgtool-hint">Extracts text from each slide into a PDF page — images and exact slide design aren't preserved.</p>
+    </div>
+
+    <!-- PDF TO EXCEL -->
+    <div id="pt-pdf2excel" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptPdf2excelInput').click()">
+        <div class="drop-inner" id="ptPdf2excelDropInner"><span class="drop-icon">📊</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptPdf2excelInput" hidden accept=".pdf" onchange="ptPdf2ExcelSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptPdf2ExcelDownload()" id="ptPdf2excelBtn" disabled>📊 Convert to Excel ⬇</button>
+      <p class="imgtool-hint">Each line of text becomes a row — best for simple tables/lists, not guaranteed for complex layouts.</p>
+    </div>
+
+    <!-- EXCEL TO PDF -->
+    <div id="pt-excel2pdf" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptExcel2pdfInput').click()">
+        <div class="drop-inner" id="ptExcel2pdfDropInner"><span class="drop-icon">📊</span><p>Click or drop a .xlsx file here</p><span class="file-types">XLSX only</span></div>
+      </div>
+      <input type="file" id="ptExcel2pdfInput" hidden accept=".xlsx,.xls" onchange="ptExcel2PdfSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptExcel2PdfDownload()" id="ptExcel2pdfBtn" disabled>📊 Convert to PDF ⬇</button>
+      <p class="imgtool-hint">Converts the first sheet into a simple table PDF.</p>
     </div>
   </div>
 </div>
