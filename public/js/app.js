@@ -2134,7 +2134,7 @@ function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal', 'pdfToolsModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   }
 });
 
@@ -4026,4 +4026,309 @@ async function logImageEdit(blob, ext) {
     formData.append('file', new File([blob], `edit.${ext}`, { type: blob.type }));
     await fetch('/api/image-edit-history', { method: 'POST', body: formData });
   } catch {}
+}
+
+// ══════════════════════════════════════════════════
+// PDF EDITOR & CONVERTER
+// ══════════════════════════════════════════════════
+function loadScriptOnce(src, checkGlobal) {
+  return new Promise((resolve, reject) => {
+    if (checkGlobal && checkGlobal()) return resolve();
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load ' + src));
+    document.head.appendChild(script);
+  });
+}
+function ensurePdfLibLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', () => window.PDFLib); }
+function ensureJsPdfLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf); }
+function ensureMammothLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => window.mammoth); }
+function ensureDocxLibLoaded() { return loadScriptOnce('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js', () => window.docx); }
+
+function pdfToolSwitch(tool) {
+  document.querySelectorAll('.pdftool-tab').forEach(b => b.classList.toggle('active', b.dataset.pt === tool));
+  document.querySelectorAll('.pdftool-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById(`pt-${tool}`).classList.remove('hidden');
+}
+function openPdfToolsModal() {
+  pdfToolSwitch('word2pdf');
+  openModal('pdfToolsModal');
+}
+
+// ── Word to PDF ──
+let ptWord2pdfFile = null;
+function ptWord2PdfSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptWord2pdfFile = file;
+  document.getElementById('ptWord2pdfDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📝</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptWord2pdfBtn').disabled = false;
+}
+async function ptConvertWordToPdf() {
+  if (!ptWord2pdfFile) return;
+  const btn = document.getElementById('ptWord2pdfBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensureMammothLoaded();
+    await ensureJsPdfLoaded();
+    const arrayBuffer = await ptWord2pdfFile.arrayBuffer();
+    const result = await window.mammoth.convertToHtml({ arrayBuffer });
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'width:700px;padding:20px;font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#000;background:#fff;position:fixed;left:-9999px;top:0;';
+    wrap.innerHTML = result.value;
+    document.body.appendChild(wrap);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    await pdf.html(wrap, {
+      callback: (doc) => {
+        doc.save(ptWord2pdfFile.name.replace(/\.docx$/i, '') + '.pdf');
+        document.body.removeChild(wrap);
+        toast('Converted to PDF! 📥', 'success');
+      },
+      margin: [30, 30, 30, 30], autoPaging: 'text', width: 550, windowWidth: 700
+    });
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Convert to PDF ⬇';
+}
+
+// ── PDF to Word ──
+let ptPdf2wordFile = null;
+function ptPdf2WordSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptPdf2wordFile = file;
+  document.getElementById('ptPdf2wordDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptPdf2wordBtn').disabled = false;
+}
+async function ptConvertPdfToWord() {
+  if (!ptPdf2wordFile) return;
+  const btn = document.getElementById('ptPdf2wordBtn');
+  btn.disabled = true; btn.textContent = 'Converting...';
+  try {
+    await ensurePdfJsLoaded();
+    await ensureDocxLibLoaded();
+    const arrayBuffer = await ptPdf2wordFile.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const paragraphs = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const lines = {};
+      textContent.items.forEach(item => {
+        const y = Math.round(item.transform[5]);
+        if (!lines[y]) lines[y] = [];
+        lines[y].push(item.str);
+      });
+      const sortedY = Object.keys(lines).map(Number).sort((a, b) => b - a);
+      sortedY.forEach(y => {
+        paragraphs.push(new window.docx.Paragraph({ children: [new window.docx.TextRun(lines[y].join(' '))] }));
+      });
+      paragraphs.push(new window.docx.Paragraph({ children: [new window.docx.TextRun('')] }));
+    }
+    const doc = new window.docx.Document({ sections: [{ children: paragraphs }] });
+    const blob = await window.docx.Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = ptPdf2wordFile.name.replace(/\.pdf$/i, '') + '.docx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Converted to Word! 📥', 'success');
+  } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Convert to Word ⬇';
+}
+
+// ── Compress / Quality ──
+let ptCompressFile = null;
+let ptCompressQuality = 0.35;
+function ptCompressSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptCompressFile = file;
+  document.getElementById('ptCompressDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptCompressBtn').disabled = false;
+  document.getElementById('ptCompressInfo').textContent = `Original size: ${formatBytes(file.size)}`;
+}
+function ptSetQuality(q, el) {
+  ptCompressQuality = q;
+  document.querySelectorAll('.pt-quality-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+async function ptConvertCompress() {
+  if (!ptCompressFile) return;
+  const btn = document.getElementById('ptCompressBtn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  try {
+    await ensurePdfJsLoaded();
+    await ensureJsPdfLoaded();
+    const arrayBuffer = await ptCompressFile.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const { jsPDF } = window.jspdf;
+    let outPdf = null;
+    const scale = 1 + ptCompressQuality;
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const imgData = canvas.toDataURL('image/jpeg', Math.max(0.3, ptCompressQuality));
+      const orientation = viewport.width > viewport.height ? 'l' : 'p';
+      if (!outPdf) outPdf = new jsPDF(orientation, 'pt', [viewport.width, viewport.height]);
+      else outPdf.addPage([viewport.width, viewport.height], orientation);
+      outPdf.addImage(imgData, 'JPEG', 0, 0, viewport.width, viewport.height);
+    }
+    const blob = outPdf.output('blob');
+    document.getElementById('ptCompressInfo').textContent = `Original: ${formatBytes(ptCompressFile.size)} → New: ${formatBytes(blob.size)}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = ptCompressFile.name.replace(/\.pdf$/i, '') + '-processed.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('PDF processed! 📥', 'success');
+  } catch (err) { toast('Processing failed: ' + err.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Process PDF ⬇';
+}
+
+// ── Lock / Unlock ──
+function ptLockSwitch(sub) {
+  document.querySelectorAll('.pdftool-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  document.getElementById('pt-lockUp').classList.toggle('hidden', sub !== 'lockUp');
+  document.getElementById('pt-unlock').classList.toggle('hidden', sub !== 'unlock');
+}
+let ptLockFile = null;
+function ptLockSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptLockFile = file;
+  document.getElementById('ptLockDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  document.getElementById('ptLockBtn').disabled = false;
+}
+async function ptLockUpload() {
+  if (!ptLockFile) return;
+  const password = document.getElementById('ptLockPassword').value;
+  if (!password || password.length < 4) { toast('Password kam se kam 4 characters ka rakho', 'error'); return; }
+  const btn = document.getElementById('ptLockBtn');
+  btn.disabled = true; btn.textContent = 'Locking...';
+  try {
+    const formData = new FormData();
+    formData.append('file', ptLockFile);
+    formData.append('password', password);
+    formData.append('uploaded_by', currentUser);
+    const res = await fetch('/api/locked-pdfs', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('ptLockResult').innerHTML = `✅ Locked! Isse "Unlock a PDF" tab me kisi ko share karo (ID + password dono zaroori): <br><strong style="user-select:all;">${data.id}</strong>`;
+      toast('PDF locked & saved 🔒', 'success');
+    } else { toast(data.error || 'Failed to lock', 'error'); }
+  } catch { toast('Failed to lock. Check your connection.', 'error'); }
+  btn.disabled = false; btn.textContent = '🔒 Lock & Save';
+}
+async function ptUnlockPdf() {
+  const id = document.getElementById('ptUnlockId').value.trim();
+  const password = document.getElementById('ptUnlockPassword').value;
+  if (!id || !password) { toast('ID aur password dono bharo', 'error'); return; }
+  try {
+    const res = await fetch(`/api/locked-pdfs/${id}/verify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (res.ok && data.url) {
+      document.getElementById('ptUnlockResult').innerHTML = `✅ Correct password! <a href="${data.url}" target="_blank">Click here to download</a>`;
+      toast('Unlocked! 🔓', 'success');
+    } else { toast(data.error || 'Wrong password', 'error'); }
+  } catch { toast('Failed. Check your connection.', 'error'); }
+}
+
+// ── Edit PDF ──
+let ptEditPdfDoc = null;
+let ptEditFile = null;
+let ptEditPlacedItems = [];
+let ptEditClickPos = null;
+
+function ptEditSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptEditFile = file;
+  ptEditPlacedItems = [];
+  document.getElementById('ptEditDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
+  ptEditLoad();
+}
+async function ptEditLoad() {
+  await ensurePdfJsLoaded();
+  const arrayBuffer = await ptEditFile.arrayBuffer();
+  ptEditPdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+  document.getElementById('ptEditPageCount').textContent = `of ${ptEditPdfDoc.numPages} pages`;
+  document.getElementById('ptEditPageNum').max = ptEditPdfDoc.numPages;
+  document.getElementById('ptEditPageNum').value = 1;
+  document.getElementById('ptEditWorkspace').classList.remove('hidden');
+  ptEditRenderPage();
+}
+async function ptEditRenderPage() {
+  if (!ptEditPdfDoc) return;
+  let pageNum = parseInt(document.getElementById('ptEditPageNum').value) || 1;
+  pageNum = Math.max(1, Math.min(ptEditPdfDoc.numPages, pageNum));
+  const page = await ptEditPdfDoc.getPage(pageNum);
+  const canvas = document.getElementById('ptEditCanvas');
+  const containerWidth = canvas.parentElement.clientWidth || 500;
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = containerWidth / baseViewport.width;
+  const viewport = page.getViewport({ scale });
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  ptEditClickPos = null;
+}
+document.getElementById('ptEditCanvas')?.addEventListener('click', (e) => {
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+  ptEditClickPos = { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  toast('📍 Position set — click "Place on Page"', '');
+});
+function ptEditAddText() {
+  const text = document.getElementById('ptEditTextInput').value.trim();
+  if (!text) { toast('Text likho pehle', 'error'); return; }
+  if (!ptEditClickPos) { toast('Pehle page pe click karke position choose karo', 'error'); return; }
+  const color = document.getElementById('ptEditTextColor').value;
+  const pageNum = parseInt(document.getElementById('ptEditPageNum').value) || 1;
+  const canvas = document.getElementById('ptEditCanvas');
+  ptEditPlacedItems.push({ pageNum, text, color, x: ptEditClickPos.x, y: ptEditClickPos.y, canvasW: canvas.width, canvasH: canvas.height });
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = '20px Arial';
+  ctx.fillText(text, ptEditClickPos.x, ptEditClickPos.y);
+  document.getElementById('ptEditTextInput').value = '';
+  ptEditClickPos = null;
+  toast('Text placed ✅ (add more or Save & Download)', 'success');
+}
+async function ptEditDownload() {
+  if (!ptEditFile) return;
+  if (!ptEditPlacedItems.length) { toast('Kuch add nahi kiya abhi tak', 'error'); return; }
+  try {
+    await ensurePdfLibLoaded();
+    const arrayBuffer = await ptEditFile.arrayBuffer();
+    const pdfDoc = await window.PDFLib.PDFDocument.load(arrayBuffer);
+    const pages = pdfDoc.getPages();
+    for (const item of ptEditPlacedItems) {
+      const page = pages[item.pageNum - 1];
+      if (!page) continue;
+      const { width, height } = page.getSize();
+      const scaleX = width / item.canvasW, scaleY = height / item.canvasH;
+      const r = parseInt(item.color.slice(1, 3), 16) / 255;
+      const g = parseInt(item.color.slice(3, 5), 16) / 255;
+      const b = parseInt(item.color.slice(5, 7), 16) / 255;
+      page.drawText(item.text, {
+        x: item.x * scaleX, y: height - (item.y * scaleY),
+        size: 20 * scaleX, color: window.PDFLib.rgb(r, g, b)
+      });
+    }
+    const bytes = await pdfDoc.save();
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = ptEditFile.name.replace(/\.pdf$/i, '') + '-edited.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Saved & downloaded! 📥', 'success');
+  } catch (err) { toast('Save failed: ' + err.message, 'error'); }
 }

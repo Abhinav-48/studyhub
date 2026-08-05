@@ -238,6 +238,7 @@
         <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
         <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
         <button class="game-btn imgtool-btn" onclick="openImgToolsModal()" title="Image Resizer & Editor">🖼️</button>
+        <button class="game-btn pdftool-btn" onclick="openPdfToolsModal()" title="PDF Editor & Converter">📄</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="global-search-wrap">
@@ -996,6 +997,124 @@
             <button class="btn-primary" onclick="imgToolDownload()">⬇ Download</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PDF EDITOR & CONVERTER MODAL ═══════════════════ -->
+<div id="pdfToolsModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'pdfToolsModal')">
+  <div class="modal-box pdftool-modal-box">
+    <button class="modal-close" onclick="closeModal('pdfToolsModal')">✕</button>
+    <h3>📄 PDF Editor & Converter</h3>
+    <p class="modal-sub">Convert, compress, lock, unlock, or edit PDFs — all in your browser</p>
+
+    <div class="pdftool-tabs">
+      <button class="pdftool-tab active" data-pt="word2pdf" onclick="pdfToolSwitch('word2pdf')">📝 Word → PDF</button>
+      <button class="pdftool-tab" data-pt="pdf2word" onclick="pdfToolSwitch('pdf2word')">📄 PDF → Word</button>
+      <button class="pdftool-tab" data-pt="compress" onclick="pdfToolSwitch('compress')">🗜️ Compress / Quality</button>
+      <button class="pdftool-tab" data-pt="lock" onclick="pdfToolSwitch('lock')">🔒 Lock / Unlock</button>
+      <button class="pdftool-tab" data-pt="edit" onclick="pdfToolSwitch('edit')">✏️ Edit PDF</button>
+    </div>
+
+    <!-- WORD -> PDF -->
+    <div id="pt-word2pdf" class="pdftool-panel">
+      <div class="file-drop-zone" onclick="document.getElementById('ptWord2pdfInput').click()">
+        <div class="drop-inner" id="ptWord2pdfDropInner"><span class="drop-icon">📝</span><p>Click or drop a .docx file here</p><span class="file-types">DOCX only</span></div>
+      </div>
+      <input type="file" id="ptWord2pdfInput" hidden accept=".docx" onchange="ptWord2PdfSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptConvertWordToPdf()" id="ptWord2pdfBtn" disabled>Convert to PDF ⬇</button>
+      <p class="imgtool-hint">Complex layouts (columns, exact fonts) may look slightly different — text and basic formatting convert well.</p>
+    </div>
+
+    <!-- PDF -> WORD -->
+    <div id="pt-pdf2word" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptPdf2wordInput').click()">
+        <div class="drop-inner" id="ptPdf2wordDropInner"><span class="drop-icon">📄</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptPdf2wordInput" hidden accept=".pdf" onchange="ptPdf2WordSelect(event)" />
+      <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptConvertPdfToWord()" id="ptPdf2wordBtn" disabled>Convert to Word ⬇</button>
+      <p class="imgtool-hint">Extracts text content into an editable .docx — images and exact layout are not preserved.</p>
+    </div>
+
+    <!-- COMPRESS / QUALITY -->
+    <div id="pt-compress" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptCompressInput').click()">
+        <div class="drop-inner" id="ptCompressDropInner"><span class="drop-icon">🗜️</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptCompressInput" hidden accept=".pdf" onchange="ptCompressSelect(event)" />
+      <div class="imgtool-section" style="margin-top:14px;">
+        <label class="imgtool-label">Quality</label>
+        <div class="imgtool-row">
+          <button class="btn-secondary pt-quality-btn active" data-q="0.35" onclick="ptSetQuality(0.35, this)">Small Size</button>
+          <button class="btn-secondary pt-quality-btn" data-q="0.6" onclick="ptSetQuality(0.6, this)">Balanced</button>
+          <button class="btn-secondary pt-quality-btn" data-q="0.9" onclick="ptSetQuality(0.9, this)">High Quality</button>
+        </div>
+      </div>
+      <button class="btn-primary full-width" style="margin-top:10px;" onclick="ptConvertCompress()" id="ptCompressBtn" disabled>Process PDF ⬇</button>
+      <p class="imgtool-hint" id="ptCompressInfo"></p>
+    </div>
+
+    <!-- LOCK / UNLOCK -->
+    <div id="pt-lock" class="pdftool-panel hidden">
+      <div class="pdftool-subtabs">
+        <button class="pdftool-subtab active" data-sub="lockUp" onclick="ptLockSwitch('lockUp')">🔒 Lock a PDF</button>
+        <button class="pdftool-subtab" data-sub="unlock" onclick="ptLockSwitch('unlock')">🔓 Unlock a PDF</button>
+      </div>
+
+      <div id="pt-lockUp" class="pdftool-subpanel">
+        <div class="file-drop-zone" onclick="document.getElementById('ptLockInput').click()">
+          <div class="drop-inner" id="ptLockDropInner"><span class="drop-icon">🔒</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+        </div>
+        <input type="file" id="ptLockInput" hidden accept=".pdf" onchange="ptLockSelect(event)" />
+        <div class="form-group" style="margin-top:14px;">
+          <label>Set a Password *</label>
+          <input type="password" id="ptLockPassword" placeholder="Enter password to protect this PDF" />
+        </div>
+        <button class="btn-primary full-width" onclick="ptLockUpload()" id="ptLockBtn" disabled>🔒 Lock & Save</button>
+        <div id="ptLockResult" class="imgtool-hint"></div>
+      </div>
+
+      <div id="pt-unlock" class="pdftool-subpanel hidden">
+        <div class="form-group">
+          <label>Locked PDF ID *</label>
+          <input type="text" id="ptUnlockId" placeholder="Paste the ID you got when locking" />
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="ptUnlockPassword" placeholder="Enter the password" />
+        </div>
+        <button class="btn-primary full-width" onclick="ptUnlockPdf()">🔓 Unlock & Download</button>
+        <div id="ptUnlockResult" class="imgtool-hint"></div>
+      </div>
+    </div>
+
+    <!-- EDIT PDF -->
+    <div id="pt-edit" class="pdftool-panel hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('ptEditInput').click()">
+        <div class="drop-inner" id="ptEditDropInner"><span class="drop-icon">✏️</span><p>Click or drop a .pdf file here</p><span class="file-types">PDF only</span></div>
+      </div>
+      <input type="file" id="ptEditInput" hidden accept=".pdf" onchange="ptEditSelect(event)" />
+
+      <div id="ptEditWorkspace" class="hidden" style="margin-top:14px;">
+        <div class="imgtool-row" style="margin-bottom:10px;">
+          <label style="font-size:0.82rem;color:var(--text2);">Page</label>
+          <input type="number" id="ptEditPageNum" min="1" value="1" style="width:70px;" onchange="ptEditRenderPage()" />
+          <span id="ptEditPageCount" style="font-size:0.82rem;color:var(--text2);"></span>
+        </div>
+        <div class="pdftool-edit-canvas-wrap">
+          <canvas id="ptEditCanvas"></canvas>
+        </div>
+        <div class="imgtool-section" style="margin-top:12px;">
+          <label class="imgtool-label">Add Text</label>
+          <div class="imgtool-row">
+            <input type="text" id="ptEditTextInput" placeholder="Type text to stamp..." style="flex:1;" />
+            <input type="color" id="ptEditTextColor" value="#c0392b" />
+            <button class="btn-secondary" onclick="ptEditAddText()">➕ Place on Page</button>
+          </div>
+          <p class="imgtool-hint">Click on the page preview first to set position, then click "Place on Page".</p>
+        </div>
+        <button class="btn-primary full-width" style="margin-top:10px;" onclick="ptEditDownload()">💾 Save & Download</button>
       </div>
     </div>
   </div>

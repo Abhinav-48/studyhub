@@ -2496,6 +2496,40 @@ html.sh-restoring #sessionLoader { display: flex !important; }
 #imgToolCanvas.imgtool-eyedrop-active { cursor: crosshair; }
 .imgtool-hint { font-size: 0.78rem; color: var(--text3); margin-top: 8px; }
 
+/* ══════════════════════════════════════════════════
+   PDF EDITOR & CONVERTER
+   ══════════════════════════════════════════════════ */
+.pdftool-btn { background: var(--green-light); border-color: var(--green); }
+.pdftool-modal-box { width: 760px; max-width: 97vw; }
+
+.pdftool-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+.pdftool-tab {
+  padding: 8px 14px; background: var(--bg2); border: 1.5px solid var(--border);
+  border-radius: 99px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.pdftool-tab:hover { border-color: var(--green); color: var(--green); }
+.pdftool-tab.active { background: var(--green); border-color: var(--green); color: #fff; }
+
+.pdftool-panel.hidden { display: none; }
+
+.pdftool-subtabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.pdftool-subtab {
+  flex: 1; padding: 9px; background: var(--bg2); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600;
+  color: var(--text2); cursor: pointer;
+}
+.pdftool-subtab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.pdftool-subpanel.hidden { display: none; }
+
+.pt-quality-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
+
+.pdftool-edit-canvas-wrap {
+  display: flex; justify-content: center; background: var(--bg2);
+  border-radius: var(--radius-sm); padding: 10px; max-height: 60vh; overflow-y: auto;
+}
+#ptEditCanvas { max-width: 100%; height: auto; cursor: crosshair; box-shadow: var(--shadow-sm); }
+
 @media (max-width: 640px) {
   .imgtool-modal-box { width: 100%; }
   .imgtool-workspace { flex-direction: column; }

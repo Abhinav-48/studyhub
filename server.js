@@ -1510,6 +1510,33 @@ app.get('/api/wallpaper-history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── LOCKED PDFs (PDF Editor tool — Lock/Unlock) ───────────────────────────────
+app.post('/api/locked-pdfs', upload.single('file'), async (req, res) => {
+  try {
+    const { password, uploaded_by } = req.body;
+    if (!req.file || req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'PDF file required' });
+    if (!password || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    const key = `locked/${uuidv4()}.pdf`;
+    await b2.send(new PutObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: key, Body: req.file.buffer, ContentType: 'application/pdf' }));
+    const { data, error } = await supabase.from('locked_pdfs').insert({
+      file_name: req.file.originalname, file_key: key, password, uploaded_by: uploaded_by || 'Unknown'
+    }).select().single();
+    if (error) throw error;
+    res.json({ success: true, id: data.id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/locked-pdfs/:id/verify', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { data } = await supabase.from('locked_pdfs').select('*').eq('id', req.params.id).single();
+    if (!data) return res.status(404).json({ error: 'Not found — check the ID' });
+    if (data.password !== password) return res.status(403).json({ error: '❌ Wrong password' });
+    const url = await getSignedUrl(b2, new GetObjectCommand({ Bucket: process.env.B2_BUCKET_NAME, Key: data.file_key }), { expiresIn: 3600 });
+    res.json({ url, fileName: data.file_name });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   socket.on('user_join', (name) => {
