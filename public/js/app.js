@@ -3619,9 +3619,24 @@ document.addEventListener('click', (e) => {
 // ══════════════════════════════════════════════════
 function checkAndShowNotifPrompt() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if (Notification.permission === 'denied') return;
   if (Notification.permission === 'granted') { setupPushNotifications(); return; }
-  if (localStorage.getItem('studyhub_notif_granted') === 'yes') { setupPushNotifications(); return; }
+  // Keep asking every session until the user actually grants it — a "No" is treated
+  // as "not yet", not a permanent decline, since the browser itself allows re-asking
+  // as long as permission isn't hard-blocked at the OS/browser level.
+  if (Notification.permission === 'denied') {
+    // Browser-level hard block — we truly can't re-prompt via JS here, but we can
+    // still nudge the user to fix it manually instead of silently giving up.
+    document.getElementById('notifPromptAsk')?.classList.add('hidden');
+    const fb = document.getElementById('notifPromptFeedback');
+    if (fb) {
+      fb.classList.remove('hidden');
+      document.getElementById('notifFeedbackEmoji').textContent = '🔕';
+      document.getElementById('notifFeedbackText').textContent = 'Notifications are blocked in your browser settings. Enable them from site settings to get updates!';
+    }
+    setTimeout(() => openModal('notifPromptModal'), 1200);
+    setTimeout(() => closeModal('notifPromptModal'), 3500);
+    return;
+  }
   document.getElementById('notifPromptAsk')?.classList.remove('hidden');
   document.getElementById('notifPromptFeedback')?.classList.add('hidden');
   setTimeout(() => openModal('notifPromptModal'), 800);
@@ -3631,11 +3646,13 @@ async function respondNotifPrompt(yes) {
   document.getElementById('notifPromptAsk').classList.add('hidden');
   const fb = document.getElementById('notifPromptFeedback');
   fb.classList.remove('hidden');
-  document.getElementById('notifFeedbackEmoji').textContent = yes ? '😊' : '😢';
-  document.getElementById('notifFeedbackText').textContent = yes ? 'Awesome, thank you!' : 'Okay, maybe next time';
   if (yes) {
-    localStorage.setItem('studyhub_notif_granted', 'yes');
+    document.getElementById('notifFeedbackEmoji').textContent = '😊';
+    document.getElementById('notifFeedbackText').textContent = 'Awesome, thank you!';
     await setupPushNotifications();
+  } else {
+    document.getElementById('notifFeedbackEmoji').textContent = '😢';
+    document.getElementById('notifFeedbackText').textContent = "Okay — we'll ask again next time you visit!";
   }
   setTimeout(() => closeModal('notifPromptModal'), 1100);
 }
@@ -4044,7 +4061,7 @@ function loadScriptOnce(src, checkGlobal) {
 function ensurePdfLibLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', () => window.PDFLib); }
 function ensureJsPdfLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf); }
 function ensureMammothLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => window.mammoth); }
-function ensureDocxLibLoaded() { return loadScriptOnce('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js', () => window.docx); }
+function ensureDocxLibLoaded() { return loadScriptOnce('https://unpkg.com/docx@8.5.0/build/index.js', () => window.docx); }
 function ensureJsZipLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => window.JSZip); }
 function ensurePptxGenLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js', () => window.PptxGenJS); }
 function ensureXlsxLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); }
@@ -4344,8 +4361,22 @@ function ptMergeAddFiles(e) {
   e.target.value = '';
 }
 function ptMergeRenderList() {
-  document.getElementById('ptMergeList').innerHTML = ptMergeFiles.map((f, i) => `<div class="pt-file-item"><span>${i+1}. ${escHtml(f.name)} (${formatBytes(f.size)})</span><button onclick="ptMergeRemove(${i})">✕</button></div>`).join('');
+  document.getElementById('ptMergeList').innerHTML = ptMergeFiles.map((f, i) => `
+    <div class="pt-file-item">
+      <span>${i+1}. ${escHtml(f.name)} (${formatBytes(f.size)})</span>
+      <div style="display:flex;gap:4px;">
+        <button onclick="ptMergeMove(${i},-1)" ${i === 0 ? 'disabled' : ''} title="Move up">⬆</button>
+        <button onclick="ptMergeMove(${i},1)" ${i === ptMergeFiles.length - 1 ? 'disabled' : ''} title="Move down">⬇</button>
+        <button onclick="ptMergeRemove(${i})" title="Remove">✕</button>
+      </div>
+    </div>`).join('');
   document.getElementById('ptMergeBtn').disabled = ptMergeFiles.length < 2;
+}
+function ptMergeMove(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= ptMergeFiles.length) return;
+  [ptMergeFiles[i], ptMergeFiles[j]] = [ptMergeFiles[j], ptMergeFiles[i]];
+  ptMergeRenderList();
 }
 function ptMergeRemove(i) { ptMergeFiles.splice(i, 1); ptMergeRenderList(); }
 async function ptMergeDownload() {
@@ -4540,7 +4571,12 @@ async function ptRotateDownload() {
     await ensurePdfLibLoaded();
     const bytes = await ptRotateFile.arrayBuffer();
     const doc = await window.PDFLib.PDFDocument.load(bytes);
-    doc.getPages().forEach(page => {
+    const pages = doc.getPages();
+    const rangeStr = document.getElementById('ptRotatePages').value.trim();
+    const targetIndices = rangeStr ? ptParseRange(rangeStr, pages.length) : pages.map((_, i) => i);
+    targetIndices.forEach(i => {
+      const page = pages[i];
+      if (!page) return;
       const current = page.getRotation().angle;
       page.setRotation(window.PDFLib.degrees((current + ptRotateDeg) % 360));
     });
@@ -4563,6 +4599,12 @@ function ptWatermarkSelect(e) {
   document.getElementById('ptWatermarkDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📄</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
   document.getElementById('ptWatermarkBtn').disabled = false;
 }
+let ptWatermarkPos = 'center';
+function ptSetWatermarkPos(pos, el) {
+  ptWatermarkPos = pos;
+  document.querySelectorAll('.pt-wm-pos-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
 async function ptWatermarkDownload() {
   if (!ptWatermarkFile) return;
   const text = document.getElementById('ptWatermarkText').value.trim();
@@ -4576,10 +4618,13 @@ async function ptWatermarkDownload() {
     const font = await doc.embedFont(window.PDFLib.StandardFonts.HelveticaBold);
     doc.getPages().forEach(page => {
       const { width, height } = page.getSize();
+      let x, y, size, rotate;
+      if (ptWatermarkPos === 'top') { x = width / 2 - (text.length * 6); y = height - 50; size = 24; rotate = 0; }
+      else if (ptWatermarkPos === 'bottom') { x = width / 2 - (text.length * 6); y = 30; size = 24; rotate = 0; }
+      else { x = width / 2 - (text.length * 12); y = height / 2; size = 48; rotate = 45; }
       page.drawText(text, {
-        x: width / 2 - (text.length * 12), y: height / 2,
-        size: 48, font, color: window.PDFLib.rgb(0.6, 0.6, 0.6),
-        opacity: 0.35, rotate: window.PDFLib.degrees(45)
+        x, y, size, font, color: window.PDFLib.rgb(0.6, 0.6, 0.6),
+        opacity: 0.35, rotate: window.PDFLib.degrees(rotate)
       });
     });
     const outBytes = await doc.save();

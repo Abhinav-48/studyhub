@@ -2536,7 +2536,7 @@ html.sh-restoring #sessionLoader { display: flex !important; }
   padding: 8px 12px; background: var(--bg2); border-radius: var(--radius-sm); font-size: 0.85rem;
 }
 .pt-file-item button { background: none; border: none; color: var(--accent); cursor: pointer; font-weight: 700; font-size: 1rem; }
-.pt-rotate-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
+.pt-rotate-btn.active, .pt-wm-pos-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
 
 @media (max-width: 640px) {
   .imgtool-modal-box { width: 100%; }
