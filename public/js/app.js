@@ -2134,7 +2134,7 @@ function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal', 'pdfToolsModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal', 'pdfToolsModal', 'mswordModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   }
 });
 
@@ -4061,7 +4061,22 @@ function loadScriptOnce(src, checkGlobal) {
 function ensurePdfLibLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', () => window.PDFLib); }
 function ensureJsPdfLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf); }
 function ensureMammothLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => window.mammoth); }
-function ensureDocxLibLoaded() { return loadScriptOnce('https://unpkg.com/docx@8.5.0/build/index.js', () => window.docx); }
+function escapeXml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+// Builds a minimal but valid .docx (OOXML) file directly via JSZip instead of relying
+// on an external "docx" library — CDN builds of that library kept failing to load
+// reliably. A hand-built docx has no such dependency, opens fine in Word/Google
+// Docs/LibreOffice, and only needs the JSZip library we already load elsewhere.
+async function buildDocxBlob(paragraphs) {
+  await ensureJsZipLoaded();
+  const zip = new window.JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+  zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  const bodyXml = paragraphs.map(p => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(p)}</w:t></w:r></w:p>`).join('');
+  zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${bodyXml}<w:sectPr/></w:body></w:document>`);
+  return await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
 function ensureJsZipLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => window.JSZip); }
 function ensurePptxGenLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js', () => window.PptxGenJS); }
 function ensureXlsxLoaded() { return loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX); }
@@ -4127,7 +4142,6 @@ async function ptConvertPdfToWord() {
   btn.disabled = true; btn.textContent = 'Converting...';
   try {
     await ensurePdfJsLoaded();
-    await ensureDocxLibLoaded();
     const arrayBuffer = await ptPdf2wordFile.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const paragraphs = [];
@@ -4141,13 +4155,10 @@ async function ptConvertPdfToWord() {
         lines[y].push(item.str);
       });
       const sortedY = Object.keys(lines).map(Number).sort((a, b) => b - a);
-      sortedY.forEach(y => {
-        paragraphs.push(new window.docx.Paragraph({ children: [new window.docx.TextRun(lines[y].join(' '))] }));
-      });
-      paragraphs.push(new window.docx.Paragraph({ children: [new window.docx.TextRun('')] }));
+      sortedY.forEach(y => paragraphs.push(lines[y].join(' ')));
+      paragraphs.push('');
     }
-    const doc = new window.docx.Document({ sections: [{ children: paragraphs }] });
-    const blob = await window.docx.Packer.toBlob(doc);
+    const blob = await buildDocxBlob(paragraphs.length ? paragraphs : ['']);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = ptPdf2wordFile.name.replace(/\.pdf$/i, '') + '.docx';
@@ -4873,6 +4884,158 @@ function ptExcel2PdfSelect(e) {
   document.getElementById('ptExcel2pdfDropInner').innerHTML = `<div class="file-selected"><span class="file-icon">📊</span><div><div class="file-selected-name">${escHtml(file.name)}</div><div class="file-selected-size">${formatBytes(file.size)}</div></div></div>`;
   document.getElementById('ptExcel2pdfBtn').disabled = false;
 }
+// ══════════════════════════════════════════════════
+// MS WORD LIGHT VERSION (simple rich-text editor)
+// ══════════════════════════════════════════════════
+let mswordSavedRange = null;
+function mswordSaveSelection() {
+  const sel = window.getSelection();
+  const editor = document.getElementById('mswordEditor');
+  if (sel && sel.rangeCount > 0 && editor && editor.contains(sel.anchorNode)) mswordSavedRange = sel.getRangeAt(0);
+}
+function mswordRestoreSelection() {
+  const sel = window.getSelection();
+  if (mswordSavedRange) { sel.removeAllRanges(); sel.addRange(mswordSavedRange); }
+}
+document.getElementById('mswordEditor')?.addEventListener('keyup', mswordSaveSelection);
+document.getElementById('mswordEditor')?.addEventListener('mouseup', mswordSaveSelection);
+
+function openMSWordModal() {
+  mswordRefreshOpenList();
+  openModal('mswordModal');
+  setTimeout(() => document.getElementById('mswordEditor')?.focus(), 100);
+}
+function mswordExec(cmd, val = null) {
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  document.execCommand(cmd, false, val);
+  mswordUpdateWordCount();
+}
+function mswordApplyFont(f) {
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  document.execCommand('fontName', false, f);
+}
+function mswordApplySize(s) {
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  document.execCommand('fontSize', false, '7');
+  document.querySelectorAll('#mswordEditor font[size="7"]').forEach(el => { el.removeAttribute('size'); el.style.fontSize = s + 'pt'; });
+}
+function mswordUpdateWordCount() {
+  const text = document.getElementById('mswordEditor')?.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const el = document.getElementById('mswordWordCount');
+  if (el) el.textContent = `Words: ${words}`;
+}
+function mswordInsertTable() {
+  const rows = parseInt(prompt('Number of rows?', '3')) || 3;
+  const cols = parseInt(prompt('Number of columns?', '3')) || 3;
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) html += '<td style="border:1px solid #999;padding:6px 8px;min-width:40px;">&nbsp;</td>';
+    html += '</tr>';
+  }
+  html += '</table><p><br></p>';
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  document.execCommand('insertHTML', false, html);
+  mswordUpdateWordCount();
+}
+function mswordInsertImage(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('mswordEditor')?.focus();
+    mswordRestoreSelection();
+    document.execCommand('insertHTML', false, `<img src="${ev.target.result}" style="max-width:100%;margin:8px 0;" />`);
+    mswordUpdateWordCount();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+function mswordInsertLink() {
+  const url = prompt('Enter URL:', 'https://'); if (!url) return;
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) {
+    const text = prompt('Link text:', url) || url;
+    document.execCommand('insertHTML', false, `<a href="${url}" target="_blank">${escHtml(text)}</a>`);
+  } else {
+    document.execCommand('createLink', false, url);
+  }
+}
+function mswordInsertPageBreak() {
+  document.getElementById('mswordEditor')?.focus();
+  mswordRestoreSelection();
+  document.execCommand('insertHTML', false, '<div style="page-break-before:always;border-top:1px dashed #999;margin:24px 0;padding-top:8px;color:#999;font-size:11px;">— Page break —</div>');
+  mswordUpdateWordCount();
+}
+function mswordNew() {
+  if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
+  document.getElementById('mswordEditor').innerHTML = '<p>Start typing your document here...</p>';
+  document.getElementById('mswordTitle').value = 'Document1';
+  mswordUpdateWordCount();
+}
+function mswordGetSavedDocs() {
+  try { return JSON.parse(localStorage.getItem('studyhub_msword_docs') || '{}'); } catch { return {}; }
+}
+function mswordSave() {
+  const title = document.getElementById('mswordTitle').value.trim() || 'Document1';
+  const docs = mswordGetSavedDocs();
+  docs[title] = { html: document.getElementById('mswordEditor').innerHTML, savedAt: Date.now() };
+  localStorage.setItem('studyhub_msword_docs', JSON.stringify(docs));
+  mswordRefreshOpenList();
+  const statusEl = document.getElementById('mswordStatus');
+  statusEl.textContent = 'Saved ✅';
+  setTimeout(() => statusEl.textContent = '', 1500);
+}
+function mswordRefreshOpenList() {
+  const docs = mswordGetSavedDocs();
+  const sel = document.getElementById('mswordOpenSelect');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">📂 Open...</option>` + Object.keys(docs).map(t => `<option value="${escHtml(t)}">${escHtml(t)}</option>`).join('');
+}
+function mswordOpen(title) {
+  if (!title) return;
+  const docs = mswordGetSavedDocs();
+  if (!docs[title]) return;
+  document.getElementById('mswordEditor').innerHTML = docs[title].html;
+  document.getElementById('mswordTitle').value = title;
+  mswordUpdateWordCount();
+  document.getElementById('mswordOpenSelect').value = '';
+}
+function mswordDownloadHtml() {
+  const title = document.getElementById('mswordTitle').value.trim() || 'Document1';
+  const html = document.getElementById('mswordEditor').innerHTML;
+  const full = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escHtml(title)}</title></head><body>${html}</body></html>`;
+  const blob = new Blob([full], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `${title}.html`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function mswordDownloadDocx() {
+  const title = document.getElementById('mswordTitle').value.trim() || 'Document1';
+  try {
+    const text = document.getElementById('mswordEditor').innerText || '';
+    const paragraphs = text.split('\n');
+    const blob = await buildDocxBlob(paragraphs.length ? paragraphs : ['']);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${title}.docx`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded as Word! 📥', 'success');
+  } catch (err) { toast('Download failed: ' + err.message, 'error'); }
+}
+function mswordPrint() {
+  const html = document.getElementById('mswordEditor').innerHTML;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(`<html><head><title>Print</title></head><body>${html}</body></html>`); w.document.close(); w.print(); }
+}
+
 async function ptExcel2PdfDownload() {
   if (!ptExcel2pdfFile) return;
   const btn = document.getElementById('ptExcel2pdfBtn');

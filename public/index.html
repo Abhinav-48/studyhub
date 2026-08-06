@@ -239,6 +239,7 @@
         <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
         <button class="game-btn imgtool-btn" onclick="openImgToolsModal()" title="Image Resizer & Editor">🖼️</button>
         <button class="game-btn pdftool-btn" onclick="openPdfToolsModal()" title="PDF Editor & Converter">📄</button>
+        <button class="game-btn msword-btn" onclick="openMSWordModal()" title="MS Word Light Version"><span class="msword-icon-badge">W</span></button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="global-search-wrap">
@@ -1279,6 +1280,77 @@
       <input type="file" id="ptExcel2pdfInput" hidden accept=".xlsx,.xls" onchange="ptExcel2PdfSelect(event)" />
       <button class="btn-primary full-width" style="margin-top:14px;" onclick="ptExcel2PdfDownload()" id="ptExcel2pdfBtn" disabled>📊 Convert to PDF ⬇</button>
       <p class="imgtool-hint">Converts the first sheet into a simple table PDF.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MS WORD LIGHT VERSION MODAL ═══════════════════ -->
+<div id="mswordModal" class="modal-overlay hidden" onclick="closeModalOnBg(event, 'mswordModal')">
+  <div class="modal-box msword-modal-box" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('mswordModal')">✕</button>
+    <div class="msword-titlebar">
+      <span class="msword-icon-badge">W</span>
+      <input type="text" id="mswordTitle" value="Document1" />
+      <span class="msword-titlebar-label">MS Word — Light Version</span>
+      <span id="mswordStatus" class="msword-status"></span>
+    </div>
+    <div class="msword-ribbon">
+      <div class="msword-ribbon-group">
+        <button class="msword-btn-tool" onclick="mswordNew()">📄 New</button>
+        <button class="msword-btn-tool" onclick="mswordSave()">💾 Save</button>
+        <select id="mswordOpenSelect" class="msword-select" style="width:110px;" onchange="mswordOpen(this.value)">
+          <option value="">📂 Open...</option>
+        </select>
+        <button class="msword-btn-tool" onclick="mswordDownloadDocx()">⬇ .docx</button>
+        <button class="msword-btn-tool" onclick="mswordDownloadHtml()">⬇ .html</button>
+        <button class="msword-btn-tool" onclick="mswordPrint()">🖨 Print</button>
+      </div>
+    </div>
+    <div class="msword-ribbon">
+      <div class="msword-ribbon-group">
+        <button class="msword-icon-btn" title="Undo" onclick="mswordExec('undo')">↺</button>
+        <button class="msword-icon-btn" title="Redo" onclick="mswordExec('redo')">↻</button>
+      </div>
+      <div class="msword-ribbon-group">
+        <select id="mswordFont" class="msword-select" onchange="mswordApplyFont(this.value)">
+          <option>Calibri</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option><option>Verdana</option>
+        </select>
+        <select id="mswordSize" class="msword-select" style="width:56px;" onchange="mswordApplySize(this.value)">
+          <option>10</option><option selected>11</option><option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>32</option>
+        </select>
+        <button class="msword-icon-btn" title="Bold" onclick="mswordExec('bold')"><b>B</b></button>
+        <button class="msword-icon-btn" title="Italic" onclick="mswordExec('italic')"><i>I</i></button>
+        <button class="msword-icon-btn" title="Underline" onclick="mswordExec('underline')"><u>U</u></button>
+        <button class="msword-icon-btn" title="Strikethrough" onclick="mswordExec('strikeThrough')"><s>S</s></button>
+        <input type="color" id="mswordTextColor" title="Text color" value="#000000" onchange="mswordExec('foreColor', this.value)" />
+        <input type="color" id="mswordHighlight" title="Highlight" value="#ffff00" onchange="mswordExec('hiliteColor', this.value)" />
+      </div>
+      <div class="msword-ribbon-group">
+        <button class="msword-icon-btn" title="Align left" onclick="mswordExec('justifyLeft')">⬅</button>
+        <button class="msword-icon-btn" title="Center" onclick="mswordExec('justifyCenter')">↔</button>
+        <button class="msword-icon-btn" title="Align right" onclick="mswordExec('justifyRight')">➡</button>
+        <button class="msword-icon-btn" title="Justify" onclick="mswordExec('justifyFull')">☰</button>
+        <button class="msword-icon-btn" title="Bullets" onclick="mswordExec('insertUnorderedList')">•≡</button>
+        <button class="msword-icon-btn" title="Numbering" onclick="mswordExec('insertOrderedList')">1≡</button>
+        <button class="msword-icon-btn" title="Decrease indent" onclick="mswordExec('outdent')">⇤</button>
+        <button class="msword-icon-btn" title="Increase indent" onclick="mswordExec('indent')">⇥</button>
+      </div>
+      <div class="msword-ribbon-group">
+        <button class="msword-icon-btn" title="Insert Table" onclick="mswordInsertTable()">▦</button>
+        <button class="msword-icon-btn" title="Insert Image" onclick="document.getElementById('mswordImageInput').click()">🖼️</button>
+        <input type="file" id="mswordImageInput" hidden accept="image/*" onchange="mswordInsertImage(event)" />
+        <button class="msword-icon-btn" title="Insert Link" onclick="mswordInsertLink()">🔗</button>
+        <button class="msword-icon-btn" title="Page Break" onclick="mswordInsertPageBreak()">⏎</button>
+        <button class="msword-icon-btn" title="Horizontal Line" onclick="mswordExec('insertHorizontalRule')">―</button>
+      </div>
+    </div>
+    <div class="msword-page-wrap">
+      <div id="mswordEditor" class="msword-page" contenteditable="true" oninput="mswordUpdateWordCount()">
+        <p>Start typing your document here...</p>
+      </div>
+    </div>
+    <div class="msword-statusbar">
+      <span id="mswordWordCount">Words: 0</span>
     </div>
   </div>
 </div>
