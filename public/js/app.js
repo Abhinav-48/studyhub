@@ -122,7 +122,7 @@ document.getElementById('nameInput').addEventListener('keydown', e => { if (e.ke
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
   if (saved && saved.toLowerCase() !== ADMIN_NAME) {
-    const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','hello','guest','noname','anonymous','foo','bar'];
+    const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','anjli','guest','noname','anonymous','foo','bar'];
     const lower = saved.toLowerCase().replace(/\s/g,'');
     const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)+$/i;
     const nameParts = saved.trim().toLowerCase().split(/\s+/);
@@ -4901,9 +4901,20 @@ document.getElementById('mswordEditor')?.addEventListener('keyup', mswordSaveSel
 document.getElementById('mswordEditor')?.addEventListener('mouseup', mswordSaveSelection);
 
 function openMSWordModal() {
-  mswordRefreshOpenList();
+  mswordCloseBackstage();
   openModal('mswordModal');
   setTimeout(() => document.getElementById('mswordEditor')?.focus(), 100);
+}
+function mswordSwitchTab(tab) {
+  document.querySelectorAll('.msword-tab').forEach(b => b.classList.toggle('active', b.dataset.mwtab === tab));
+  ['home', 'insert', 'layout', 'design'].forEach(t => document.getElementById(`mwtab-${t}`)?.classList.toggle('hidden', t !== tab));
+}
+function mswordOpenBackstage() {
+  mswordRenderSavedList();
+  document.getElementById('mswordBackstage')?.classList.remove('hidden');
+}
+function mswordCloseBackstage() {
+  document.getElementById('mswordBackstage')?.classList.add('hidden');
 }
 function mswordExec(cmd, val = null) {
   document.getElementById('mswordEditor')?.focus();
@@ -4928,6 +4939,8 @@ function mswordUpdateWordCount() {
   const el = document.getElementById('mswordWordCount');
   if (el) el.textContent = `Words: ${words}`;
 }
+
+// ── Insert tab ──
 function mswordInsertTable() {
   const rows = parseInt(prompt('Number of rows?', '3')) || 3;
   const cols = parseInt(prompt('Number of columns?', '3')) || 3;
@@ -4973,11 +4986,70 @@ function mswordInsertPageBreak() {
   document.execCommand('insertHTML', false, '<div style="page-break-before:always;border-top:1px dashed #999;margin:24px 0;padding-top:8px;color:#999;font-size:11px;">— Page break —</div>');
   mswordUpdateWordCount();
 }
+
+// ── Layout tab ──
+function mswordApplyMargin(px) {
+  const page = document.getElementById('mswordEditor');
+  if (page) page.style.padding = `50px ${px}px`;
+}
+function mswordApplyOrientation(o) {
+  const page = document.getElementById('mswordEditor');
+  if (!page) return;
+  const baseW = parseInt(document.getElementById('mswordPageSize').value) || 700;
+  page.style.width = o === 'landscape' ? (baseW + 260) + 'px' : baseW + 'px';
+}
+function mswordApplyPageSize(px) {
+  const page = document.getElementById('mswordEditor');
+  if (!page) return;
+  const orientation = document.getElementById('mswordOrientation').value;
+  page.style.width = orientation === 'landscape' ? (parseInt(px) + 260) + 'px' : px + 'px';
+}
+function mswordApplyColumns(n) {
+  const page = document.getElementById('mswordEditor');
+  if (page) { page.style.columnCount = n; page.style.columnGap = '32px'; }
+}
+
+// ── Design tab ──
+function mswordSetPageColor(color, el) {
+  const page = document.getElementById('mswordEditor');
+  if (page) page.style.background = color;
+  document.querySelectorAll('#mswordPageColorSwatches .msword-swatch').forEach(s => s.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+let mswordBorderOn = false;
+function mswordToggleBorder() {
+  mswordBorderOn = !mswordBorderOn;
+  const page = document.getElementById('mswordEditor');
+  if (page) page.style.border = mswordBorderOn ? '3px double #333' : 'none';
+  document.getElementById('mswordBorderBtn').textContent = mswordBorderOn ? 'Border on' : 'Border off';
+}
+function mswordSetWatermark() {
+  const text = prompt('Watermark text:', 'DRAFT');
+  if (!text) return;
+  mswordApplyWatermark(text);
+}
+function mswordClearWatermark() { mswordApplyWatermark(''); }
+function mswordApplyWatermark(text) {
+  const wrap = document.querySelector('.msword-page-wrap');
+  if (!wrap) return;
+  let wm = document.getElementById('mswordWatermarkEl');
+  if (!text) { wm?.remove(); return; }
+  if (!wm) {
+    wm = document.createElement('div');
+    wm.id = 'mswordWatermarkEl';
+    wm.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:72px;font-weight:700;color:rgba(150,150,150,0.35);pointer-events:none;white-space:nowrap;user-select:none;z-index:5;';
+    wrap.appendChild(wm);
+  }
+  wm.textContent = text;
+}
+
+// ── File backstage ──
 function mswordNew() {
   if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
   document.getElementById('mswordEditor').innerHTML = '<p>Start typing your document here...</p>';
   document.getElementById('mswordTitle').value = 'Document1';
   mswordUpdateWordCount();
+  mswordCloseBackstage();
 }
 function mswordGetSavedDocs() {
   try { return JSON.parse(localStorage.getItem('studyhub_msword_docs') || '{}'); } catch { return {}; }
@@ -4987,25 +5059,64 @@ function mswordSave() {
   const docs = mswordGetSavedDocs();
   docs[title] = { html: document.getElementById('mswordEditor').innerHTML, savedAt: Date.now() };
   localStorage.setItem('studyhub_msword_docs', JSON.stringify(docs));
-  mswordRefreshOpenList();
   const statusEl = document.getElementById('mswordStatus');
   statusEl.textContent = 'Saved ✅';
   setTimeout(() => statusEl.textContent = '', 1500);
 }
-function mswordRefreshOpenList() {
-  const docs = mswordGetSavedDocs();
-  const sel = document.getElementById('mswordOpenSelect');
-  if (!sel) return;
-  sel.innerHTML = `<option value="">📂 Open...</option>` + Object.keys(docs).map(t => `<option value="${escHtml(t)}">${escHtml(t)}</option>`).join('');
+function mswordSaveAs() {
+  const t = prompt('Save as:', document.getElementById('mswordTitle').value.trim() || 'Document1');
+  if (!t) return;
+  document.getElementById('mswordTitle').value = t;
+  mswordSave();
+  mswordCloseBackstage();
 }
-function mswordOpen(title) {
-  if (!title) return;
+function mswordRenderSavedList() {
+  const docs = mswordGetSavedDocs();
+  const container = document.getElementById('mswordSavedList');
+  if (!container) return;
+  const titles = Object.keys(docs);
+  if (!titles.length) { container.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;">No saved documents yet</div>'; return; }
+  container.innerHTML = titles.map(t => `
+    <div class="msword-saved-item">
+      <span onclick="mswordOpenSaved('${escHtml(t).replace(/'/g, "\\'")}')" style="flex:1;">${escHtml(t)}</span>
+      <button onclick="mswordDeleteSaved('${escHtml(t).replace(/'/g, "\\'")}')">✕</button>
+    </div>`).join('');
+}
+function mswordOpenSaved(title) {
   const docs = mswordGetSavedDocs();
   if (!docs[title]) return;
   document.getElementById('mswordEditor').innerHTML = docs[title].html;
   document.getElementById('mswordTitle').value = title;
   mswordUpdateWordCount();
-  document.getElementById('mswordOpenSelect').value = '';
+  mswordCloseBackstage();
+}
+function mswordDeleteSaved(title) {
+  const docs = mswordGetSavedDocs();
+  delete docs[title];
+  localStorage.setItem('studyhub_msword_docs', JSON.stringify(docs));
+  mswordRenderSavedList();
+}
+async function mswordUploadFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    if (/\.docx$/i.test(file.name)) {
+      await ensureMammothLoaded();
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await window.mammoth.convertToHtml({ arrayBuffer });
+      document.getElementById('mswordEditor').innerHTML = result.value || '<p></p>';
+    } else {
+      const text = await file.text();
+      document.getElementById('mswordEditor').innerHTML = text.includes('<body')
+        ? (text.split(/<body[^>]*>/)[1]?.split('</body>')[0] || text)
+        : `<p>${escHtml(text).replace(/\n/g, '</p><p>')}</p>`;
+    }
+    document.getElementById('mswordTitle').value = file.name.replace(/\.[^.]+$/, '');
+    mswordUpdateWordCount();
+    mswordCloseBackstage();
+    toast('File opened! 📂', 'success');
+  } catch (err) { toast('Could not open file: ' + err.message, 'error'); }
 }
 function mswordDownloadHtml() {
   const title = document.getElementById('mswordTitle').value.trim() || 'Document1';
@@ -5016,6 +5127,7 @@ function mswordDownloadHtml() {
   const a = document.createElement('a'); a.href = url; a.download = `${title}.html`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  mswordCloseBackstage();
 }
 async function mswordDownloadDocx() {
   const title = document.getElementById('mswordTitle').value.trim() || 'Document1';
@@ -5029,11 +5141,13 @@ async function mswordDownloadDocx() {
     URL.revokeObjectURL(url);
     toast('Downloaded as Word! 📥', 'success');
   } catch (err) { toast('Download failed: ' + err.message, 'error'); }
+  mswordCloseBackstage();
 }
 function mswordPrint() {
   const html = document.getElementById('mswordEditor').innerHTML;
   const w = window.open('', '_blank');
   if (w) { w.document.write(`<html><head><title>Print</title></head><body>${html}</body></html>`); w.document.close(); w.print(); }
+  mswordCloseBackstage();
 }
 
 async function ptExcel2PdfDownload() {

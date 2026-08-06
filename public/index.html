@@ -1289,24 +1289,22 @@
   <div class="modal-box msword-modal-box" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeModal('mswordModal')">✕</button>
     <div class="msword-titlebar">
+      <button class="msword-file-btn" onclick="mswordOpenBackstage()">File</button>
       <span class="msword-icon-badge">W</span>
       <input type="text" id="mswordTitle" value="Document1" />
       <span class="msword-titlebar-label">MS Word — Light Version</span>
       <span id="mswordStatus" class="msword-status"></span>
     </div>
-    <div class="msword-ribbon">
-      <div class="msword-ribbon-group">
-        <button class="msword-btn-tool" onclick="mswordNew()">📄 New</button>
-        <button class="msword-btn-tool" onclick="mswordSave()">💾 Save</button>
-        <select id="mswordOpenSelect" class="msword-select" style="width:110px;" onchange="mswordOpen(this.value)">
-          <option value="">📂 Open...</option>
-        </select>
-        <button class="msword-btn-tool" onclick="mswordDownloadDocx()">⬇ .docx</button>
-        <button class="msword-btn-tool" onclick="mswordDownloadHtml()">⬇ .html</button>
-        <button class="msword-btn-tool" onclick="mswordPrint()">🖨 Print</button>
-      </div>
+
+    <div class="msword-tabbar">
+      <button class="msword-tab active" data-mwtab="home" onclick="mswordSwitchTab('home')">Home</button>
+      <button class="msword-tab" data-mwtab="insert" onclick="mswordSwitchTab('insert')">Insert</button>
+      <button class="msword-tab" data-mwtab="layout" onclick="mswordSwitchTab('layout')">Layout</button>
+      <button class="msword-tab" data-mwtab="design" onclick="mswordSwitchTab('design')">Design</button>
     </div>
-    <div class="msword-ribbon">
+
+    <!-- HOME -->
+    <div id="mwtab-home" class="msword-ribbon">
       <div class="msword-ribbon-group">
         <button class="msword-icon-btn" title="Undo" onclick="mswordExec('undo')">↺</button>
         <button class="msword-icon-btn" title="Redo" onclick="mswordExec('redo')">↻</button>
@@ -1335,6 +1333,10 @@
         <button class="msword-icon-btn" title="Decrease indent" onclick="mswordExec('outdent')">⇤</button>
         <button class="msword-icon-btn" title="Increase indent" onclick="mswordExec('indent')">⇥</button>
       </div>
+    </div>
+
+    <!-- INSERT -->
+    <div id="mwtab-insert" class="msword-ribbon hidden">
       <div class="msword-ribbon-group">
         <button class="msword-icon-btn" title="Insert Table" onclick="mswordInsertTable()">▦</button>
         <button class="msword-icon-btn" title="Insert Image" onclick="document.getElementById('mswordImageInput').click()">🖼️</button>
@@ -1344,6 +1346,63 @@
         <button class="msword-icon-btn" title="Horizontal Line" onclick="mswordExec('insertHorizontalRule')">―</button>
       </div>
     </div>
+
+    <!-- LAYOUT -->
+    <div id="mwtab-layout" class="msword-ribbon hidden">
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Margins</label>
+        <select id="mswordMargin" class="msword-select" onchange="mswordApplyMargin(this.value)">
+          <option value="60">Normal</option>
+          <option value="30">Narrow</option>
+          <option value="45">Moderate</option>
+          <option value="90">Wide</option>
+        </select>
+      </div>
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Orientation</label>
+        <select id="mswordOrientation" class="msword-select" onchange="mswordApplyOrientation(this.value)">
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+      </div>
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Size</label>
+        <select id="mswordPageSize" class="msword-select" onchange="mswordApplyPageSize(this.value)">
+          <option value="700">Letter</option>
+          <option value="680">A4</option>
+          <option value="720">Legal</option>
+        </select>
+      </div>
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Columns</label>
+        <select id="mswordColumns" class="msword-select" onchange="mswordApplyColumns(this.value)">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- DESIGN -->
+    <div id="mwtab-design" class="msword-ribbon hidden">
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Page Color</label>
+        <div class="msword-swatch-row" id="mswordPageColorSwatches">
+          <span class="msword-swatch active" style="background:#ffffff;" onclick="mswordSetPageColor('#ffffff', this)"></span>
+          <span class="msword-swatch" style="background:#fdf6e3;" onclick="mswordSetPageColor('#fdf6e3', this)"></span>
+          <span class="msword-swatch" style="background:#f0f7ff;" onclick="mswordSetPageColor('#f0f7ff', this)"></span>
+          <span class="msword-swatch" style="background:#f5f5f5;" onclick="mswordSetPageColor('#f5f5f5', this)"></span>
+        </div>
+      </div>
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Page Border</label>
+        <button class="msword-btn-tool" id="mswordBorderBtn" onclick="mswordToggleBorder()">Border off</button>
+      </div>
+      <div class="msword-ribbon-group msword-layout-field">
+        <label>Watermark</label>
+        <button class="msword-btn-tool" onclick="mswordSetWatermark()">Set</button>
+        <button class="msword-btn-tool" onclick="mswordClearWatermark()">Remove</button>
+      </div>
+    </div>
+
     <div class="msword-page-wrap">
       <div id="mswordEditor" class="msword-page" contenteditable="true" oninput="mswordUpdateWordCount()">
         <p>Start typing your document here...</p>
@@ -1351,6 +1410,27 @@
     </div>
     <div class="msword-statusbar">
       <span id="mswordWordCount">Words: 0</span>
+    </div>
+
+    <!-- FILE BACKSTAGE -->
+    <div id="mswordBackstage" class="msword-backstage hidden">
+      <div class="msword-backstage-sidebar">
+        <button class="msword-backstage-back" onclick="mswordCloseBackstage()">←</button>
+        <button class="msword-backstage-item" onclick="mswordNew()">New</button>
+        <button class="msword-backstage-item" onclick="document.getElementById('mswordUploadInput').click()">Open</button>
+        <button class="msword-backstage-item" onclick="mswordSave(); mswordCloseBackstage();">Save</button>
+        <button class="msword-backstage-item" onclick="mswordSaveAs()">Save As</button>
+        <button class="msword-backstage-item" onclick="mswordPrint()">Print</button>
+        <button class="msword-backstage-item" onclick="mswordDownloadDocx()">Export as .docx</button>
+        <button class="msword-backstage-item" onclick="mswordDownloadHtml()">Export as .html</button>
+      </div>
+      <div class="msword-backstage-main">
+        <h3>Open a file</h3>
+        <input type="file" id="mswordUploadInput" hidden accept=".html,.htm,.txt,.docx" onchange="mswordUploadFile(event)" />
+        <p class="imgtool-hint">"Open" button se .html, .txt, ya .docx file upload karo apne device se — ya neeche saved document choose karo.</p>
+        <h4 style="margin-top:18px;">Saved in this browser</h4>
+        <div id="mswordSavedList" class="msword-saved-list"></div>
+      </div>
     </div>
   </div>
 </div>
