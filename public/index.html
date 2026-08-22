@@ -32,6 +32,32 @@
       display: inline-block;
     }
   }
+  .voice-mic-btn.listening { color: #c0392b !important; animation: voiceMicPulse 1s ease-in-out infinite; }
+  .voice-mic-btn-mobile.listening .mnav-icon { animation: voiceMicPulse 1s ease-in-out infinite; }
+  @keyframes voiceMicPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+  }
+  .voice-indicator {
+    position: fixed; inset: 0; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,15,10,0.55); backdrop-filter: blur(3px);
+  }
+  .voice-indicator.hidden { display: none; }
+  .voice-indicator-box {
+    background: #fff; border-radius: 20px; padding: 30px 36px;
+    text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    max-width: 340px;
+  }
+  .voice-mic-pulse {
+    font-size: 3rem; margin-bottom: 12px;
+    animation: voiceBigPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes voiceBigPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+  }
+  .voice-transcript { color: #666; font-size: 0.9rem; margin-top: 8px; min-height: 20px; }
   </style>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
@@ -151,6 +177,9 @@
       <button class="nav-tab" data-tab="timetable" onclick="switchTab('timetable')">
         <span>🗓</span> Timetable
       </button>
+      <button class="nav-tab voice-mic-btn" id="voiceMicBtn" onclick="startVoiceCommand()" title="Voice Command (Hindi/English)">
+        <span>🎤</span> Voice
+      </button>
       <button class="nav-tab admin-only hidden" data-tab="admin" onclick="switchTab('admin')">
         <span>👑</span> Admin
       </button>
@@ -193,6 +222,9 @@
     </button>
     <button class="mnav-item" data-tab="timetable" onclick="switchTab('timetable')">
       <span class="mnav-icon">🗓</span><span class="mnav-label">Timetable</span>
+    </button>
+    <button class="mnav-item voice-mic-btn-mobile" id="voiceMicBtnMobile" onclick="startVoiceCommand()">
+      <span class="mnav-icon">🎤</span><span class="mnav-label">Voice</span>
     </button>
     <button class="mnav-item admin-only hidden" data-tab="admin" onclick="switchTab('admin')">
       <span class="mnav-icon">👑</span><span class="mnav-label">Admin</span>
@@ -1469,6 +1501,16 @@
       <textarea id="adminChatInput" placeholder="Type a reply..." rows="2"></textarea>
     </div>
     <button class="btn-primary full-width" id="adminChatSendBtn" onclick="sendAdminChatMessage()">Send 📨</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ VOICE COMMAND INDICATOR ═══════════════════ -->
+<div id="voiceIndicator" class="voice-indicator hidden">
+  <div class="voice-indicator-box">
+    <div class="voice-mic-pulse">🎤</div>
+    <p id="voiceStatusText">🎤 Sun raha hoon... bolo</p>
+    <p id="voiceTranscript" class="voice-transcript"></p>
+    <button class="btn-secondary" onclick="stopVoiceCommand()" style="margin-top:10px;">✕ Stop</button>
   </div>
 </div>
 

@@ -5177,3 +5177,161 @@ async function ptExcel2PdfDownload() {
   } catch (err) { toast('Conversion failed: ' + err.message, 'error'); }
   btn.disabled = false; btn.textContent = '📊 Convert to PDF ⬇';
 }
+
+// ══════════════════════════════════════════════════
+// VOICE COMMAND (Web Speech API — Hindi/English)
+// ══════════════════════════════════════════════════
+let voiceRecognition = null;
+let voiceListening = false;
+
+function ensureSpeechRecognitionSupported() {
+  return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+}
+
+function startVoiceCommand() {
+  if (voiceListening) { stopVoiceCommand(); return; }
+  if (!ensureSpeechRecognitionSupported()) {
+    toast('⚠️ This browser does not have voice command support', 'error');
+    return;
+  }
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SpeechRecognitionCtor();
+  // en-IN handles both plain English and Hinglish (Hindi spoken/mixed) speech
+  // reasonably well in Chrome's speech engine without needing a language toggle.
+  voiceRecognition.lang = 'en-IN';
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;
+  voiceRecognition.maxAlternatives = 1;
+
+  const indicator = document.getElementById('voiceIndicator');
+  const statusText = document.getElementById('voiceStatusText');
+  const transcriptEl = document.getElementById('voiceTranscript');
+  if (transcriptEl) transcriptEl.textContent = '';
+  if (statusText) statusText.textContent = '🎤 Listening... speak';
+  indicator?.classList.remove('hidden');
+  document.getElementById('voiceMicBtn')?.classList.add('listening');
+  document.getElementById('voiceMicBtnMobile')?.classList.add('listening');
+  voiceListening = true;
+
+  voiceRecognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += transcript;
+      else interim += transcript;
+    }
+    if (transcriptEl) transcriptEl.textContent = final || interim;
+    if (final) {
+      if (statusText) statusText.textContent = '⚙️ Processing command...';
+      voiceProcessCommand(final);
+    }
+  };
+
+  voiceRecognition.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+      toast('🚫 Give microphone permission, then only voice command will work', 'error');
+    } else if (e.error === 'no-speech') {
+      toast('🔇 Did not hear anything, try again', 'error');
+    } else if (e.error !== 'aborted') {
+      toast('⚠️ Voice error: ' + e.error, 'error');
+    }
+  };
+
+  voiceRecognition.onend = () => {
+    voiceListening = false;
+    document.getElementById('voiceMicBtn')?.classList.remove('listening');
+    document.getElementById('voiceMicBtnMobile')?.classList.remove('listening');
+    setTimeout(() => indicator?.classList.add('hidden'), 900);
+  };
+
+  try { voiceRecognition.start(); }
+  catch { voiceListening = false; indicator?.classList.add('hidden'); }
+}
+
+function stopVoiceCommand() {
+  if (voiceRecognition && voiceListening) voiceRecognition.stop();
+}
+
+function voiceExtractFolderName(text) {
+  return text
+    .replace(/\b(please|open|folder|khol dijiye|khol do|kholo|khol|karo)\b/gi, '')
+    .trim();
+}
+
+function voiceTryOpenFolder(rawText) {
+  const name = voiceExtractFolderName(rawText);
+  if (!name) return false;
+  const norm = normalizeSearchText(name);
+  if (!norm) return false;
+
+  if (currentNoteCourse && currentCourseSubjects.length) {
+    const subMatch = currentCourseSubjects.find(s => {
+      const sn = normalizeSearchText(s.name);
+      return sn.includes(norm) || norm.includes(sn);
+    });
+    if (subMatch) { switchTab('notes'); openNoteSubject(subMatch.name); return true; }
+  }
+  if (allCourses.length) {
+    const courseMatch = allCourses.find(c => {
+      const cn = normalizeSearchText(c.name);
+      return cn.includes(norm) || norm.includes(cn);
+    });
+    if (courseMatch) { switchTab('notes'); openNoteCourse(courseMatch.name); return true; }
+  }
+  if (typeof allTTSections !== 'undefined' && allTTSections.length) {
+    const ttMatch = allTTSections.find(s => {
+      const sn = normalizeSearchText(s.name);
+      return sn.includes(norm) || norm.includes(sn);
+    });
+    if (ttMatch) { switchTab('timetable'); openTimetableSection(ttMatch.name); return true; }
+  }
+  return false;
+}
+
+function voiceProcessCommand(rawText) {
+  const text = rawText.toLowerCase().trim();
+  if (!text) return;
+  const say = (msg) => toast(msg, '');
+
+  if (/\b(logout|log out|leave|nikal jao|nikal)\b/.test(text)) { say('👋 Logging out...'); logout(); return; }
+
+  if (/dark\s?(theme|mode)|theme\s?dark/.test(text)) { setTheme('dark'); say('🌙 Dark theme on'); return; }
+  if (/light\s?(theme|mode)|theme\s?light/.test(text)) { setTheme('light'); say('☀️ Light theme on'); return; }
+  if (/blue\s?theme/.test(text)) { setTheme('blue'); say('🔵 Blue theme on'); return; }
+  if (/green\s?theme/.test(text)) { setTheme('green'); say('🟢 Green theme on'); return; }
+
+  if (/time\s?table/.test(text)) { switchTab('timetable'); say('🗓 Timetable opened'); return; }
+  if (/\bquiz\b/.test(text)) { switchTab('quiz'); say('🎯 Quiz opened'); return; }
+  if (/\bplanner\b/.test(text)) { switchTab('planner'); say('📅 Planner opened'); return; }
+  if (/(question|qna|q\s?and\s?a|sawal)/.test(text) && !/paper/.test(text)) { switchTab('questions'); say('💬 Q&A opened'); return; }
+  if (/\badmin\b/.test(text)) { switchTab('admin'); say('👑 Admin panel opened'); return; }
+
+  if (/upload.*note|note.*upload/.test(text)) { switchTab('notes'); openUploadModal(); say('📤 Upload form opened'); return; }
+  if (/message.*admin|admin.*message/.test(text)) { openMessageModal(); say('✉️ Message opened'); return; }
+  if (/\bgame\b/.test(text) && !/keyboard/.test(text)) { switchTab('notes'); openGameModal(); say('🎮 Game opened'); return; }
+  if (/\bsnake\b/.test(text)) { switchTab('notes'); openSnakeModal(); say('🐍 Snake game opened'); return; }
+  if (/attendance/.test(text)) { switchTab('notes'); openAttendanceModal(); say('🧮 Attendance calculator opened'); return; }
+  if (/chatbot|question\s?paper/.test(text)) { switchTab('notes'); openChatbotModal(); say('🤖 Question Paper Analyzer opened'); return; }
+  if (/confession/.test(text)) { switchTab('notes'); openConfessionModal(); say('🎭 Confession opened'); return; }
+  if (/keyboard\s?warrior|warrior/.test(text)) { switchTab('notes'); openKWModal(); say('⚔️ Keyboard Warrior opened'); return; }
+  if (/image.*(tool|editor|resize)|photo.*(edit|resize)/.test(text)) { switchTab('notes'); openImgToolsModal(); say('🖼️ Image tool opened'); return; }
+  if (/pdf.*(tool|editor|convert)/.test(text)) { switchTab('notes'); openPdfToolsModal(); say('📄 PDF tool opened'); return; }
+  if (/ms\s?word|word\s?editor/.test(text)) { switchTab('notes'); openMSWordModal(); say('📝 MS Word opened'); return; }
+
+  if (/\bsearch\b/.test(text)) {
+    const query = text.replace(/.*\bsearch\b/i, '').trim();
+    if (query) {
+      switchTab('notes');
+      const input = document.getElementById('globalNoteSearch');
+      if (input) { input.value = query; handleGlobalSearch(); say(`🔍 Searching for "${query}"`); return; }
+    }
+  }
+
+  if (/khol|kholo|open|folder/.test(text)) {
+    if (voiceTryOpenFolder(text)) { say('📁 Folder opened'); return; }
+  }
+
+  if (/\bnotes\b/.test(text)) { switchTab('notes'); say('🗂 Notes opened'); return; }
+
+  say('❓ Did not understand, try again');
+}
