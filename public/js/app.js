@@ -5188,12 +5188,30 @@ function ensureSpeechRecognitionSupported() {
   return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 }
 
+// Installed PWAs (Android "Add to Home Screen") run inside a WebView that lacks
+// the Google speech-service binding a normal Chrome tab has. webkitSpeechRecognition
+// often still "exists" there but every attempt fails instantly with a "network"
+// error — even on a perfect connection — because the request never actually
+// reaches Google's servers. Detecting standalone mode lets us warn the user with
+// the real reason instead of a generic error, and skip pointless auto-retries.
+function isRunningAsInstalledApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+let voiceRetryCount = 0;
+const VOICE_MAX_AUTO_RETRIES = 1;
+
 function startVoiceCommand() {
   if (voiceListening) { stopVoiceCommand(); return; }
   if (!ensureSpeechRecognitionSupported()) {
     toast('⚠️ This browser does not have voice command support', 'error');
     return;
   }
+  voiceRetryCount = 0;
+  voiceBeginListening();
+}
+
+function voiceBeginListening() {
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
   voiceRecognition = new SpeechRecognitionCtor();
   // en-IN handles both plain English and Hinglish (Hindi spoken/mixed) speech
@@ -5207,13 +5225,17 @@ function startVoiceCommand() {
   const statusText = document.getElementById('voiceStatusText');
   const transcriptEl = document.getElementById('voiceTranscript');
   if (transcriptEl) transcriptEl.textContent = '';
-  if (statusText) statusText.textContent = '🎤 Listening... speak';
+  if (statusText) statusText.textContent = 'Listening...';
   indicator?.classList.remove('hidden');
+  indicator?.classList.remove('voice-error-state');
   document.getElementById('voiceMicBtn')?.classList.add('listening');
   document.getElementById('voiceMicBtnMobile')?.classList.add('listening');
   voiceListening = true;
 
+  let voiceGotResult = false;
+
   voiceRecognition.onresult = (e) => {
+    voiceGotResult = true;
     let interim = '', final = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const transcript = e.results[i][0].transcript;
@@ -5222,18 +5244,29 @@ function startVoiceCommand() {
     }
     if (transcriptEl) transcriptEl.textContent = final || interim;
     if (final) {
-      if (statusText) statusText.textContent = '⚙️ Processing command...';
+      if (statusText) statusText.textContent = 'Got it — working on it...';
       voiceProcessCommand(final);
     }
   };
 
   voiceRecognition.onerror = (e) => {
     if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-      toast('🚫 Give microphone permission, then only voice command will work', 'error');
+      voiceShowError('🚫 Microphone permission blocked. Allow it in your browser/app settings to use voice commands.');
     } else if (e.error === 'no-speech') {
-      toast('🔇 Did not hear anything, try again', 'error');
+      voiceShowError('🔇 Didn\'t catch that — tap the mic and try again.');
+    } else if (e.error === 'network') {
+      if (isRunningAsInstalledApp()) {
+        voiceShowError('🌐 Voice commands don\'t work inside the installed app on this device. Open StudyHub in Chrome (browser tab) instead — it works there.');
+      } else if (voiceRetryCount < VOICE_MAX_AUTO_RETRIES) {
+        voiceRetryCount++;
+        if (statusText) statusText.textContent = 'Reconnecting...';
+        setTimeout(() => { if (!voiceListening) return; try { voiceRecognition.start(); } catch {} }, 400);
+        return; // don't fall through to onend cleanup yet — we're retrying
+      } else {
+        voiceShowError('🌐 Couldn\'t reach the voice service. Check your internet connection and try again.');
+      }
     } else if (e.error !== 'aborted') {
-      toast('⚠️ Voice error: ' + e.error, 'error');
+      voiceShowError('⚠️ Voice error: ' + e.error);
     }
   };
 
@@ -5241,11 +5274,27 @@ function startVoiceCommand() {
     voiceListening = false;
     document.getElementById('voiceMicBtn')?.classList.remove('listening');
     document.getElementById('voiceMicBtnMobile')?.classList.remove('listening');
-    setTimeout(() => indicator?.classList.add('hidden'), 900);
+    if (!voiceGotResult && !indicator?.classList.contains('voice-error-state')) {
+      setTimeout(() => indicator?.classList.add('hidden'), 600);
+    } else if (voiceGotResult) {
+      setTimeout(() => indicator?.classList.add('hidden'), 900);
+    }
   };
 
   try { voiceRecognition.start(); }
   catch { voiceListening = false; indicator?.classList.add('hidden'); }
+}
+
+function voiceShowError(message) {
+  const indicator = document.getElementById('voiceIndicator');
+  const statusText = document.getElementById('voiceStatusText');
+  indicator?.classList.add('voice-error-state');
+  if (statusText) statusText.textContent = message;
+  toast(message, 'error');
+  setTimeout(() => {
+    indicator?.classList.add('hidden');
+    indicator?.classList.remove('voice-error-state');
+  }, 4000);
 }
 
 function stopVoiceCommand() {
@@ -5258,12 +5307,13 @@ function voiceExtractFolderName(text) {
     .trim();
 }
 
-function voiceTryOpenFolder(rawText) {
+async function voiceTryOpenFolder(rawText) {
   const name = voiceExtractFolderName(rawText);
   if (!name) return false;
   const norm = normalizeSearchText(name);
   if (!norm) return false;
 
+  // 1) Subjects already loaded for the course currently open — fastest path.
   if (currentNoteCourse && currentCourseSubjects.length) {
     const subMatch = currentCourseSubjects.find(s => {
       const sn = normalizeSearchText(s.name);
@@ -5271,6 +5321,8 @@ function voiceTryOpenFolder(rawText) {
     });
     if (subMatch) { switchTab('notes'); openNoteSubject(subMatch.name); return true; }
   }
+
+  // 2) Top-level course folder name.
   if (allCourses.length) {
     const courseMatch = allCourses.find(c => {
       const cn = normalizeSearchText(c.name);
@@ -5278,6 +5330,8 @@ function voiceTryOpenFolder(rawText) {
     });
     if (courseMatch) { switchTab('notes'); openNoteCourse(courseMatch.name); return true; }
   }
+
+  // 3) Timetable section.
   if (typeof allTTSections !== 'undefined' && allTTSections.length) {
     const ttMatch = allTTSections.find(s => {
       const sn = normalizeSearchText(s.name);
@@ -5285,10 +5339,31 @@ function voiceTryOpenFolder(rawText) {
     });
     if (ttMatch) { switchTab('timetable'); openTimetableSection(ttMatch.name); return true; }
   }
+
+  // 4) A subject folder nested inside ANY course, not just the one currently open —
+  // e.g. saying "open Python folder" from the home screen, before that course's
+  // subject list has even loaded. /api/subjects with no ?course= filter returns
+  // every subject across every course, so we can match by name globally and then
+  // open its parent course followed by the subject itself.
+  try {
+    const res = await fetch('/api/subjects');
+    const everySubject = await res.json();
+    const match = everySubject.find(s => {
+      const sn = normalizeSearchText(s.name);
+      return sn.includes(norm) || norm.includes(sn);
+    });
+    if (match) {
+      switchTab('notes');
+      await openNoteCourse(match.course);
+      await openNoteSubject(match.name);
+      return true;
+    }
+  } catch {}
+
   return false;
 }
 
-function voiceProcessCommand(rawText) {
+async function voiceProcessCommand(rawText) {
   const text = rawText.toLowerCase().trim();
   if (!text) return;
   const say = (msg) => toast(msg, '');
@@ -5328,10 +5403,11 @@ function voiceProcessCommand(rawText) {
   }
 
   if (/khol|kholo|open|folder/.test(text)) {
-    if (voiceTryOpenFolder(text)) { say('📁 Folder opened'); return; }
+    const found = await voiceTryOpenFolder(text);
+    if (found) { say('📁 Folder opened'); return; }
   }
 
   if (/\bnotes\b/.test(text)) { switchTab('notes'); say('🗂 Notes opened'); return; }
 
-  say('❓ Did not understand, try again');
+  say('❓ Could not find that folder — check the name and try again');
 }
