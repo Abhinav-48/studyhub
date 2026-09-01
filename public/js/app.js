@@ -20,6 +20,23 @@ let quizAnswers = {};
 const socket = io();
 
 // ══════════════════════════════════════════════════
+// PWA INSTALL PROMPT CAPTURE
+// ══════════════════════════════════════════════════
+// The browser fires this event only when the app is installable (has a valid
+// manifest + service worker) and not already installed. We stash it so our own
+// custom "Install app?" modal can trigger the native install dialog on demand,
+// instead of relying on the browser's own mini-infobar.
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('studyhub_installed', 'yes');
+  deferredInstallPrompt = null;
+});
+
+// ══════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════
 
@@ -105,6 +122,7 @@ async function loginUser() {
   socket.emit('user_join', name);
   await loadCoursesForUpload();
   checkAndShowNotifPrompt();
+  checkAndShowInstallPrompt();
   await loadNotes();
   loadQuestions();
   loadAnnouncements();
@@ -2134,7 +2152,7 @@ function closeModalOnBg(e, id) { if (e.target === e.currentTarget) closeModal(id
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal', 'pdfToolsModal', 'mswordModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['uploadModal', 'questionModal', 'replyModal', 'previewModal', 'messageModal', 'adminReplyModal', 'quizModal', 'quizResultModal', 'createQuizModal', 'timetableUploadModal', 'imgToolsModal', 'pdfToolsModal', 'mswordModal', 'installPromptModal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   }
 });
 
@@ -3655,6 +3673,52 @@ async function respondNotifPrompt(yes) {
     document.getElementById('notifFeedbackText').textContent = "Okay — we'll ask again next time you visit!";
   }
   setTimeout(() => closeModal('notifPromptModal'), 1100);
+}
+
+// ══════════════════════════════════════════════════
+// INSTALL APP PROMPT (repeats every login until Yes, or until already installed)
+// ══════════════════════════════════════════════════
+function checkAndShowInstallPrompt() {
+  // Already installed (accepted before, or app is currently running standalone) — never ask again.
+  if (localStorage.getItem('studyhub_installed') === 'yes') return;
+  const runningStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (runningStandalone) { localStorage.setItem('studyhub_installed', 'yes'); return; }
+  // No captured prompt means this browser/device isn't installable right now
+  // (e.g. iOS Safari, or already dismissed permanently by the browser itself) — skip silently.
+  if (!deferredInstallPrompt) return;
+  document.getElementById('installPromptAsk')?.classList.remove('hidden');
+  document.getElementById('installPromptFeedback')?.classList.add('hidden');
+  // Staggered after the notification prompt (which appears ~800ms in and closes by ~1900ms)
+  // so the two modals never overlap.
+  setTimeout(() => openModal('installPromptModal'), 4000);
+}
+
+async function respondInstallPrompt(yes) {
+  document.getElementById('installPromptAsk').classList.add('hidden');
+  const fb = document.getElementById('installPromptFeedback');
+  fb.classList.remove('hidden');
+  if (yes) {
+    if (!deferredInstallPrompt) {
+      document.getElementById('installFeedbackEmoji').textContent = '⚠️';
+      document.getElementById('installFeedbackText').textContent = 'Install option is not available right now.';
+      setTimeout(() => closeModal('installPromptModal'), 1500);
+      return;
+    }
+    document.getElementById('installFeedbackEmoji').textContent = '📲';
+    document.getElementById('installFeedbackText').textContent = 'Opening install dialog...';
+    setTimeout(() => closeModal('installPromptModal'), 900);
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      localStorage.setItem('studyhub_installed', 'yes');
+      toast('🎉 App installed!', 'success');
+    }
+    deferredInstallPrompt = null;
+  } else {
+    document.getElementById('installFeedbackEmoji').textContent = '😢';
+    document.getElementById('installFeedbackText').textContent = "Okay — we'll ask again next time you visit!";
+    setTimeout(() => closeModal('installPromptModal'), 1100);
+  }
 }
 // ══════════════════════════════════════════════════
 // TOP LOADING BAR (modern nav feel)
