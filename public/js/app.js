@@ -3598,7 +3598,27 @@ function handleGlobalSearch() {
   const resultsBox = document.getElementById('globalSearchResults');
   if (!raw.trim()) { resultsBox.classList.add('hidden'); resultsBox.innerHTML = ''; return; }
   const queryNorm = normalizeSearchText(raw);
-  const matches = allNotes.filter(n => noteMatchesGlobalSearch(n, queryNorm)).slice(0, 15);
+  let matches = allNotes.filter(n => noteMatchesGlobalSearch(n, queryNorm)).slice(0, 15);
+
+  // No direct/fuzzy match at all — fall back to notes in the same subject/course
+  // as anything whose title loosely shares a word, so the user still sees
+  // something relevant instead of a dead end.
+  if (!matches.length) {
+    const queryWords = queryNorm.split(' ').filter(w => w.length > 2);
+    if (queryWords.length) {
+      const relatedSubjects = new Set();
+      allNotes.forEach(n => {
+        const combined = normalizeSearchText([n.title, n.subject, n.course].join(' '));
+        if (queryWords.some(qw => combined.includes(qw.slice(0, Math.max(3, qw.length - 2))))) {
+          relatedSubjects.add(`${n.course}|||${n.subject}`);
+        }
+      });
+      if (relatedSubjects.size) {
+        matches = allNotes.filter(n => relatedSubjects.has(`${n.course}|||${n.subject}`)).slice(0, 15);
+      }
+    }
+  }
+
   resultsBox.innerHTML = matches.length ? matches.map(n => {
     const typeInfo = getFileTypeInfo(n.fileType);
     const safeCourse = escHtml(n.course).replace(/'/g, "\\'");
@@ -3608,23 +3628,33 @@ function handleGlobalSearch() {
         <div class="gs-title">${typeInfo.emoji} ${escHtml(n.title)}</div>
         <div class="gs-path">🎓 ${escHtml(n.course)} → 📚 ${escHtml(n.subject)}</div>
       </div>`;
-  }).join('') : `<div class="global-search-empty">No matching notes found</div>`;
+  }).join('') : `<div class="global-search-empty">No matching or related notes found</div>`;
   resultsBox.classList.remove('hidden');
 }
 
 async function goToSearchResult(noteId, course, subject) {
   document.getElementById('globalSearchResults').classList.add('hidden');
   document.getElementById('globalNoteSearch').value = '';
+  switchTab('notes');
+  // Wait for the course to fully render before opening the subject, and the
+  // subject to fully render before searching for the note card — opening both
+  // "at once" could race with the folder-unlock prompt/DOM update and leave
+  // the courses grid visible instead of the actual note card.
   await openNoteCourse(course);
+  await new Promise(resolve => setTimeout(resolve, 50));
   await openNoteSubject(subject);
-  setTimeout(() => {
-    const el = document.getElementById(`note-${noteId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('note-card-highlight');
-      setTimeout(() => el.classList.remove('note-card-highlight'), 2000);
-    }
-  }, 350);
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const el = document.getElementById(`note-${noteId}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('note-card-highlight');
+    setTimeout(() => el.classList.remove('note-card-highlight'), 2000);
+  } else {
+    // Note card not found (maybe filtered out by a leftover search term) —
+    // clear any stale filter so at least the subject's notes are visible.
+    const searchBox = document.getElementById('searchNotes');
+    if (searchBox) { searchBox.value = ''; filterNotes(); }
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -3636,6 +3666,7 @@ document.addEventListener('click', (e) => {
 // NOTIFICATION PERMISSION PROMPT (repeats until Yes)
 // ══════════════════════════════════════════════════
 function checkAndShowNotifPrompt() {
+  if (isAdminUser()) return; // Admin/Super Admin don't get the student-facing install/notif prompts
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if (Notification.permission === 'granted') { setupPushNotifications(); return; }
   // Keep asking every session until the user actually grants it — a "No" is treated
@@ -3679,6 +3710,7 @@ async function respondNotifPrompt(yes) {
 // INSTALL APP PROMPT (repeats every login until Yes, or until already installed)
 // ══════════════════════════════════════════════════
 function checkAndShowInstallPrompt() {
+  if (isAdminUser()) return; // Admin/Super Admin don't get the student-facing install/notif prompts
   // Already installed (accepted before, or app is currently running standalone) — never ask again.
   if (localStorage.getItem('studyhub_installed') === 'yes') return;
   const runningStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
