@@ -3636,24 +3636,21 @@ async function goToSearchResult(noteId, course, subject) {
   document.getElementById('globalSearchResults').classList.add('hidden');
   document.getElementById('globalNoteSearch').value = '';
   switchTab('notes');
-  // Wait for the course to fully render before opening the subject, and the
-  // subject to fully render before searching for the note card — opening both
-  // "at once" could race with the folder-unlock prompt/DOM update and leave
-  // the courses grid visible instead of the actual note card.
-  await openNoteCourse(course);
-  await new Promise(resolve => setTimeout(resolve, 50));
-  await openNoteSubject(subject);
-  await new Promise(resolve => setTimeout(resolve, 150));
-  const el = document.getElementById(`note-${noteId}`);
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('note-card-highlight');
-    setTimeout(() => el.classList.remove('note-card-highlight'), 2000);
+
+  // Quietly set the folder context in the background (so "Back" navigation from
+  // the preview lands in the right place) without waiting for it to render —
+  // the main action is opening the note itself, immediately.
+  currentNoteCourse = course;
+  currentNoteSubject = subject;
+
+  const note = allNotes.find(n => n.id === noteId);
+  if (note) {
+    previewNote(noteId);
   } else {
-    // Note card not found (maybe filtered out by a leftover search term) —
-    // clear any stale filter so at least the subject's notes are visible.
-    const searchBox = document.getElementById('searchNotes');
-    if (searchBox) { searchBox.value = ''; filterNotes(); }
+    // Fallback: note not in the currently loaded list for some reason — navigate
+    // to its folder instead so the person can find it manually.
+    await openNoteCourse(course);
+    await openNoteSubject(subject);
   }
 }
 
