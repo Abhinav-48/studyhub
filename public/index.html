@@ -469,6 +469,10 @@
             <button class="btn-warn" id="toggleConfessionsBtn" onclick="toggleConfessionsDisabled()">🚫 Disable Confessions Globally</button>
           </div>
           <div>
+            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Admin push notification access: <strong id="adminPushStatusText">Loading...</strong></p>
+            <button class="btn-warn" id="toggleAdminPushBtn" onclick="toggleAdminPushDisabled()">🚫 Disable Push Notification for Admin</button>
+          </div>
+          <div>
             <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
             <div style="display:flex;gap:8px;">
               <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
@@ -506,10 +510,11 @@
 
       <div class="admin-card wide">
         <h3>🔔 Send Push Notification</h3>
-        <div style="display:flex;flex-direction:column;gap:8px;">
+        <p id="pushDisabledNotice" class="hidden" style="font-size:0.85rem;color:var(--accent);background:var(--accent-light);padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:10px;">⚠️ Currently not working, try after some time.</p>
+        <div id="pushFormWrap" style="display:flex;flex-direction:column;gap:8px;">
           <input type="text" id="pushTitle" placeholder="Notification title..." style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
           <textarea id="pushBody" placeholder="Notification message..." rows="2" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;resize:vertical;"></textarea>
-          <button class="btn-primary" onclick="sendPushNotification()" style="align-self:flex-start;">🔔 Send to All Subscribers</button>
+          <button class="btn-primary" id="sendPushBtn" onclick="sendPushNotification()" style="align-self:flex-start;">🔔 Send to All Subscribers</button>
         </div>
       </div>
 

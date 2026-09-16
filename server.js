@@ -208,7 +208,16 @@ app.get('/api/admin-settings', async (req, res) => {
     const { data } = await supabase.from('app_settings').select('*');
     const settings = {};
     (data || []).forEach(s => { settings[s.key] = s.value; });
-    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true', confessions_disabled: settings.confessions_disabled === 'true' });
+    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true', confessions_disabled: settings.confessions_disabled === 'true', admin_push_disabled: settings.admin_push_disabled === 'true' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-settings/admin-push-toggle', async (req, res) => {
+  try {
+    const { requester, disabled } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('app_settings').upsert({ key: 'admin_push_disabled', value: disabled ? 'true' : 'false' });
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -439,6 +448,11 @@ app.post('/api/send-notification', async (req, res) => {
   try {
     const { requester, title, body } = req.body;
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+    const isSuperAdminReq = (requester || '').toLowerCase() === SUPERADMIN_NAME;
+    if (!isSuperAdminReq) {
+      const { data: pushRow } = await supabase.from('app_settings').select('value').eq('key', 'admin_push_disabled').single();
+      if (pushRow?.value === 'true') return res.status(403).json({ error: 'Currently not working, try after some time.' });
+    }
     if (!title || !body) return res.status(400).json({ error: 'Missing title or body' });
     const { data: subs, error } = await supabase.from('push_subscriptions').select('*');
     if (error) throw error;

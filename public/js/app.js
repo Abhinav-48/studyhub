@@ -1617,7 +1617,33 @@ async function loadAdminSettings() {
         confBtn.textContent = '🚫 Disable Confessions Globally';
       }
     }
+    const pushText = document.getElementById('adminPushStatusText');
+    const pushBtn = document.getElementById('toggleAdminPushBtn');
+    if (pushText && pushBtn) {
+      if (data.admin_push_disabled) {
+        pushText.textContent = '🚫 Disabled for Admin';
+        pushText.style.color = 'var(--accent)';
+        pushBtn.textContent = '✅ Enable Push Notification for Admin';
+      } else {
+        pushText.textContent = '✅ Active';
+        pushText.style.color = 'var(--green)';
+        pushBtn.textContent = '🚫 Disable Push Notification for Admin';
+      }
+    }
+    applyPushFormState(data.admin_push_disabled);
   } catch {}
+}
+
+function applyPushFormState(disabledForAdmin) {
+  const notice = document.getElementById('pushDisabledNotice');
+  const sendBtn = document.getElementById('sendPushBtn');
+  if (!notice || !sendBtn) return;
+  const isSuperAdminUser = isSuperAdmin;
+  const shouldBlock = disabledForAdmin && !isSuperAdminUser;
+  notice.classList.toggle('hidden', !shouldBlock);
+  sendBtn.disabled = shouldBlock;
+  sendBtn.style.opacity = shouldBlock ? '0.5' : '1';
+  sendBtn.style.cursor = shouldBlock ? 'not-allowed' : 'pointer';
 }
 
 async function toggleConfessionsDisabled() {
@@ -1628,6 +1654,17 @@ async function toggleConfessionsDisabled() {
     body: JSON.stringify({ requester: currentUser, disabled: !currentlyDisabled })
   });
   if (res.ok) { toast(currentlyDisabled ? 'Confessions enabled ✅' : 'Confessions disabled globally 🚫', 'success'); loadAdminSettings(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function toggleAdminPushDisabled() {
+  const statusText = document.getElementById('adminPushStatusText');
+  const currentlyDisabled = statusText?.textContent.includes('Disabled');
+  const res = await fetch('/api/admin-settings/admin-push-toggle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, disabled: !currentlyDisabled })
+  });
+  if (res.ok) { toast(currentlyDisabled ? 'Push notification enabled for admin ✅' : 'Push notification disabled for admin 🚫', 'success'); loadAdminSettings(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -1701,6 +1738,15 @@ async function loadAdminPanel() {
   loadBlockedSenders();
   loadMsgGlobalStatus();
   if (isSuperAdmin) loadImageEditHistory();
+  if (!isSuperAdmin) {
+    // Regular admins don't see the Super Admin Controls card, but they still need
+    // to know whether push notifications are currently allowed for them.
+    try {
+      const res = await fetch('/api/admin-settings');
+      const data = await res.json();
+      applyPushFormState(data.admin_push_disabled);
+    } catch {}
+  }
   document.getElementById('statNotes').textContent = allNotes.length;
   document.getElementById('statQuestions').textContent = allQuestions.length;
   document.getElementById('statBlocked').textContent = blocked.length;
