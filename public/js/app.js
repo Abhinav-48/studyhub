@@ -325,6 +325,21 @@ async function refreshFolderView(prefix) {
   else if (prefix === 'timetable-sections') { await loadTimetables(); }
 }
 
+async function changeFolderPosition(prefix, id, currentIndex, total) {
+  const currentPos = currentIndex + 1;
+  const input = prompt(`Current position: ${currentPos} of ${total}\nEnter new position (1-${total}):`, currentPos);
+  if (input === null) return;
+  const newPos = parseInt(input);
+  if (!newPos || newPos < 1 || newPos > total) { toast('Invalid position', 'error'); return; }
+  if (newPos === currentPos) return;
+  const res = await fetch(`/api/${prefix}/${id}/reorder`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, newPosition: newPos })
+  });
+  if (res.ok) { toast('Position updated ✅', 'success'); await refreshFolderView(prefix); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
 async function lockFolder(prefix, id) {
   const pwd = prompt('Set a password to lock this folder:');
   if (!pwd) return;
@@ -359,19 +374,22 @@ function showFolderContextMenu(e, id, name) {
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
   const safeName = name.replace(/'/g,"\\'");
-  const dbC = allCourses.find(c => c.id === id);
-  const lockBtn = dbC?.locked
-    ? `<button onclick="unlockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
-    : `<button onclick="lockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
-  const wpBtnC = dbC?.wallpaper_url
-    ? `<button onclick="removeWallpaper('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
+  const dbS = currentCourseSubjects.find(s => s.id === id);
+  const lockBtnS = dbS?.locked
+    ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  const wpBtnS = dbS?.wallpaper_url
+    ? `<button onclick="removeWallpaper('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
     : '';
+  const subjectIdx = currentCourseSubjects.findIndex(s => s.id === id);
+  const posBtnS = `<button onclick="changeFolderPosition('subjects','${id}',${subjectIdx},${currentCourseSubjects.length});document.getElementById('folderCtxMenu')?.remove();">🔢 Change Position</button>`;
   menu.innerHTML = `
-    <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
-    ${lockBtn}
-    <button onclick="triggerWallpaperUpload('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
-    ${wpBtnC}
-    <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
+    <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtnS}
+    ${posBtnS}
+    <button onclick="triggerWallpaperUpload('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
+    ${wpBtnS}
+    <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
   const menuRect = menu.getBoundingClientRect();
@@ -1031,9 +1049,12 @@ function showTTContextMenu(e, id, name) {
   const wpBtnT = dbT?.wallpaper_url
     ? `<button onclick="removeWallpaper('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
     : '';
+  const ttIdx = allTTSections.findIndex(s => s.id === id);
+  const posBtnT = `<button onclick="changeFolderPosition('timetable-sections','${id}',${ttIdx},${allTTSections.length});document.getElementById('folderCtxMenu')?.remove();">🔢 Change Position</button>`;
   menu.innerHTML = `
     <button onclick="renameTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
     ${lockBtnT}
+    ${posBtnT}
     <button onclick="triggerWallpaperUpload('timetable-sections','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
     ${wpBtnT}
     <button onclick="deleteTTSection('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>`;
@@ -2171,6 +2192,9 @@ socket.on('subjects_locked', () => { if (currentNoteCourse && !currentNoteSubjec
 socket.on('subjects_unlocked', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
 socket.on('timetable-sections_locked', () => loadTimetables());
 socket.on('timetable-sections_unlocked', () => loadTimetables());
+socket.on('courses_reordered', () => refreshFolderView('courses'));
+socket.on('subjects_reordered', () => { if (currentNoteCourse && !currentNoteSubject) openNoteCourse(currentNoteCourse); });
+socket.on('timetable-sections_reordered', () => loadTimetables());
 socket.on('tt_section_added', () => loadTimetables());
 socket.on('tt_section_renamed', () => loadTimetables());
 socket.on('tt_section_deleted', () => loadTimetables());

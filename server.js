@@ -962,6 +962,41 @@ lockRoutes('courses', 'courses');
 lockRoutes('subjects', 'subjects');
 lockRoutes('timetable_sections', 'timetable-sections');
 
+// Lets admin move a folder to any position, not just swap with its neighbor —
+// pulls it out of its current spot and re-inserts it at the requested index,
+// then renumbers everyone's sort_order sequentially so the order stays clean.
+// scopeField restricts reordering to siblings sharing that field (subjects only
+// reorder among subjects within the same course); pass null for a flat list.
+function reorderRoutes(tableName, prefix, scopeField) {
+  app.put(`/api/${prefix}/:id/reorder`, async (req, res) => {
+    try {
+      const { requester, newPosition } = req.body;
+      if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
+      const pos = parseInt(newPosition);
+      if (!pos || pos < 1) return res.status(400).json({ error: 'Invalid position' });
+
+      const { data: current } = await supabase.from(tableName).select('*').eq('id', req.params.id).single();
+      if (!current) return res.status(404).json({ error: 'Not found' });
+
+      let query = supabase.from(tableName).select('*').order('sort_order', { ascending: true });
+      if (scopeField) query = query.eq(scopeField, current[scopeField]);
+      const { data: siblings } = await query;
+      if (!siblings) return res.status(404).json({ error: 'Not found' });
+
+      const others = siblings.filter(s => s.id !== current.id);
+      const targetIdx = Math.min(Math.max(pos - 1, 0), others.length);
+      others.splice(targetIdx, 0, current);
+
+      await Promise.all(others.map((item, i) => supabase.from(tableName).update({ sort_order: i + 1 }).eq('id', item.id)));
+      io.emit(`${prefix}_reordered`);
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+}
+reorderRoutes('courses', 'courses', null);
+reorderRoutes('subjects', 'subjects', 'course');
+reorderRoutes('timetable_sections', 'timetable-sections', null);
+
 async function logWallpaperHistory(prefix, tableName, folderId, wallpaperUrl, changedBy) {
   try {
     const { data: folderRow } = await supabase.from(tableName).select('name').eq('id', folderId).single();
