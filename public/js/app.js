@@ -495,7 +495,13 @@ async function openNoteCourse(course) {
 
   const derivedNames = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))];
   const dbNames = currentCourseSubjects.map(s => s.name);
-  const allNames = [...new Set([...dbNames, ...derivedNames])].sort();
+  // Keep the admin-defined sort_order for subjects that have their own folder row —
+  // sorting the whole list alphabetically here silently undid "Change Position"
+  // reordering, since the grid never actually reflected the new database order.
+  // Subjects that only exist because a note was uploaded under them (no folder row)
+  // get appended at the end, sorted alphabetically among themselves.
+  const extraDerived = derivedNames.filter(n => !dbNames.includes(n)).sort();
+  const allNames = [...dbNames, ...extraDerived];
   const isAdmin = isAdminUser();
 
   if (!allNames.length && !isAdmin) { empty.classList.remove('hidden'); grid.innerHTML = ''; return; }
