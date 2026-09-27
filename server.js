@@ -922,11 +922,16 @@ app.put('/api/courses/:id', async (req, res) => {
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
     const { data: old } = await supabase.from('courses').select('name').eq('id', req.params.id).single();
-    const { data, error } = await supabase.from('courses').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    // Using .select() (array) instead of .single() here — .single() throws a raw,
+    // unhelpful "Cannot coerce..." error if the update matches 0 rows (e.g. a
+    // stale ID from an out-of-date client list). Checking the array length lets
+    // us return a clean, understandable error instead of crashing.
+    const { data, error } = await supabase.from('courses').update({ name: name.trim() }).eq('id', req.params.id).select();
     if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: 'Folder not found — please refresh and try again.' });
     if (old) await supabase.from('notes').update({ course: name.trim() }).eq('course', old.name);
     io.emit('course_renamed');
-    res.json(data);
+    res.json(data[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -962,21 +967,18 @@ lockRoutes('courses', 'courses');
 lockRoutes('subjects', 'subjects');
 lockRoutes('timetable_sections', 'timetable-sections');
 
-// Lets admin move a folder to any position, not just swap with its neighbor —
-// pulls it out of its current spot and re-inserts it at the requested index,
-// then renumbers everyone's sort_order sequentially so the order stays clean.
-// scopeField restricts reordering to siblings sharing that field (subjects only
-// reorder among subjects within the same course); pass null for a flat list.
-function reorderRoutes(tableName, prefix, scopeField) {
-  app.put(`/api/${prefix}/:id/reorder`, async (req, res) => {
+// Simple, reliable reordering: pull the folder out of its current spot and put
+// it first, then renumber everyone's sort_order sequentially. scopeField
+// restricts the move to siblings sharing that field (subjects only reorder
+// among subjects within the same course); pass null for a flat list.
+function moveToTopRoutes(tableName, prefix, scopeField) {
+  app.put(`/api/${prefix}/:id/move-to-top`, async (req, res) => {
     try {
-      const { requester, newPosition } = req.body;
+      const { requester } = req.body;
       if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
-      const pos = parseInt(newPosition);
-      if (!pos || pos < 1) return res.status(400).json({ error: 'Invalid position' });
 
-      const { data: current } = await supabase.from(tableName).select('*').eq('id', req.params.id).single();
-      if (!current) return res.status(404).json({ error: 'Not found' });
+      const { data: current, error: curErr } = await supabase.from(tableName).select('*').eq('id', req.params.id).single();
+      if (curErr || !current) return res.status(404).json({ error: 'Folder not found — please refresh and try again.' });
 
       let query = supabase.from(tableName).select('*').order('sort_order', { ascending: true });
       if (scopeField) query = query.eq(scopeField, current[scopeField]);
@@ -984,8 +986,7 @@ function reorderRoutes(tableName, prefix, scopeField) {
       if (!siblings) return res.status(404).json({ error: 'Not found' });
 
       const others = siblings.filter(s => s.id !== current.id);
-      const targetIdx = Math.min(Math.max(pos - 1, 0), others.length);
-      others.splice(targetIdx, 0, current);
+      others.unshift(current);
 
       await Promise.all(others.map((item, i) => supabase.from(tableName).update({ sort_order: i + 1 }).eq('id', item.id)));
       io.emit(`${prefix}_reordered`);
@@ -993,9 +994,9 @@ function reorderRoutes(tableName, prefix, scopeField) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 }
-reorderRoutes('courses', 'courses', null);
-reorderRoutes('subjects', 'subjects', 'course');
-reorderRoutes('timetable_sections', 'timetable-sections', null);
+moveToTopRoutes('courses', 'courses', null);
+moveToTopRoutes('subjects', 'subjects', 'course');
+moveToTopRoutes('timetable_sections', 'timetable-sections', null);
 
 async function logWallpaperHistory(prefix, tableName, folderId, wallpaperUrl, changedBy) {
   try {
@@ -1137,11 +1138,12 @@ app.put('/api/subjects/:id', async (req, res) => {
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
     const { data: old } = await supabase.from('subjects').select('*').eq('id', req.params.id).single();
-    const { data, error } = await supabase.from('subjects').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    const { data, error } = await supabase.from('subjects').update({ name: name.trim() }).eq('id', req.params.id).select();
     if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: 'Folder not found — please refresh and try again.' });
     if (old) await supabase.from('notes').update({ subject: name.trim() }).eq('course', old.course).eq('subject', old.name);
     io.emit('subject_renamed');
-    res.json(data);
+    res.json(data[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1351,11 +1353,12 @@ app.put('/api/timetable-sections/:id', async (req, res) => {
     if (!isPrivileged(requester)) return res.status(403).json({ error: 'Only admin.' });
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
     const { data: old } = await supabase.from('timetable_sections').select('name').eq('id', req.params.id).single();
-    const { data, error } = await supabase.from('timetable_sections').update({ name: name.trim() }).eq('id', req.params.id).select().single();
+    const { data, error } = await supabase.from('timetable_sections').update({ name: name.trim() }).eq('id', req.params.id).select();
     if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: 'Folder not found — please refresh and try again.' });
     if (old) await supabase.from('timetables').update({ section: name.trim() }).eq('section', old.name);
     io.emit('tt_section_renamed');
-    res.json(data);
+    res.json(data[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

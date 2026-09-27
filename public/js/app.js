@@ -325,18 +325,12 @@ async function refreshFolderView(prefix) {
   else if (prefix === 'timetable-sections') { await loadTimetables(); }
 }
 
-async function changeFolderPosition(prefix, id, currentIndex, total) {
-  const currentPos = currentIndex + 1;
-  const input = prompt(`Current position: ${currentPos} of ${total}\nEnter new position (1-${total}):`, currentPos);
-  if (input === null) return;
-  const newPos = parseInt(input);
-  if (!newPos || newPos < 1 || newPos > total) { toast('Invalid position', 'error'); return; }
-  if (newPos === currentPos) return;
-  const res = await fetch(`/api/${prefix}/${id}/reorder`, {
+async function moveFolderToTop(prefix, id) {
+  const res = await fetch(`/api/${prefix}/${id}/move-to-top`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requester: currentUser, newPosition: newPos })
+    body: JSON.stringify({ requester: currentUser })
   });
-  if (res.ok) { toast('Position updated ✅', 'success'); await refreshFolderView(prefix); }
+  if (res.ok) { toast('Moved to top ✅', 'success'); await refreshFolderView(prefix); }
   else { const d = await res.json(); toast(d.error, 'error'); }
 }
 
@@ -374,22 +368,21 @@ function showFolderContextMenu(e, id, name) {
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
   const safeName = name.replace(/'/g,"\\'");
-  const dbS = currentCourseSubjects.find(s => s.id === id);
-  const lockBtnS = dbS?.locked
-    ? `<button onclick="unlockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
-    : `<button onclick="lockFolder('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
-  const wpBtnS = dbS?.wallpaper_url
-    ? `<button onclick="removeWallpaper('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
+  const dbC = allCourses.find(c => c.id === id);
+  const lockBtnC = dbC?.locked
+    ? `<button onclick="unlockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔓 Unlock</button>`
+    : `<button onclick="lockFolder('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🔒 Lock Folder</button>`;
+  const wpBtnC = dbC?.wallpaper_url
+    ? `<button onclick="removeWallpaper('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
     : '';
-  const subjectIdx = currentCourseSubjects.findIndex(s => s.id === id);
-  const posBtnS = `<button onclick="changeFolderPosition('subjects','${id}',${subjectIdx},${currentCourseSubjects.length});document.getElementById('folderCtxMenu')?.remove();">🔢 Change Position</button>`;
+  const posBtnC = `<button onclick="moveFolderToTop('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">⬆️ Move to Top</button>`;
   menu.innerHTML = `
-    <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
-    ${lockBtnS}
-    ${posBtnS}
-    <button onclick="triggerWallpaperUpload('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
-    ${wpBtnS}
-    <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
+    <button onclick="renameCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
+    ${lockBtnC}
+    ${posBtnC}
+    <button onclick="triggerWallpaperUpload('courses','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
+    ${wpBtnC}
+    <button onclick="deleteCourse('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
   `;
   document.body.appendChild(menu);
   const menuRect = menu.getBoundingClientRect();
@@ -581,8 +574,9 @@ function showSubjectContextMenu(e, id, name) {
   const rect = e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : null;
   let top = rect ? rect.bottom : e.clientY;
   let left = rect ? rect.left : e.clientX;
-  const menuHeight = 90, menuWidth = 150;
+  const menuHeight = 230, menuWidth = 160;
   if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight;
+  if (top < 10) top = 10;
   if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
@@ -594,9 +588,11 @@ function showSubjectContextMenu(e, id, name) {
   const wpBtnS = dbS?.wallpaper_url
     ? `<button onclick="removeWallpaper('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🗑️ Remove Wallpaper</button>`
     : '';
+  const posBtnS = `<button onclick="moveFolderToTop('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">⬆️ Move to Top</button>`;
   menu.innerHTML = `
     <button onclick="renameSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();">✏️ Rename</button>
     ${lockBtnS}
+    ${posBtnS}
     <button onclick="triggerWallpaperUpload('subjects','${id}');document.getElementById('folderCtxMenu')?.remove();">🖼️ Set Wallpaper</button>
     ${wpBtnS}
     <button onclick="deleteSubject('${id}','${safeName}');document.getElementById('folderCtxMenu')?.remove();" style="color:#d9534f;">🗑 Delete</button>
