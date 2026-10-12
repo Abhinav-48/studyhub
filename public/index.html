@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator</title>
-  <meta name="description" content="StudyHub: free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta name="description" content="StudyHub: Free AKTU notes for BCA, MCA, BBA, MBA and B.Tech students. Semester-wise study material, quizzes, timetable, attendance calculator and PDF tools in one place." />
   <meta name="keywords" content="StudyHub, Study Hub, Study Material, AKTU Notes, Attendance Calculator, C Programming Notes, Python Notes, College Notes, BCA Notes, MCA Notes, Study Planner, Online Quiz" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <link rel="canonical" href="https://studyhub-u5cz.onrender.com/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20261013" />
+  <link rel="stylesheet" href="/css/style.css?v=20261014" />
   <style>
   @media (max-width: 640px) {
     #chatbotModal .modal-box {
@@ -73,14 +73,14 @@
   <meta property="og:url" content="https://studyhub-u5cz.onrender.com/" />
   <meta property="og:site_name" content="StudyHub" />
   <meta property="og:title" content="StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator" />
-  <meta property="og:description" content="Free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta property="og:description" content="Free AKTU notes for BCA, MCA, BBA, MBA and B.Tech students. Semester-wise study material, quizzes, timetable, attendance calculator and PDF tools in one place." />
   <meta property="og:image" content="https://studyhub-u5cz.onrender.com/icon-192.png" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://studyhub-u5cz.onrender.com/" />
   <meta name="twitter:title" content="StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator" />
-  <meta name="twitter:description" content="Free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta name="twitter:description" content="Free AKTU notes for BCA, MCA, BBA, MBA and B.Tech students. Semester-wise study material, quizzes, timetable, attendance calculator and PDF tools in one place." />
   <meta name="twitter:image" content="https://studyhub-u5cz.onrender.com/icon-192.png" />
 
   <!-- JSON-LD Structured Data (Schema.org) -->
@@ -139,7 +139,7 @@
     } catch (e) {}
   })();
 </script>
-<div id="sessionLoader" class="session-loader">
+<div id="sessionLoader" class="session-loader" data-nosnippet>
   <div class="session-loader-spinner"></div>
   <p>Welcome back! Loading your session...</p>
 </div>
@@ -185,6 +185,7 @@
         </div>
       </div>
       <p class="login-hint">👤 Enter your name to join as a student</p>
+      <p class="login-seo">Free AKTU notes and semester-wise study material for BCA, MCA, BBA, MBA and B.Tech students, plus quizzes, timetable, attendance calculator and PDF tools.</p>
     </div>
   </div>
 </div>
@@ -365,7 +366,7 @@
 
     <!-- LEVEL 1: Courses -->
     <div id="notesCoursesGrid" class="notes-grid"></div>
-    <div id="notesCoursesEmpty" class="empty-state hidden">
+    <div id="notesCoursesEmpty" class="empty-state hidden" data-nosnippet>
       <span>📭</span><p>No notes yet. Be the first to upload!</p>
     </div>
 
@@ -373,7 +374,7 @@
     <div id="notesSubjectsView" class="hidden">
       <button class="btn-secondary" onclick="backToNoteCourses()" style="margin-bottom:16px;">← Back to Courses</button>
       <div id="notesSubjectsGrid" class="notes-grid"></div>
-      <div id="notesSubjectsEmpty" class="empty-state hidden">
+      <div id="notesSubjectsEmpty" class="empty-state hidden" data-nosnippet>
         <span>📭</span><p>No subjects uploaded here yet.</p>
       </div>
     </div>
@@ -395,7 +396,7 @@
       </div>
 
       <div id="notesGrid" class="notes-grid"></div>
-      <div id="notesEmpty" class="empty-state hidden">
+      <div id="notesEmpty" class="empty-state hidden" data-nosnippet>
         <span>📭</span><p>No notes in this subject yet.</p>
       </div>
     </div>
@@ -411,7 +412,7 @@
       <button class="btn-primary" onclick="openQuestionModal()">+ Ask Question</button>
     </div>
     <div id="questionsList" class="questions-list"></div>
-    <div id="questionsEmpty" class="empty-state hidden">
+    <div id="questionsEmpty" class="empty-state hidden" data-nosnippet>
       <span>🤔</span><p>No questions yet. Ask the first one!</p>
     </div>
   </section>
@@ -461,7 +462,7 @@
     </div>
 
     <div id="plannerList"></div>
-    <div id="plannerEmpty" class="empty-state hidden">
+    <div id="plannerEmpty" class="empty-state hidden" data-nosnippet>
       <span>📅</span><p>No events yet. Admin will add exam dates soon!</p>
     </div>
   </section>
@@ -476,7 +477,7 @@
       <button class="btn-primary admin-only hidden" onclick="openCreateQuizModal()">+ Create Quiz</button>
     </div>
     <div id="quizList"></div>
-    <div id="quizEmpty" class="empty-state hidden">
+    <div id="quizEmpty" class="empty-state hidden" data-nosnippet>
       <span>🎯</span><p>No quizzes yet. Admin will add quizzes soon!</p>
     </div>
   </section>
@@ -497,7 +498,7 @@
       <button class="btn-secondary" onclick="backToSections()" style="margin-bottom:16px;">← Back to Sections</button>
       <h3 id="timetableSectionTitle" style="font-family:Fraunces,serif;font-size:1.3rem;margin-bottom:16px;"></h3>
       <div id="timetableFilesGrid" class="notes-grid"></div>
-      <div id="timetableFilesEmpty" class="empty-state hidden">
+      <div id="timetableFilesEmpty" class="empty-state hidden" data-nosnippet>
         <span>🗓</span><p>No timetable uploaded yet for this section.</p>
       </div>
     </div>
@@ -930,7 +931,7 @@
 
     <div class="confession-feed-wrap">
       <div id="confessionFeed" class="confession-feed"></div>
-      <div id="confessionEmpty" class="empty-state hidden">
+      <div id="confessionEmpty" class="empty-state hidden" data-nosnippet>
         <span>🤫</span><p>No confessions yet. Be the first to share anonymously.</p>
       </div>
     </div>

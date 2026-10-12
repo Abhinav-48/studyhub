@@ -2790,3 +2790,4 @@ html, body { overflow-x: clip; }
   .study-toolbar { padding: 4px 6px; bottom: 74px; }
   .app-lamp-btn { width: 32px; height: 32px; font-size: 1rem; }
 }
+.login-seo { margin-top: 12px; font-size: 0.74rem; color: var(--text3); text-align: center; line-height: 1.5; }
