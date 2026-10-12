@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20261014" />
+  <link rel="stylesheet" href="/css/style.css?v=20261015" />
   <style>
   @media (max-width: 640px) {
     #chatbotModal .modal-box {
@@ -296,14 +296,14 @@
     </div>
 
     <div id="newsNoticeWidget" class="news-widget hidden">
-      <div class="news-widget-col">
-        <h4>📢 Latest News & Notices</h4>
+      <details class="news-widget-col links-collapse">
+        <summary>📢 Latest News &amp; Notices <span class="links-arrow">▾</span></summary>
         <div id="newsWidgetList"></div>
-      </div>
-      <div class="news-widget-col">
-        <h4>🗓 Upcoming Exam Dates</h4>
+      </details>
+      <details class="news-widget-col links-collapse">
+        <summary>🗓 Upcoming Exam Dates <span class="links-arrow">▾</span></summary>
         <div id="examWidgetList"></div>
-      </div>
+      </details>
       <details class="news-widget-col links-collapse">
         <summary>🔗 Latest Links <span class="links-arrow">▾</span></summary>
         <div id="linksWidgetList"></div>

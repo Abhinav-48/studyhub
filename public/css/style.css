@@ -2791,3 +2791,63 @@ html, body { overflow-x: clip; }
   .app-lamp-btn { width: 32px; height: 32px; font-size: 1rem; }
 }
 .login-seo { margin-top: 12px; font-size: 0.74rem; color: var(--text3); text-align: center; line-height: 1.5; }
+/* ══════════════════════════════════════════════════
+   COLLAPSIBLE WIDGETS + UI POLISH (append at end)
+   ══════════════════════════════════════════════════ */
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+/* All three info boxes: slim bars, open on tap */
+.news-widget { align-items: start; }
+.links-collapse { grid-column: auto; }
+.links-collapse summary:hover { background: var(--bg2); border-radius: var(--radius); }
+.links-collapse[open] summary { border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.links-collapse #newsWidgetList,
+.links-collapse #examWidgetList { padding: 0 14px 12px; }
+
+/* Desktop: three bars in one row. Phone: stacked */
+@media (min-width: 901px) {
+  .news-widget { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 900px) {
+  .news-widget { gap: 8px !important; margin-bottom: 14px !important; }
+}
+
+/* Keyboard + accessibility */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.links-collapse summary:focus-visible { outline-offset: -2px; border-radius: var(--radius); }
+
+/* Smoother cards */
+.note-card, .question-card, .planner-card, .quiz-card, .news-widget-col, .hero {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.note-card:hover, .course-card:hover { border-color: var(--border2); }
+
+/* Phone polish */
+@media (max-width: 768px) {
+  /* Tool icons sit in one neat card */
+  .toolbar-icons-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 8px !important;
+    box-shadow: var(--shadow-sm);
+  }
+  .toolbar-icon-label { color: var(--text); font-weight: 600; }
+
+  /* Bottom nav: clearer active tab */
+  .mnav-item.active .mnav-label { font-weight: 800; }
+  .mnav-item { min-height: 52px; }
+
+  /* Lighter blur = faster on cheap phones */
+  .blob { filter: blur(50px); }
+  .section-header h2 { font-size: 1.45rem; }
+}
+
+/* Respect "reduce motion" and save battery */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .runner-track { display: none; }
+}
