@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style.css?v=20261012" />
   <style>
   @media (max-width: 640px) {
     #chatbotModal .modal-box {
@@ -280,6 +280,25 @@
 
   <!-- NOTES TAB -->
   <section id="tab-notes" class="tab-content active">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-text">
+        <span class="hero-badge">🎓 Made for BCA · MCA · AKTU students</span>
+        <h1 class="hero-title">Study smarter. <em>Score higher.</em></h1>
+        <p class="hero-sub">Semester-wise notes, quizzes, timetable and handy student tools, all free and in one fast place.</p>
+        <div class="hero-actions">
+          <button class="hero-btn hero-btn-primary" onclick="document.getElementById('notesCoursesGrid').scrollIntoView({behavior:'smooth',block:'start'})">Browse Notes →</button>
+          <button class="hero-btn hero-btn-ghost" onclick="openAttendanceModal()">🧮 Attendance</button>
+        </div>
+        <div class="hero-chips">
+          <span>📘 AKTU Notes</span>
+          <span>💻 C &amp; Python</span>
+          <span>🎯 Quizzes</span>
+          <span>🗓 Timetable</span>
+        </div>
+      </div>
+    </div>
 
     <div id="newsNoticeWidget" class="news-widget hidden">
       <div class="news-widget-col">
