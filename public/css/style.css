@@ -1512,7 +1512,7 @@ html.sh-restoring #sessionLoader { display: flex !important; }
   position: absolute; bottom: 6%; left: -12%;
   font-size: 3rem;
   filter: drop-shadow(0 6px 8px rgba(0,0,0,0.25));
-  animation: runAcross 10s linear infinite;
+  animation: runAcross 10s linear 1 forwards;
   animation-delay: 2s;
 }
 @keyframes runAcross {
@@ -1530,7 +1530,7 @@ html.sh-restoring #sessionLoader { display: flex !important; }
   background: radial-gradient(circle, #fff9dd 0%, #ffd873 55%, transparent 75%);
   box-shadow: 0 0 10px 2px rgba(255, 216, 115, 0.7);
   opacity: 0;
-  animation: sparkTrail 10s linear infinite;
+  animation: sparkTrail 10s linear 1 forwards;
   animation-delay: 2s;
 }
 .s1 { animation-delay: 2.15s; }
@@ -1896,8 +1896,35 @@ html.sh-restoring #sessionLoader { display: flex !important; }
 }
 .game-btn:hover { transform: scale(1.12) rotate(-6deg); }
 .chatbot-btn {
-  width: 50px; height: 50px; font-size: 1.6rem;
   background: var(--accent-light); border-color: var(--accent);
+}
+
+/* ══════════════════════════════════════════════════
+   TOOLBAR ICON ROW — uniform size + name labels
+   ══════════════════════════════════════════════════ */
+.toolbar-icons-wrap {
+  display: flex; align-items: flex-start; gap: 16px;
+  overflow-x: auto; padding: 4px 2px 8px;
+  scrollbar-width: thin;
+}
+.toolbar-icon-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.toolbar-icon-item .game-btn {
+  width: 44px !important; height: 44px !important;
+  font-size: 1.3rem !important;
+  box-shadow: var(--shadow-sm);
+}
+.toolbar-icon-label {
+  font-size: 0.68rem; font-weight: 600; color: var(--text2);
+  white-space: nowrap; text-align: center;
+}
+
+@media (max-width: 768px) {
+  .toolbar-icons-wrap { gap: 12px; }
+  .toolbar-icon-item .game-btn { width: 38px !important; height: 38px !important; font-size: 1.1rem !important; }
+  .toolbar-icon-label { font-size: 0.6rem; }
 }
 
 .game-modal-box { width: 640px; }

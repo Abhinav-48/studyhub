@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StudyHub — Collaborate & Learn</title>
+  <title>StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator</title>
+  <meta name="description" content="StudyHub: free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta name="keywords" content="StudyHub, Study Hub, Study Material, AKTU Notes, Attendance Calculator, C Programming Notes, Python Notes, College Notes, BCA Notes, MCA Notes, Study Planner, Online Quiz" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://studyhub-u5cz.onrender.com/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -63,6 +67,41 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <meta name="theme-color" content="#c84b31" />
+
+  <!-- Open Graph / Facebook, WhatsApp, LinkedIn -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://studyhub-u5cz.onrender.com/" />
+  <meta property="og:site_name" content="StudyHub" />
+  <meta property="og:title" content="StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator" />
+  <meta property="og:description" content="Free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta property="og:image" content="https://studyhub-u5cz.onrender.com/icon-192.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://studyhub-u5cz.onrender.com/" />
+  <meta name="twitter:title" content="StudyHub – AKTU Notes, C Programming & Python Notes, Attendance Calculator" />
+  <meta name="twitter:description" content="Free AKTU notes, C programming & Python notes, attendance calculator, quizzes, timetable and study planner — everything for students in one place." />
+  <meta name="twitter:image" content="https://studyhub-u5cz.onrender.com/icon-192.png" />
+
+  <!-- JSON-LD Structured Data (Schema.org) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "StudyHub",
+    "alternateName": "Study Hub",
+    "url": "https://studyhub-u5cz.onrender.com/",
+    "description": "StudyHub is a free study collaboration platform offering AKTU notes, C programming notes, Python notes, an attendance calculator, quizzes, timetable and a study planner for students.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "featureList": "AKTU Notes, C Programming Notes, Python Notes, Attendance Calculator, Study Planner, Online Quizzes, Timetable, Anonymous Confessions"
+  }
+  </script>
 <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QMB7D7G2KQ"></script>
   <script>
@@ -258,20 +297,49 @@
     </div>
 
     <div class="section-header">
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:16px;">
         <div>
           <h2>Study Notes</h2>
           <p id="notesBreadcrumb">Select your course to browse notes</p>
         </div>
-        <button class="game-btn" onclick="openGameModal()" title="Play a quick game!">🎮</button>
-        <button class="game-btn" onclick="openAttendanceModal()" title="Attendance Calculator">🧮</button>
-        <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
-        <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
-        <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
-        <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
-        <button class="game-btn imgtool-btn" onclick="openImgToolsModal()" title="Image Resizer & Editor">🖼️</button>
-        <button class="game-btn pdftool-btn" onclick="openPdfToolsModal()" title="PDF Editor & Converter">📄</button>
-        <button class="game-btn msword-btn" onclick="openMSWordModal()" title="MS Word Light Version"><span class="msword-icon-badge">W</span></button>
+        <div class="toolbar-icons-wrap">
+          <div class="toolbar-icon-item">
+            <button class="game-btn" onclick="openGameModal()" title="Study Break Game">🎮</button>
+            <span class="toolbar-icon-label">Game</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn" onclick="openAttendanceModal()" title="Attendance Calculator">🧮</button>
+            <span class="toolbar-icon-label">Attendance</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn chatbot-btn" onclick="openChatbotModal()" title="Question Paper Analyzer">🤖</button>
+            <span class="toolbar-icon-label">Analyzer</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn snake-btn" onclick="openSnakeModal()" title="Snake Game">🐍</button>
+            <span class="toolbar-icon-label">Snake</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn confession-btn" onclick="openConfessionModal()" title="Anonymous Confession">🎭</button>
+            <span class="toolbar-icon-label">Confession</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn kw-btn" onclick="openKWModal()" title="Keyboard Warrior">⚔️</button>
+            <span class="toolbar-icon-label">Warrior</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn imgtool-btn" onclick="openImgToolsModal()" title="Image Resizer & Editor">🖼️</button>
+            <span class="toolbar-icon-label">Image Tool</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn pdftool-btn" onclick="openPdfToolsModal()" title="PDF Editor & Converter">📄</button>
+            <span class="toolbar-icon-label">PDF Tool</span>
+          </div>
+          <div class="toolbar-icon-item">
+            <button class="game-btn msword-btn" onclick="openMSWordModal()" title="MS Word Light Version"><span class="msword-icon-badge">W</span></button>
+            <span class="toolbar-icon-label">MS Word</span>
+          </div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="global-search-wrap">
