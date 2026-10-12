@@ -2752,3 +2752,41 @@ html, body { overflow-x: clip; }
 
 @media (max-width: 389px) { .theme-switcher { display: none !important; } }
 @media (max-height: 640px) { .desk-lamp, .lamp-glow { display: none; } }
+/* ══════════════════════════════════════════════════
+   HERO COMPACT + LINKS COLLAPSE (append at end)
+   ══════════════════════════════════════════════════ */
+.hero-actions { margin-bottom: 0; }
+
+/* Latest Links: slim bar, opens on tap */
+.links-collapse { grid-column: 1 / -1; padding: 0 !important; }
+.links-collapse summary {
+  list-style: none; cursor: pointer; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  font-family: 'Fraunces', serif; font-size: 0.9rem; font-weight: 500;
+  color: var(--text);
+}
+.links-collapse summary::-webkit-details-marker { display: none; }
+.links-arrow { color: var(--text3); transition: transform 0.2s; }
+.links-collapse[open] .links-arrow { transform: rotate(180deg); }
+.links-collapse #linksWidgetList { padding: 0 14px 12px; }
+
+/* Desktop: news + exams side by side, links bar below */
+@media (min-width: 901px) {
+  .news-widget { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Phone: tighter hero, content starts higher */
+@media (max-width: 768px) {
+  #tab-notes { padding-top: 10px !important; }
+  .hero { padding: 16px 16px 18px; margin-bottom: 16px; border-radius: 16px; }
+  .hero-badge { margin-bottom: 10px; font-size: 0.72rem; padding: 4px 10px; }
+  .hero-title { font-size: 1.65rem; margin-bottom: 6px; }
+  .hero-sub { font-size: 0.86rem; margin-bottom: 14px; line-height: 1.5; }
+  .hero-btn { min-height: 42px; font-size: 0.85rem; }
+  .news-widget { gap: 10px; margin-bottom: 18px; }
+
+  /* Smaller lamp button so it covers less content */
+  .study-toolbar { padding: 4px 6px; bottom: 74px; }
+  .app-lamp-btn { width: 32px; height: 32px; font-size: 1rem; }
+}
