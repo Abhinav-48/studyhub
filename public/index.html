@@ -555,6 +555,10 @@
             <button class="btn-warn" id="toggleAdminPushBtn" onclick="toggleAdminPushDisabled()">🚫 Disable Push Notification for Admin</button>
           </div>
           <div>
+            <p style="font-size:0.85rem;color:var(--text2);margin-bottom:8px;">Site access: <strong id="siteLockStatusText">Loading...</strong></p>
+            <button class="btn-warn" id="toggleSiteLockBtn" onclick="toggleSiteLock()">🔒 Block All Access</button>
+          </div>
+          <div>
             <label style="display:block;font-size:0.82rem;font-weight:600;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.04em;">Change Admin Password</label>
             <div style="display:flex;gap:8px;">
               <input type="password" id="newAdminPasswordInput" placeholder="New admin password..." style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;" />
@@ -1624,7 +1628,7 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20261019"></script>
+<script src="/js/app.js?v=20261020"></script>
 <script>
 // Cursor spotlight on login card
 document.querySelector('.login-card')?.addEventListener('mousemove', (e) => {

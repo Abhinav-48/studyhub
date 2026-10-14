@@ -171,6 +171,10 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     document.documentElement.classList.remove('sh-restoring');
   }
+  if (localStorage.getItem('studyhub_lock_notice')) {
+    localStorage.removeItem('studyhub_lock_notice');
+    setTimeout(() => toast('⛔ Permission was stopped by owner.', 'error'), 400);
+  }
   const savedTheme = localStorage.getItem('studyhub_theme') || 'light';
   setTheme(savedTheme);
 });
@@ -1651,6 +1655,19 @@ async function loadAdminSettings() {
         confBtn.textContent = '🚫 Disable Confessions Globally';
       }
     }
+    const lockText = document.getElementById('siteLockStatusText');
+    const lockBtn = document.getElementById('toggleSiteLockBtn');
+    if (lockText && lockBtn) {
+      if (data.site_locked) {
+        lockText.textContent = '🔒 Locked (only you can login)';
+        lockText.style.color = 'var(--accent)';
+        lockBtn.textContent = '🔓 Unblock All Access';
+      } else {
+        lockText.textContent = '✅ Open to everyone';
+        lockText.style.color = 'var(--green)';
+        lockBtn.textContent = '🔒 Block All Access';
+      }
+    }
     const pushText = document.getElementById('adminPushStatusText');
     const pushBtn = document.getElementById('toggleAdminPushBtn');
     if (pushText && pushBtn) {
@@ -1722,6 +1739,27 @@ async function toggleUploadsDisabled() {
   });
   if (res.ok) { toast(currentlyDisabled ? 'Uploads enabled ✅' : 'Uploads disabled globally 🚫', 'success'); loadAdminSettings(); }
   else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+async function toggleSiteLock() {
+  const statusText = document.getElementById('siteLockStatusText');
+  const currentlyLocked = statusText?.textContent.includes('Locked');
+  const msg = currentlyLocked
+    ? 'Unblock access? Everyone will be able to login again.'
+    : 'Block ALL access? Everyone (including admin) will be logged out and only you can login.';
+  if (!confirm(msg)) return;
+  const res = await fetch('/api/admin-settings/site-lock-toggle', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: currentUser, locked: !currentlyLocked })
+  });
+  if (res.ok) { toast(currentlyLocked ? 'Access unblocked ✅' : 'All access blocked 🔒', 'success'); loadAdminSettings(); }
+  else { const d = await res.json(); toast(d.error, 'error'); }
+}
+
+function forceLogoutForSiteLock() {
+  if (!currentUser || isSuperAdmin) return;
+  localStorage.setItem('studyhub_lock_notice', '1');
+  logout();
 }
 
 async function changeAdminPassword() {
@@ -3072,6 +3110,17 @@ socket.on('confession_deleted', (id) => {
   if (feed && !feed.children.length) document.getElementById('confessionEmpty')?.classList.remove('hidden');
 });
 socket.on('confessions_toggle_changed', () => { if (isSuperAdmin) loadAdminSettings(); });
+socket.on('site_lock_changed', ({ locked }) => {
+  if (locked) forceLogoutForSiteLock();
+  else if (isSuperAdmin) loadAdminSettings();
+});
+socket.on('connect', async () => {
+  try {
+    const res = await fetch('/api/site-status');
+    const d = await res.json();
+    if (d.locked) forceLogoutForSiteLock();
+  } catch {}
+});
 // ══════════════════════════════════════════════════
 // KEYBOARD WARRIOR
 // ══════════════════════════════════════════════════

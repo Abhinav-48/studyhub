@@ -208,7 +208,24 @@ app.get('/api/admin-settings', async (req, res) => {
     const { data } = await supabase.from('app_settings').select('*');
     const settings = {};
     (data || []).forEach(s => { settings[s.key] = s.value; });
-    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true', confessions_disabled: settings.confessions_disabled === 'true', admin_push_disabled: settings.admin_push_disabled === 'true' });
+    res.json({ admin_blocked: settings.admin_blocked === 'true', uploads_disabled: settings.uploads_disabled === 'true', confessions_disabled: settings.confessions_disabled === 'true', admin_push_disabled: settings.admin_push_disabled === 'true', site_locked: settings.site_locked === 'true' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/site-status', async (req, res) => {
+  try {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'site_locked').single();
+    res.json({ locked: data?.value === 'true' });
+  } catch { res.json({ locked: false }); }
+});
+
+app.post('/api/admin-settings/site-lock-toggle', async (req, res) => {
+  try {
+    const { requester, locked } = req.body;
+    if (requester?.toLowerCase() !== SUPERADMIN_NAME) return res.status(403).json({ error: 'Only super admin can do this.' });
+    await supabase.from('app_settings').upsert({ key: 'site_locked', value: locked ? 'true' : 'false' });
+    io.emit('site_lock_changed', { locked: !!locked });
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -273,6 +290,9 @@ app.post('/api/login-history', async (req, res) => {
     const { username, device } = req.body;
     if (!username) return res.json({ success: true });
     if (username.toLowerCase() === SUPERADMIN_NAME) return res.json({ success: true });
+
+    const { data: lockRow } = await supabase.from('app_settings').select('value').eq('key', 'site_locked').single();
+    if (lockRow?.value === 'true') return res.status(403).json({ error: 'Permission was stopped by owner.' });
 
     if (containsBadWord(username)) {
       return res.status(400).json({ error: 'Inappropriate language is not allowed. You cannot login with this name.' });
