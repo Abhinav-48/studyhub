@@ -2851,3 +2851,77 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   }
   .runner-track { display: none; }
 }
+/* ══════════════════════════════════════════════════
+   THEME FIX + MOBILE POLISH v2 (append at end)
+   ══════════════════════════════════════════════════ */
+
+/* ─── Themes: stronger selectors so the whole page changes ─── */
+html[data-theme="dark"] {
+  --bg:#0f1117; --bg2:#1a1d27; --surface:#1e2130; --surface2:#252840;
+  --border:#2e3248; --border2:#404460; --text:#e8eaf6; --text2:#9ba0c0; --text3:#6b7099;
+  --accent:#f07050; --accent2:#ff8060; --accent-light:#3a1f18;
+  --green:#4ade9a; --green-light:#0d2e1e; --blue:#60a0f0; --blue-light:#0d1e3a;
+  --amber:#f0b040; --amber-light:#2e1e08; --purple:#a070f0; --purple-light:#1e0e3a;
+  color-scheme: dark;
+}
+html[data-theme="blue"] {
+  --bg:#e8f0fe; --bg2:#dce8fd; --surface:#ffffff; --surface2:#f0f5ff;
+  --border:#c0d4f8; --border2:#a0bcf0; --text:#0d1b4a; --text2:#3a5a9a; --text3:#7090c0;
+  --accent:#1a56db; --accent2:#2563eb; --accent-light:#dbeafe;
+  --green:#059669; --green-light:#d1fae5; --blue:#1a56db; --blue-light:#dbeafe;
+  --amber:#d97706; --amber-light:#fef3c7; --purple:#7c3aed; --purple-light:#ede9fe;
+}
+html[data-theme="green"] {
+  --bg:#f0faf4; --bg2:#e0f5e8; --surface:#ffffff; --surface2:#f5fdf8;
+  --border:#b8e8c8; --border2:#90d8a8; --text:#0a2e18; --text2:#2d6e48; --text3:#5a9e78;
+  --accent:#059669; --accent2:#10b981; --accent-light:#d1fae5;
+  --green:#059669; --green-light:#d1fae5; --blue:#0284c7; --blue-light:#e0f2fe;
+  --amber:#d97706; --amber-light:#fef3c7; --purple:#7c3aed; --purple-light:#ede9fe;
+}
+html[data-theme] body { background: var(--bg); color: var(--text); }
+.topnav { background: color-mix(in srgb, var(--surface) 94%, transparent); }
+.mobile-bottom-nav { background: color-mix(in srgb, var(--surface) 97%, transparent); }
+.toast { color: #fff; }
+
+/* ─── Tablet: bring theme dots back ─── */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .theme-switcher { display: flex !important; }
+}
+
+/* ─── PHONE ─── */
+@media (max-width: 768px) {
+  /* Tool icons: 30% smaller */
+  .toolbar-icons-wrap {
+    grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+    gap: 8px 6px; padding: 8px 6px !important;
+  }
+  .toolbar-icon-item { gap: 3px; }
+  .toolbar-icon-item .game-btn {
+    width: 27px !important; height: 27px !important;
+    min-width: 27px !important; min-height: 27px !important;
+    font-size: 0.8rem !important;
+  }
+  .toolbar-icon-item .msword-icon-badge { width: 16px; height: 16px; font-size: 0.65rem; }
+  .toolbar-icon-label { font-size: 0.55rem !important; }
+
+  /* Lamp: small tab docked on the right edge, away from Preview/Download buttons */
+  .study-toolbar {
+    left: auto !important; right: 0 !important; bottom: 156px !important;
+    padding: 3px 3px 3px 6px !important;
+    border-radius: 99px 0 0 99px; border-right: none; opacity: 0.92;
+  }
+  .app-lamp-btn { width: 28px; height: 28px; min-height: 28px; font-size: 0.9rem; }
+}
+
+/* ─── Small phones: keep the 4 theme dots visible ─── */
+@media (max-width: 389px) {
+  .topnav { gap: 4px !important; padding-left: 8px !important; padding-right: 8px !important; }
+  .nav-logo { font-size: 0.9rem !important; }
+  .nav-right { gap: 5px !important; min-width: 0; }
+  .theme-switcher { display: flex !important; gap: 4px !important; padding: 2px 4px !important; }
+  .theme-btn {
+    width: 15px !important; height: 15px !important;
+    min-width: 15px !important; min-height: 15px !important;
+  }
+  .nav-right .logout-btn { padding: 0 8px !important; font-size: 0.7rem !important; min-height: 30px; }
+}

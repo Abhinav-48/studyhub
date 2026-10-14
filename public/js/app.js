@@ -2393,7 +2393,8 @@ document.getElementById('timerToggleBtn')?.addEventListener('click', toggleStudy
 // ══════════════════════════════════════════════════
 
 function setTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme === 'light' ? '' : theme);
+  if (theme === 'light') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('studyhub_theme', theme);
   document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`.theme-btn-${theme}`)?.classList.add('active');
