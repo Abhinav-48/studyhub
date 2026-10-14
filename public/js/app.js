@@ -483,8 +483,12 @@ async function openNoteCourse(course) {
   const grid = document.getElementById('notesSubjectsGrid');
   const empty = document.getElementById('notesSubjectsEmpty');
 
+  grid.innerHTML = '<div class="empty-state"><span>⏳</span><p>Loading...</p></div>';
+  empty.classList.add('hidden');
   const res = await fetch(`/api/subjects?course=${encodeURIComponent(course)}`);
-  currentCourseSubjects = await res.json();
+  const fetchedSubjects = await res.json();
+  if (currentNoteCourse !== course || currentNoteSubject) return;
+  currentCourseSubjects = fetchedSubjects;
 
   const derivedNames = [...new Set(allNotes.filter(n => (n.course || '6th Sem') === course).map(n => n.subject || 'General'))];
   const dbNames = currentCourseSubjects.map(s => s.name);
@@ -620,6 +624,8 @@ async function openNoteSubject(subject) {
   pushNavState();
   document.getElementById('notesSubjectsView').classList.add('hidden');
   document.getElementById('notesFilesView').classList.remove('hidden');
+  document.getElementById('notesGrid').innerHTML = '';
+  document.getElementById('notesEmpty').classList.add('hidden');
   document.getElementById('notesSubjectTitle').textContent = `📚 ${subject}`;
   document.getElementById('notesBreadcrumb').textContent = `🎓 ${currentNoteCourse} → 📚 ${subject}`;
   document.getElementById('searchNotes').value = '';
