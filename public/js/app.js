@@ -720,8 +720,11 @@ async function renderPdfPage(pdf, pageNum, container, scaleMultiplier = 1, repla
   const page = await pdf.getPage(pageNum);
   const containerWidth = container.clientWidth || 600;
   const baseViewport = page.getViewport({ scale: 1 });
-  const scale = (containerWidth / baseViewport.width) * scaleMultiplier;
-  const viewport = page.getViewport({ scale });
+  const cssScale = containerWidth / baseViewport.width;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const maxPixelWidth = 2400;
+  const renderScale = Math.min(cssScale * dpr, maxPixelWidth / baseViewport.width) * scaleMultiplier;
+  const viewport = page.getViewport({ scale: renderScale });
 
   let canvas = replaceFirstCanvas ? container.querySelector('.pdf-preview-page') : null;
   if (!canvas) {
@@ -731,6 +734,8 @@ async function renderPdfPage(pdf, pageNum, container, scaleMultiplier = 1, repla
   }
   canvas.width = viewport.width;
   canvas.height = viewport.height;
+  canvas.style.width = containerWidth + 'px';
+  canvas.style.height = (baseViewport.height * cssScale) + 'px';
   const ctx = canvas.getContext('2d');
   await page.render({ canvasContext: ctx, viewport }).promise;
 }
