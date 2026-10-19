@@ -3799,6 +3799,8 @@ function checkAndShowNotifPrompt() {
   if (isAdminUser()) return; // Admin/Super Admin don't get the student-facing install/notif prompts
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if (Notification.permission === 'granted') { setupPushNotifications(); return; }
+  if (Notification.permission === 'denied') return;
+  if (localStorage.getItem('studyhub_notif_asked')) return;
   // Keep asking every session until the user actually grants it — a "No" is treated
   // as "not yet", not a permanent decline, since the browser itself allows re-asking
   // as long as permission isn't hard-blocked at the OS/browser level.
@@ -3818,6 +3820,7 @@ function checkAndShowNotifPrompt() {
   }
   document.getElementById('notifPromptAsk')?.classList.remove('hidden');
   document.getElementById('notifPromptFeedback')?.classList.add('hidden');
+  localStorage.setItem('studyhub_notif_asked', '1');
   setTimeout(() => openModal('notifPromptModal'), 800);
 }
 
@@ -3848,10 +3851,12 @@ function checkAndShowInstallPrompt() {
   // No captured prompt means this browser/device isn't installable right now
   // (e.g. iOS Safari, or already dismissed permanently by the browser itself) — skip silently.
   if (!deferredInstallPrompt) return;
+  if (localStorage.getItem('studyhub_install_asked')) return;
   document.getElementById('installPromptAsk')?.classList.remove('hidden');
   document.getElementById('installPromptFeedback')?.classList.add('hidden');
   // Staggered after the notification prompt (which appears ~800ms in and closes by ~1900ms)
   // so the two modals never overlap.
+  localStorage.setItem('studyhub_install_asked', '1');
   setTimeout(() => openModal('installPromptModal'), 4000);
 }
 
@@ -3878,7 +3883,7 @@ async function respondInstallPrompt(yes) {
     deferredInstallPrompt = null;
   } else {
     document.getElementById('installFeedbackEmoji').textContent = '😢';
-    document.getElementById('installFeedbackText').textContent = "Okay — we'll ask again next time you visit!";
+    document.getElementById('installFeedbackText').textContent = "Okay, no problem!";
     setTimeout(() => closeModal('installPromptModal'), 1100);
   }
 }

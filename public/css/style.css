@@ -2959,3 +2959,25 @@ html[data-theme] body { background: var(--bg); color: var(--text); }
   .hero-sub { font-size: 0.74rem; margin-bottom: 9px; line-height: 1.4; }
   .hero-btn { min-height: 36px; padding: 6px 10px; font-size: 0.76rem; }
 }
+/* ══════════════════════════════════════════════════
+   SMOOTH + FAST UI (append at end)
+   ══════════════════════════════════════════════════ */
+button, a, .nav-tab, .mnav-item, .note-card, .quiz-option { touch-action: manipulation; }
+.tab-content { animation-duration: 0.2s; will-change: auto; }
+.modal-box { animation-duration: 0.22s; }
+.note-card, .question-card, .planner-card, .quiz-card { animation-duration: 0.25s; }
+.note-card:nth-child(n) { animation-delay: 0s; }
+
+/* Hover lift only on devices with a real mouse (no sticky hover on phones) */
+@media (hover: none) {
+  .note-card:hover, .planner-card:hover, .quiz-card:hover, .confession-card:hover { transform: none; box-shadow: none; }
+}
+
+/* Cheaper effects on phones */
+@media (max-width: 768px) {
+  .modal-overlay { backdrop-filter: none; background: rgba(20,15,10,0.6); }
+  .floaty { display: none; }
+  .app-lamp-glow { display: none; }
+}
+.modal-box, .notes-grid { overscroll-behavior: contain; }
+.modal-box { -webkit-overflow-scrolling: touch; }
