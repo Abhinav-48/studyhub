@@ -212,6 +212,12 @@ app.get('/api/admin-settings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/admin-session', (req, res) => {
+  const owner = adminTokenOwner(req);
+  if (!owner) return res.status(401).json({ error: 'expired' });
+  res.json({ ok: true, name: owner });
+});
+
 app.get('/api/site-status', async (req, res) => {
   try {
     const { data } = await supabase.from('app_settings').select('value').eq('key', 'site_locked').single();
@@ -314,7 +320,9 @@ app.post('/api/login-history', async (req, res) => {
       if (isInvalid) return res.status(400).json({ error: 'Invalid name' });
     }
 
-    await supabase.from('login_history').insert({ username, device: device || 'Unknown' });
+    const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data: recent } = await supabase.from('login_history').select('id').eq('username', username).gte('logged_in_at', since).limit(1);
+    if (!recent || !recent.length) await supabase.from('login_history').insert({ username, device: device || 'Unknown' });
     res.json({ success: true });
   } catch { res.json({ success: true }); }
 });
