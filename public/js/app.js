@@ -10,7 +10,6 @@ function isAdminUser() {
   return n === ADMIN_NAME || n === SUPERADMIN_NAME;
 }
 
-const _bootView = (() => { try { return JSON.parse(localStorage.getItem('studyhub_last_view') || 'null'); } catch { return null; } })();
 let currentUser = null;
 let isSuperAdmin = false;
 let allNotes = [];
@@ -48,12 +47,12 @@ document.getElementById('nameInput').addEventListener('input', (e) => {
   else wrap.classList.add('hidden');
 });
 
-async function loginUser(isRestore = false) {
+async function loginUser() {
   const input = document.getElementById('nameInput');
   const name = input.value.trim();
   if (!name || name.length < 2) { toast('Please enter your student name as per college records', 'error'); return; }
 
-  if (name.toLowerCase() === ADMIN_NAME && !(isRestore && adminToken)) {
+  if (name.toLowerCase() === ADMIN_NAME) {
     const password = document.getElementById('adminPasswordInput').value;
     if (!password) { toast('Admin password required!', 'error'); return; }
     const res = await fetch('/api/admin-login', {
@@ -63,7 +62,7 @@ async function loginUser(isRestore = false) {
     if (!res.ok) { const d = await res.json().catch(() => ({})); toast('❌ ' + (d.error || 'Wrong admin password!'), 'error'); return; }
   }
 
-  if (name.toLowerCase() === SUPERADMIN_NAME && !(isRestore && adminToken)) {
+  if (name.toLowerCase() === SUPERADMIN_NAME) {
     const password = document.getElementById('adminPasswordInput').value;
     if (!password) { toast('Password required!', 'error'); return; }
     const res = await fetch('/api/superadmin-login', {
@@ -81,7 +80,7 @@ async function loginUser(isRestore = false) {
   }
 
   const device = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
-  const historyRes = isRestore ? { ok: true } : await fetch('/api/login-history', {
+  const historyRes = await fetch('/api/login-history', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: name, device })
   });
@@ -93,10 +92,6 @@ async function loginUser(isRestore = false) {
 
   currentUser = name;
   localStorage.setItem('studyhub_user', name);
-  if (adminToken) {
-    localStorage.setItem('studyhub_admin_token', adminToken);
-    localStorage.setItem('studyhub_is_super', isSuperAdmin ? '1' : '0');
-  }
 
   document.documentElement.classList.remove('sh-restoring');
   document.getElementById('loginScreen').style.display = 'none';
@@ -138,44 +133,13 @@ async function loginUser(isRestore = false) {
   hideTopLoader();
 }
 
-function logout() {
-  stopStudyTimer();
-  localStorage.removeItem('studyhub_user');
-  localStorage.removeItem('studyhub_admin_token');
-  localStorage.removeItem('studyhub_is_super');
-  location.reload();
-}
-
-async function restorePrivilegedSession(name) {
-  const token = localStorage.getItem('studyhub_admin_token');
-  const wasSuper = localStorage.getItem('studyhub_is_super') === '1';
-  try {
-    if (!token) throw new Error('no token');
-    adminToken = token;
-    const r = await fetch('/api/admin-session');
-    if (!r.ok) throw new Error('expired');
-    isSuperAdmin = wasSuper && name.toLowerCase() === SUPERADMIN_NAME;
-    document.getElementById('nameInput').value = name;
-    await loginUser(true);
-  } catch {
-    adminToken = null; isSuperAdmin = false;
-    localStorage.removeItem('studyhub_user');
-    localStorage.removeItem('studyhub_admin_token');
-    localStorage.removeItem('studyhub_is_super');
-    toast('Admin session expired. Please login again.', 'error');
-  } finally {
-    document.documentElement.classList.remove('sh-restoring');
-  }
-}
+function logout() { stopStudyTimer(); localStorage.removeItem('studyhub_user'); location.reload(); }
 
 document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') loginWithValidation ? loginWithValidation() : loginUser(); });
 
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('studyhub_user');
-  const savedLower = (saved || '').toLowerCase();
-  if (saved && (savedLower === ADMIN_NAME || savedLower === SUPERADMIN_NAME)) {
-    restorePrivilegedSession(saved);
-  } else if (saved) {
+  if (saved && saved.toLowerCase() !== ADMIN_NAME) {
     const FAKE_NAMES = ['hulk','superman','batman','spiderman','thor','naruto','goku','sasuke','ironman','xyz','abc','aaa','zzz','asdf','qwerty','zxcv','test','user','anjli','guest','noname','anonymous','foo','bar'];
     const lower = saved.toLowerCase().replace(/\s/g,'');
     const keyboardPatterns = /^(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)+$/i;
@@ -197,7 +161,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.documentElement.classList.remove('sh-restoring');
         toast('⚠️ Session restore is taking longer than usual...', 'error');
       }, 8000);
-      loginUser(true).catch(() => {
+      loginUser().catch(() => {
         toast('⚠️ Could not restore session. Please login again.', 'error');
       }).finally(() => {
         clearTimeout(restoreFailSafe);
@@ -4056,7 +4020,7 @@ function saveLastView() {
 
 async function restoreLastView() {
   let saved;
-  saved = _bootView;
+  try { saved = JSON.parse(localStorage.getItem('studyhub_last_view') || 'null'); } catch { saved = null; }
   if (!saved || !saved.tab || saved.tab === 'notes') return;
   const section = document.getElementById(`tab-${saved.tab}`);
   if (!section) return;
